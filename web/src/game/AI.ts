@@ -46,20 +46,24 @@ export interface AIBehavior {
 // --- Light Fighter AI ---
 // 5 states: ENTERING → TARGETING → FLYBY → SCATTER → RUNAWAY
 // Speed 10 px/tick, turn rate ~0.1 rad/tick, fire during FLYBY within 200px
+// Fire rate: 400ms (C++ LF_FIRE_RATE)
 
 export class LightFighterAI implements AIBehavior {
     state = LFAIState.EnteringScreen;
     private stateTimer = 0;
     private angle = Math.PI / 2; // facing down initially
     private scatterAngle = 0;
+    private fireTimer = 0;
 
     private static readonly TURN_RATE = 0.1; // rad/tick
     private static readonly FIRE_RANGE = 200;
+    private static readonly FIRE_RATE = 400; // ms (C++ LF_FIRE_RATE)
     private static readonly FACING_THRESHOLD = 15 * (Math.PI / 180); // ~15°
     private static readonly SCATTER_DURATION = 1.0; // seconds
 
     update(enemy: Enemy, playerX: number, playerY: number, dt: number): void {
         this.stateTimer += dt;
+        this.fireTimer += dt * 1000;
         const speed = enemy.config.speed; // 10 px/tick
         const ticks = dt * 60;
         const dx = playerX - enemy.x;
@@ -100,7 +104,11 @@ export class LightFighterAI implements AIBehavior {
                 // Fly past player, firing weapons when in range
                 enemy.vx = Math.cos(this.angle) * speed;
                 enemy.vy = Math.sin(this.angle) * speed;
-                enemy.wantsFire = dist < LightFighterAI.FIRE_RANGE;
+                // Fire rate gated: only fire every 400ms
+                if (dist < LightFighterAI.FIRE_RANGE && this.fireTimer >= LightFighterAI.FIRE_RATE) {
+                    enemy.wantsFire = true;
+                    this.fireTimer = 0;
+                }
 
                 // Transition to SCATTER when past player
                 if (enemy.y > playerY + 50) {
@@ -161,15 +169,20 @@ export class LightFighterAI implements AIBehavior {
 // --- Fighter B AI (horizontal sweeps, 2 passes then runaway) ---
 // 4 states: ENTERING → RIGHT ↔ LEFT → RUNAWAY
 // Speed 12 px/tick horizontally, slight downward drift
+// Fire rate: 1000ms (C++ FBAI_FIRE_RATE)
 
 export class FighterBAI implements AIBehavior {
     state = FBAIState.EnteringScreen;
     private stateTimer = 0;
     private passes = 0;
     private readonly maxPasses = 2;
+    private fireTimer = 0;
+
+    private static readonly FIRE_RATE = 1000; // ms (C++ FBAI_FIRE_RATE)
 
     update(enemy: Enemy, playerX: number, _playerY: number, dt: number): void {
         this.stateTimer += dt;
+        this.fireTimer += dt * 1000;
         const speed = enemy.config.speed; // 12 px/tick
         const dx = playerX - enemy.x;
 
@@ -179,7 +192,7 @@ export class FighterBAI implements AIBehavior {
             case FBAIState.EnteringScreen:
                 enemy.vy = speed;
                 enemy.vx = 0;
-                if (enemy.y > 60) {
+                if (enemy.y > 0) {
                     this.state = dx > 0 ? FBAIState.Right : FBAIState.Left;
                     this.stateTimer = 0;
                 }
@@ -188,7 +201,11 @@ export class FighterBAI implements AIBehavior {
             case FBAIState.Right:
                 enemy.vx = speed;
                 enemy.vy = speed * 0.15;
-                enemy.wantsFire = true;
+                // Fire rate gated: only fire every 1000ms
+                if (this.fireTimer >= FighterBAI.FIRE_RATE) {
+                    enemy.wantsFire = true;
+                    this.fireTimer = 0;
+                }
                 enemy.angle = 0; // facing right
 
                 if (enemy.x > PLAY_AREA_W - 50) {
@@ -205,7 +222,11 @@ export class FighterBAI implements AIBehavior {
             case FBAIState.Left:
                 enemy.vx = -speed;
                 enemy.vy = speed * 0.15;
-                enemy.wantsFire = true;
+                // Fire rate gated: only fire every 1000ms
+                if (this.fireTimer >= FighterBAI.FIRE_RATE) {
+                    enemy.wantsFire = true;
+                    this.fireTimer = 0;
+                }
                 enemy.angle = Math.PI; // facing left
 
                 if (enemy.x < 50) {
@@ -233,8 +254,8 @@ export class FighterBAI implements AIBehavior {
                 this.state = FBAIState.EnteringScreen;
         }
 
-        // Force runaway if off bottom of screen
-        if (enemy.y > PLAY_AREA_H - 30 && this.state !== FBAIState.RunAway) {
+        // Force runaway if off bottom of screen (C++ runs away at y > 500)
+        if (enemy.y > 500 && this.state !== FBAIState.RunAway) {
             this.state = FBAIState.RunAway;
         }
 
@@ -249,25 +270,28 @@ export class FighterBAI implements AIBehavior {
 // 4 states: ENTERING → FLYBY_RIGHT ↔ FLYBY_LEFT → RUNAWAY
 // Drag 0.9/tick, accel 1.571 px/tick², max speed 9 px/tick
 // Burst: fire for 600ms, pause for 2400ms (3000ms cycle)
-// Fire rate during burst: 600ms between shots, dual cannons alternate
+// Fire rate during burst: 600ms between shots (C++ GS_FIRE_RATE), dual cannons alternate
 
 export class GunshipAI implements AIBehavior {
     state = GSAIState.EnteringScreen;
     private stateTimer = 0;
     private passes = 0;
     private burstTimer = 0;
+    private fireTimer = 0;
     private readonly maxPasses = 3;
     private nextCannon = 0; // alternates 0/1 for dual cannons
 
     private static readonly DRAG = 0.9;
     private static readonly ACCEL = 1.571; // px/tick²
     private static readonly MAX_SPEED = 9;
+    private static readonly FIRE_RATE = 600; // ms per shot (C++ GS_FIRE_RATE)
     private static readonly BURST_FIRE_WINDOW = 600; // ms
     private static readonly BURST_CYCLE = 3000; // ms
 
     update(enemy: Enemy, playerX: number, _playerY: number, dt: number): void {
         this.stateTimer += dt;
         this.burstTimer += dt * 1000;
+        this.fireTimer += dt * 1000;
         if (this.burstTimer >= GunshipAI.BURST_CYCLE) {
             this.burstTimer -= GunshipAI.BURST_CYCLE;
         }
@@ -299,8 +323,12 @@ export class GunshipAI implements AIBehavior {
                 enemy.vy *= drag;
                 this.clampSpeed(enemy);
 
-                // Burst fire logic
-                enemy.wantsFire = this.burstTimer < GunshipAI.BURST_FIRE_WINDOW;
+                // Burst fire logic with per-shot rate limiting
+                if (this.burstTimer < GunshipAI.BURST_FIRE_WINDOW &&
+                    this.fireTimer >= GunshipAI.FIRE_RATE) {
+                    enemy.wantsFire = true;
+                    this.fireTimer = 0;
+                }
 
                 if (enemy.x > PLAY_AREA_W - 60) {
                     this.passes++;
@@ -319,8 +347,12 @@ export class GunshipAI implements AIBehavior {
                 enemy.vy *= drag;
                 this.clampSpeed(enemy);
 
-                // Burst fire logic
-                enemy.wantsFire = this.burstTimer < GunshipAI.BURST_FIRE_WINDOW;
+                // Burst fire logic with per-shot rate limiting
+                if (this.burstTimer < GunshipAI.BURST_FIRE_WINDOW &&
+                    this.fireTimer >= GunshipAI.FIRE_RATE) {
+                    enemy.wantsFire = true;
+                    this.fireTimer = 0;
+                }
 
                 if (enemy.x < 60) {
                     this.passes++;

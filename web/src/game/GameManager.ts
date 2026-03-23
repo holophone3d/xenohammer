@@ -498,10 +498,14 @@ export class GameManager {
         }
 
         // Spawn waves
-        const newEnemies = this.waveManager.update(dt, this.difficulty);
-        for (const enemy of newEnemies) {
+        const waveResult = this.waveManager.update(dt, this.difficulty);
+        for (const enemy of waveResult.enemies) {
             try { enemy.loadSprite(this.assets); } catch { /* skip */ }
             this.enemies.push(enemy);
+        }
+        for (const ship of waveResult.capitalShips) {
+            try { ship.loadSprites(this.assets); } catch { /* skip */ }
+            this.capitalShips.push(ship);
         }
 
         // Update enemies

@@ -1,11 +1,22 @@
 /**
  * Wave spawning manager — tracks timed wave definitions for the current level.
  * Spawns enemies at the right times and detects level completion.
+ *
+ * C++ spawn formula (GameManager.cpp create_wave):
+ *   X = startX + i          (ships barely offset horizontally)
+ *   Y = -(i * 64)           (staggered 64px apart vertically, starting above screen)
+ *   Plus 30% chance of random gunship per wave (at startX, -128)
  */
 
 import { LEVELS, DIFFICULTY_WAVE_MODIFIERS } from '../data/levels';
 import type { WaveDefinition } from '../data/levels';
 import { Enemy } from './Enemy';
+import { CapitalShip } from './CapitalShip';
+
+export interface WaveSpawnResult {
+    enemies: Enemy[];
+    capitalShips: CapitalShip[];
+}
 
 export class WaveManager {
     private levelIndex = 0;
@@ -21,13 +32,13 @@ export class WaveManager {
         this.allWavesSpawned = false;
     }
 
-    /** Update timer, return any enemies that should spawn this frame */
-    update(dt: number, difficulty: number): Enemy[] {
+    /** Update timer, return any enemies/capital ships that should spawn this frame */
+    update(dt: number, difficulty: number): WaveSpawnResult {
         this.levelTimer += dt;
         const level = LEVELS[this.levelIndex];
-        if (!level) return [];
+        if (!level) return { enemies: [], capitalShips: [] };
 
-        const spawned: Enemy[] = [];
+        const result: WaveSpawnResult = { enemies: [], capitalShips: [] };
         const modifier = DIFFICULTY_WAVE_MODIFIERS[difficulty] ?? 0;
 
         for (let i = 0; i < level.waves.length; i++) {
@@ -36,8 +47,9 @@ export class WaveManager {
             const wave = level.waves[i];
             if (this.levelTimer >= wave.time) {
                 this.spawnedWaves.add(i);
-                const enemies = this.spawnWave(wave, modifier);
-                spawned.push(...enemies);
+                const spawned = this.spawnWave(wave, modifier);
+                result.enemies.push(...spawned.enemies);
+                result.capitalShips.push(...spawned.capitalShips);
             }
         }
 
@@ -45,21 +57,36 @@ export class WaveManager {
             this.allWavesSpawned = true;
         }
 
-        return spawned;
+        return result;
     }
 
-    private spawnWave(wave: WaveDefinition, difficultyMod: number): Enemy[] {
-        const count = Math.max(1, wave.count + difficultyMod);
-        const enemies: Enemy[] = [];
-        const waveOffset = 64; // spacing between ships in a wave
+    private spawnWave(wave: WaveDefinition, difficultyMod: number): WaveSpawnResult {
+        const result: WaveSpawnResult = { enemies: [], capitalShips: [] };
 
-        for (let i = 0; i < count; i++) {
-            const x = wave.startX + i * waveOffset;
-            const y = wave.startY - i * 16; // stagger entry
-            enemies.push(Enemy.createByType(wave.type, x, y));
+        // Frigate: spawn as CapitalShip at fixed position (C++ always uses 300, -300)
+        if (wave.type === 'frigate') {
+            result.capitalShips.push(new CapitalShip(300, -300));
+            // Still 30% chance of random gunship
+            if (Math.random() > 0.7) {
+                result.enemies.push(Enemy.createGunship(wave.startX, -128));
+            }
+            return result;
         }
 
-        return enemies;
+        // Regular fighters: spawn with C++ formula
+        const count = Math.max(1, wave.count + difficultyMod);
+        for (let i = 0; i < count; i++) {
+            const x = wave.startX + i;        // C++: _x + i
+            const y = -(i * 64);              // C++: -(i*64)
+            result.enemies.push(Enemy.createByType(wave.type, x, y));
+        }
+
+        // 30% chance of random gunship per wave (C++ line 579)
+        if (Math.random() > 0.7) {
+            result.enemies.push(Enemy.createGunship(wave.startX, -128));
+        }
+
+        return result;
     }
 
     /** Level is complete when all waves spawned and all enemies dead */
