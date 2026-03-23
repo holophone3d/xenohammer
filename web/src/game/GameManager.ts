@@ -483,6 +483,9 @@ export class GameManager {
             this.player.update(dt, this.input, this.now);
             this.player.emitEngineFlame(this.particles);
             const playerProj = this.player.tryFire(this.input, this.now, this.assets);
+            if (playerProj.length > 0) {
+                try { this.audio.playSound('PlayerGun1'); } catch { /* skip */ }
+            }
             this.projectiles.push(...playerProj);
         }
 
@@ -501,6 +504,11 @@ export class GameManager {
             if (!enemy.alive) continue;
             enemy.update(dt, playerX, playerY);
             const enemyProj = enemy.tryFire(this.now, this.assets);
+            if (enemyProj.length > 0) {
+                try {
+                    this.audio.playSound(enemy.type === 'gunship' ? 'AlienWeapon1' : 'AlienWeapon5');
+                } catch { /* skip */ }
+            }
             this.projectiles.push(...enemyProj);
         }
 
@@ -1438,7 +1446,7 @@ export class GameManager {
             return;
         }
 
-        // Buy Power Pod button
+        // Buy Power Pod button — affects ALL 3 settings (matching C++ behavior)
         if (mx >= 20 && mx <= 250 && my >= 420 && my <= 450) {
             try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
             if (this.player.powerPlant.resourceUnits < 1) {
@@ -1446,11 +1454,19 @@ export class GameManager {
                 this.custStatusTimer = 120;
                 return;
             }
-            if (setting[zone.c1] < maxCell) {
-                setting[zone.c1]++;
-                this.player.powerPlant.resourceUnits--;
-            } else if (setting[zone.c2] < maxCell) {
-                setting[zone.c2]++;
+            let added = false;
+            // Add power cell to ALL 3 settings for the selected system
+            for (let s = 0; s < 3; s++) {
+                const st = this.player.powerPlant.settings[s];
+                if (st[zone.c1] < maxCell) {
+                    st[zone.c1]++;
+                    added = true;
+                } else if (st[zone.c2] < maxCell) {
+                    st[zone.c2]++;
+                    added = true;
+                }
+            }
+            if (added) {
                 this.player.powerPlant.resourceUnits--;
             } else {
                 this.custStatusMsg = 'Max Number of Power Cells Reached!';
@@ -1469,99 +1485,55 @@ export class GameManager {
     private renderShipCustomization(): void {
         const ctx = this.canvas.ctx;
 
-        // Background
-        const bg = this.assets.tryGetImage('cust_GUI');
+        // Background — use GUI_ship.png (800×555) which has the ship diagram,
+        // zone labels, weapon preview, and exit button already drawn
+        const bg = this.assets.tryGetImage('GUI_ship');
         if (bg) {
-            ctx.drawImage(bg, 0, 0, 800, 600);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, 800, 600);
+            ctx.drawImage(bg, 0, 0);
         } else {
+            // Fallback: plain dark background
             ctx.fillStyle = '#0a1a0a';
             ctx.fillRect(0, 0, 800, 600);
-
-            // Top bar — "RU's: N" (left), Rank (center), "Kills: N" (right)
-            if (this.player) {
-                ctx.font = '18px XenoFont, monospace';
-                ctx.fillStyle = '#0f0';
-                ctx.fillText(`RU's:  ${this.player.powerPlant.resourceUnits}`, 10, 18);
-                ctx.textAlign = 'center';
-                const rank = this.getRank(this.player.kills);
-                ctx.fillText(rank, 400, 18);
-                ctx.textAlign = 'right';
-                ctx.fillText(`Kills:    ${this.player.kills}`, 790, 18);
-                ctx.textAlign = 'left';
-            }
-
-            // Draw ship silhouette in the ship area
-            ctx.save();
-            ctx.strokeStyle = '#1a3a1a';
-            ctx.lineWidth = 1;
-
-            // Ship body outline
-            ctx.beginPath();
-            ctx.moveTo(252, 50);   // nose tip
-            ctx.lineTo(215, 100);  // left shoulder
-            ctx.lineTo(100, 140);  // left wing tip
-            ctx.lineTo(120, 170);  // left wing back
-            ctx.lineTo(200, 155);  // left wing inner
-            ctx.lineTo(220, 265);  // left engine
-            ctx.lineTo(290, 265);  // right engine
-            ctx.lineTo(310, 155);  // right wing inner
-            ctx.lineTo(390, 170);  // right wing back
-            ctx.lineTo(410, 140);  // right wing tip
-            ctx.lineTo(295, 100);  // right shoulder
-            ctx.closePath();
-            ctx.stroke();
-
-            // Divider line between ship area and info area
-            ctx.strokeStyle = '#1a3a1a';
-            ctx.beginPath();
-            ctx.moveTo(510, 0);
-            ctx.lineTo(510, 553);
-            ctx.stroke();
-
-            // Horizontal line above Done button
-            ctx.beginPath();
-            ctx.moveTo(0, 553);
-            ctx.lineTo(800, 553);
-            ctx.stroke();
-
-            ctx.restore();
         }
 
-        // Draw system zone outlines with labels
-        ctx.font = '14px XenoFont, monospace';
+        // Top bar — "RU's: N" (left), Rank (center), "Kills: N" (right)
+        // Draw over the background's header area
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, 800, 28);
+        if (this.player) {
+            ctx.font = '16px XenoFont, monospace';
+            ctx.fillStyle = '#0f0';
+            ctx.fillText(`RU's:  ${this.player.powerPlant.resourceUnits}`, 10, 18);
+            ctx.textAlign = 'center';
+            const rank = this.getRank(this.player.kills);
+            ctx.fillText(rank, 400, 18);
+            ctx.textAlign = 'right';
+            ctx.fillText(`Kills:    ${this.player.kills}`, 790, 18);
+            ctx.textAlign = 'left';
+        }
+
+        // Draw system zone highlights (the background already has zone labels)
         for (let i = 0; i < this.custSystemZones.length; i++) {
             const z = this.custSystemZones[i];
             const isHover = i === this.custHoverSystem;
             const isSelected = i === this.custSelectedSystem;
 
-            // Zone rectangle
             if (isSelected) {
+                ctx.fillStyle = 'rgba(0,255,0,0.12)';
+                ctx.fillRect(z.x1, z.y1, z.x2 - z.x1, z.y2 - z.y1);
                 ctx.strokeStyle = '#0f0';
                 ctx.lineWidth = 2;
-                ctx.fillStyle = 'rgba(0,255,0,0.08)';
-                ctx.fillRect(z.x1, z.y1, z.x2 - z.x1, z.y2 - z.y1);
+                ctx.strokeRect(z.x1, z.y1, z.x2 - z.x1, z.y2 - z.y1);
             } else if (isHover) {
+                ctx.fillStyle = 'rgba(0,255,0,0.06)';
+                ctx.fillRect(z.x1, z.y1, z.x2 - z.x1, z.y2 - z.y1);
                 ctx.strokeStyle = 'rgba(0,255,0,0.6)';
                 ctx.lineWidth = 1;
-            } else {
-                ctx.strokeStyle = 'rgba(0,255,0,0.2)';
-                ctx.lineWidth = 1;
+                ctx.strokeRect(z.x1, z.y1, z.x2 - z.x1, z.y2 - z.y1);
             }
-            ctx.strokeRect(z.x1, z.y1, z.x2 - z.x1, z.y2 - z.y1);
-
-            // Zone label (inside the box)
-            ctx.fillStyle = isSelected ? '#0f0' : 'rgba(0,255,0,0.5)';
-            ctx.textAlign = 'center';
-            ctx.fillText(z.name, (z.x1 + z.x2) / 2, z.y1 + (z.y2 - z.y1) / 2 + 4);
         }
-        ctx.textAlign = 'left';
-
-        // "Select All Systems" label below the ship diagram
-        ctx.font = '16px XenoFont, monospace';
-        ctx.fillStyle = '#0f0';
-        ctx.textAlign = 'right';
-        ctx.fillText('Select All Systems', 470, 273);
-        ctx.textAlign = 'left';
 
         // "System Selected:" label
         const sel = this.custSelectedSystem;
@@ -1571,15 +1543,7 @@ export class GameManager {
             ? this.custSystemZones[sel].name : 'All';
         ctx.fillText(`System Selected: ${selectedName}`, 20, 295);
 
-        // Horizontal divider
-        ctx.strokeStyle = '#1a3a1a';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(0, 305);
-        ctx.lineTo(510, 305);
-        ctx.stroke();
-
-        // ===== Left panel info (below divider) =====
+        // ===== Left panel info (below ship diagram) =====
         if (sel >= 0 && sel < this.custSystemZones.length && this.player) {
             const zone = this.custSystemZones[sel];
             const setting = this.player.powerPlant.getSetting();
@@ -1662,7 +1626,7 @@ export class GameManager {
 
         // Buy Power Pod button (only when system selected)
         if (sel >= 0) {
-            // Resource Units (shown near Buy button when a system is selected)
+            // Resource Units
             ctx.fillStyle = '#0f0';
             ctx.font = '14px XenoFont, monospace';
             if (this.player) {
@@ -1671,13 +1635,31 @@ export class GameManager {
 
             const buyHover = this.input.getMousePos();
             const inBuy = buyHover.x >= 20 && buyHover.x <= 250 && buyHover.y >= 420 && buyHover.y <= 450;
-            ctx.fillStyle = inBuy ? 'rgb(70,85,70)' : 'rgb(51,64,51)';
-            ctx.fillRect(20, 420, 230, 30);
+            // Use buy button graphic if available
+            const buyImg = this.assets.tryGetImage('buy');
+            if (buyImg) {
+                ctx.drawImage(buyImg, 20, 420);
+                // Draw cost label next to it
+                ctx.fillStyle = '#0f0';
+                ctx.font = '12px XenoFont, monospace';
+                ctx.fillText('(1 RU)', 90, 440);
+            } else {
+                ctx.fillStyle = inBuy ? 'rgb(70,85,70)' : 'rgb(51,64,51)';
+                ctx.fillRect(20, 420, 230, 30);
+                ctx.fillStyle = '#0f0';
+                ctx.font = '12px XenoFont, monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('Buy Power Pod (1 RU)', 135, 440);
+                ctx.textAlign = 'left';
+            }
+
+            // Research placeholder (matching original: "n/a")
             ctx.fillStyle = '#0f0';
-            ctx.font = '12px XenoFont, monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('Buy Power Pod (1 RU)', 135, 440);
-            ctx.textAlign = 'left';
+            ctx.font = '14px XenoFont, monospace';
+            ctx.fillText('Research:', 20, 470);
+            ctx.fillStyle = '#9b9b9b';
+            ctx.fillText('n/a', 50, 490);
+            ctx.fillText('cost = 0', 160, 490);
         }
 
         // Status message
@@ -1702,16 +1684,14 @@ export class GameManager {
             }
         }
 
-        // Done button
+        // Done button — the GUI_ship background already has the "Exit Ship Customization" text.
+        // Just handle hover highlight over the button area (517-800, 553-600).
         const dm = this.input.getMousePos();
         const inDone = dm.x >= 517 && dm.x <= 800 && dm.y >= 553 && dm.y <= 600;
-        ctx.fillStyle = inDone ? 'rgb(70,85,70)' : 'rgb(51,64,51)';
-        ctx.fillRect(517, 553, 283, 47);
-        ctx.fillStyle = '#0f0';
-        ctx.font = '16px XenoFont, monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('Exit Ship Customization', 658, 582);
-        ctx.textAlign = 'left';
+        if (inDone) {
+            ctx.fillStyle = 'rgba(0,255,0,0.1)';
+            ctx.fillRect(517, 553, 283, 47);
+        }
     }
 
     private drawPowerCells(ctx: CanvasRenderingContext2D, x: number, baseY: number, count: number): void {

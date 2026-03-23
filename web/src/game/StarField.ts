@@ -27,8 +27,12 @@ export class StarField {
 
     private earthSprite: HTMLImageElement | null = null;
     private moonSprite: HTMLImageElement | null = null;
-    private earthY = 0;
+    // Earth starts at y=150 so it's already in the lower portion (not at top of screen)
+    // Moon starts at y=0, positioned to the right of center
+    private earthY = 150;
     private moonY = 0;
+    private moonX = 350;
+    private bodiesStopped = false;
 
     constructor(assets?: AssetLoader) {
         for (let i = 0; i < MAX_STARS; i++) {
@@ -83,13 +87,18 @@ export class StarField {
             }
         }
 
-        // Scroll celestial bodies after 300ms delay (bodies visible from start)
-        if (this.elapsed >= 0.3) {
+        // Scroll celestial bodies after 300ms delay; stop when Moon passes screen bottom
+        if (this.elapsed >= 0.3 && !this.bodiesStopped) {
             const earthSpeed = this.speed * (STAR_DISTANCE / (150 + 1));
             this.earthY += earthSpeed * dt;
 
             const moonSpeed = this.speed * (STAR_DISTANCE / (200 + 1));
             this.moonY += moonSpeed * dt;
+
+            // C++: scrolling stops when Moon y > 600
+            if (this.moonY > 600) {
+                this.bodiesStopped = true;
+            }
         }
     }
 
@@ -110,7 +119,7 @@ export class StarField {
             if (this.moonSprite) {
                 ctx.drawImage(
                     this.moonSprite,
-                    0,
+                    this.moonX,
                     this.moonY | 0,
                 );
             }
