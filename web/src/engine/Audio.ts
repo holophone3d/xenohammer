@@ -120,9 +120,10 @@ export class AudioManager {
         track.loop = loop;
         track.volume = volume !== undefined ? Math.max(0, Math.min(1, volume)) : this.musicVolume;
         const doPlay = () => {
-            // Ensure track will load then play
-            track.load();
-            track.play().catch(() => { /* autoplay blocked */ });
+            track.currentTime = 0;
+            track.play().catch(e => {
+                console.warn(`Music "${id}" play failed:`, e);
+            });
         };
         if (this._userInteracted) {
             doPlay();
