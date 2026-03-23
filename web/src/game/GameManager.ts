@@ -4,7 +4,7 @@
 
 import { GameCanvas, Input, AudioManager, AssetLoader, ParticleSystem, SoundInstance } from '../engine';
 import { LEVELS } from '../data/levels';
-import { ENEMY_SCORES, RANKINGS } from '../data/ships';
+import { ENEMY_SCORES, RANKINGS, TURRET_VELOCITY_TABLE } from '../data/ships';
 import { rectsOverlap, PLAY_AREA_W, PLAY_AREA_H } from './Collision';
 import { Player } from './Player';
 import { Enemy } from './Enemy';
@@ -76,7 +76,7 @@ export class GameManager {
     private custStatusMsg = '';
     private custStatusTimer = 0;
     // Demo projectiles for live ship preview in customization
-    private custDemoProjectiles: Array<{x:number, y:number, vx:number, vy:number, type:string, alive:boolean}> = [];
+    private custDemoProjectiles: Array<{x:number, y:number, vx:number, vy:number, type:string, frame:number, alive:boolean}> = [];
     private custDemoLastFire: Record<string, number> = {};
     private custSpeedShipX = 580;
     private custSpeedShipDir = 1;
@@ -1586,32 +1586,44 @@ export class GameManager {
         const shipX = 621, shipY = 383;
         const rates: Record<string, number> = { nose: 150, lt: 300, rt: 300, lm: 1200, rm: 1200 };
 
-        // Get turret angles for demo
+        // Get current power setting for sprite frames and turret angles
         const setting = this.player?.powerPlant.getSetting();
         const ltAngle = setting?.leftTurretAngle ?? 135;
         const rtAngle = setting?.rightTurretAngle ?? 45;
-        const ltRad = ltAngle * Math.PI / 180;
-        const rtRad = rtAngle * Math.PI / 180;
+
+        // Use the same discrete velocity table as real gameplay (scaled for demo speed)
+        const demoScale = 0.52; // scale table velocities (~29 magnitude) to ~15 demo speed
+        const ltSnap = ((Math.round(ltAngle / 45) * 45) % 360 + 360) % 360;
+        const rtSnap = ((Math.round(rtAngle / 45) * 45) % 360 + 360) % 360;
+        const ltVel = TURRET_VELOCITY_TABLE[ltSnap] ?? { dx: 0, dy: -29 };
+        const rtVel = TURRET_VELOCITY_TABLE[rtSnap] ?? { dx: 0, dy: -29 };
+
+        // Sprite frame = cell2 - 1 (matching real weapon rendering)
+        const noseFrame = (setting?.blasterCell2 ?? 1);
+        const ltFrame = (setting?.leftTurretCell2 ?? 1);
+        const rtFrame = (setting?.rightTurretCell2 ?? 1);
+        const lmFrame = (setting?.leftMissileCell2 ?? 1);
+        const rmFrame = (setting?.rightMissileCell2 ?? 1);
 
         if (fire.nose && now - (this.custDemoLastFire['nose'] ?? 0) > rates.nose) {
             this.custDemoLastFire['nose'] = now;
-            this.custDemoProjectiles.push({ x: shipX + 22, y: shipY - 12, vx: 0, vy: -14, type: 'blaster', alive: true });
+            this.custDemoProjectiles.push({ x: shipX + 22, y: shipY - 12, vx: 0, vy: -14, type: 'blaster', frame: noseFrame, alive: true });
         }
         if (fire.lt && now - (this.custDemoLastFire['lt'] ?? 0) > rates.lt) {
             this.custDemoLastFire['lt'] = now;
-            this.custDemoProjectiles.push({ x: shipX - 1, y: shipY - 5, vx: -Math.sin(ltRad) * 15, vy: -Math.cos(ltRad) * 15, type: 'turret', alive: true });
+            this.custDemoProjectiles.push({ x: shipX - 1, y: shipY - 5, vx: ltVel.dx * demoScale, vy: ltVel.dy * demoScale, type: 'turret', frame: ltFrame, alive: true });
         }
         if (fire.rt && now - (this.custDemoLastFire['rt'] ?? 0) > rates.rt) {
             this.custDemoLastFire['rt'] = now;
-            this.custDemoProjectiles.push({ x: shipX + 44, y: shipY - 5, vx: -Math.sin(rtRad) * 15, vy: -Math.cos(rtRad) * 15, type: 'turret', alive: true });
+            this.custDemoProjectiles.push({ x: shipX + 44, y: shipY - 5, vx: rtVel.dx * demoScale, vy: rtVel.dy * demoScale, type: 'turret', frame: rtFrame, alive: true });
         }
         if (fire.lm && now - (this.custDemoLastFire['lm'] ?? 0) > rates.lm) {
             this.custDemoLastFire['lm'] = now;
-            this.custDemoProjectiles.push({ x: shipX + 13, y: shipY, vx: 0, vy: -9, type: 'missile', alive: true });
+            this.custDemoProjectiles.push({ x: shipX + 13, y: shipY, vx: 0, vy: -9, type: 'missile', frame: lmFrame, alive: true });
         }
         if (fire.rm && now - (this.custDemoLastFire['rm'] ?? 0) > rates.rm) {
             this.custDemoLastFire['rm'] = now;
-            this.custDemoProjectiles.push({ x: shipX + 30, y: shipY, vx: 0, vy: -9, type: 'missile', alive: true });
+            this.custDemoProjectiles.push({ x: shipX + 30, y: shipY, vx: 0, vy: -9, type: 'missile', frame: rmFrame, alive: true });
         }
 
         // Move projectiles and remove off-screen ones
@@ -1870,11 +1882,13 @@ export class GameManager {
         const sel = this.custSelectedSystem;
         const shipX = 621, shipY = 383;
 
-        // Draw demo projectiles (using actual weapon sprites)
+        // Draw demo projectiles (using power-scaled weapon sprites)
         for (const p of this.custDemoProjectiles) {
-            const spriteKey = p.type === 'blaster' ? 'blaster_1'
-                            : p.type === 'turret' ? 'turret_1'
-                            : 'torp_1';
+            // frame = cell2 value (1-5), sprite index = frame (1-indexed filenames)
+            const frameIdx = Math.max(1, Math.min(p.frame, 5));
+            const spriteKey = p.type === 'blaster' ? `blaster_${frameIdx}`
+                            : p.type === 'turret' ? `turret_${frameIdx}`
+                            : `torp_${frameIdx}`;
             const img = this.assets.tryGetImage(spriteKey);
             if (img) {
                 ctx.drawImage(img, p.x, p.y);
@@ -1883,7 +1897,7 @@ export class GameManager {
                             : p.type === 'turret' ? '#00ff80'
                             : '#0000ff';
                 ctx.fillStyle = color;
-                ctx.fillRect(p.x, p.y, 8, 8);
+                ctx.fillRect(p.x, p.y, 4 + frameIdx * 2, 4 + frameIdx * 2);
             }
         }
 

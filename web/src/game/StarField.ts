@@ -27,17 +27,16 @@ export class StarField {
 
     private earthSprite: HTMLImageElement | null = null;
     private moonSprite: HTMLImageElement | null = null;
-    // Earth at x=0 (650px wide, fills play area), Moon on the RIGHT side
-    // Both start mid-screen (~y=150) and scroll downward
+    // C++ positions: Earth(x=0, y=150), Moon(x=0, y=200) — both LEFT side
+    // Earth is closer (z=150) and faster; Moon further (z=200) and slower
     private earthY = 150;
-    private moonY = 150;
-    private moonX = 350;  // right side of play area
+    private moonY = 200;
+    private moonX = 0;  // left side, matching C++ x=0
     private bodiesStopped = false;
 
-    // Scroll speeds tuned so Moon exits bottom (~y=600) near end of 95s level
-    // Earth scrolls faster (closer, z=150), Moon slower (further, z=200)
-    private static readonly EARTH_SCREEN_SPEED = 22;
-    private static readonly MOON_SCREEN_SPEED = 10;
+    // C++ uses YSCALE=600: Earth vel=30 → 30/600*1000=50px/s, Moon vel=18 → 18/600*1000=30px/s
+    private static readonly EARTH_SCREEN_SPEED = 50;
+    private static readonly MOON_SCREEN_SPEED = 30;
 
     constructor(assets?: AssetLoader) {
         for (let i = 0; i < MAX_STARS; i++) {
