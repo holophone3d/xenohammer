@@ -77,10 +77,7 @@ export class Projectile {
         // Track distance for homing activation
         this.distanceTraveled += Math.sqrt(this.vx * this.vx + this.vy * this.vy) * moveScale;
 
-        // Animate sprite
-        if (this.sprite) {
-            this.sprite.update(dt * 1000);
-        }
+        // Sprite frame is set once at creation (power level), NOT animated
 
         // Kill if out of bounds (64px margin)
         if (isOutOfBounds(this.x, this.y)) {

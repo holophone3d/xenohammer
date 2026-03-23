@@ -2,10 +2,23 @@ import { GameManager } from './game/GameManager';
 
 const TICK_RATE = 1 / 60; // 60 logic ticks per second
 const MAX_TICKS_PER_FRAME = 5;
+const GAME_W = 800;
+const GAME_H = 600;
+
+function fitCanvas(canvas: HTMLCanvasElement): void {
+    const scaleX = window.innerWidth / GAME_W;
+    const scaleY = window.innerHeight / GAME_H;
+    const scale = Math.min(scaleX, scaleY);
+    canvas.style.transform = `scale(${scale})`;
+}
 
 const game = new GameManager('game-canvas');
 
 game.init().then(() => {
+    const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
+    fitCanvas(canvas);
+    window.addEventListener('resize', () => fitCanvas(canvas));
+
     let lastTime = performance.now();
     let accumulator = 0;
 

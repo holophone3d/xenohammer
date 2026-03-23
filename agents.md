@@ -46,6 +46,9 @@ Web: `moveScale = dt * 1000 / 32`. Defined in `web/src/data/ships.ts`.
 
 ### Screen: 800×600. Play area: 650×600 (left). HUD: 150×600 (right, x=650–800).
 
+### Canvas Scaling
+The game is LOCKED to 800×600 internal resolution. The canvas uses CSS `transform: scale()` to best-fit the browser window while preserving the 4:3 aspect ratio. Input coordinates are automatically adjusted via `getBoundingClientRect()`. Implemented in `web/src/main.ts` (resize listener) and `web/index.html` (transform-origin).
+
 ### Music: Only TWO tracks — `Level2.ogg` (all levels) + `bossTEST.ogg` (boss).
 
 ### Weapons: Turrets use discrete 8-angle lookup table (NOT trig). Blaster always fires straight up. Missiles home after 50px travel. Enemy blaster angle = 0 (not 180).

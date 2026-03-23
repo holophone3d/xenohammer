@@ -65,12 +65,12 @@ export class HUD {
 
         if (!player) return;
 
-        // Rank — centered at (725, 0) per original
+        // Rank — centered at (725, 0) per original (bitmap font ~12px)
         const rank = this.getRank(kills);
-        ctx.font = '11px XenoFont, monospace';
+        ctx.font = '12px XenoFont, monospace';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#0f0';
-        ctx.fillText(rank, 725, 12);
+        ctx.fillText(rank, 725, 14);
         ctx.textAlign = 'left';
 
         // Power cell bars (4×4px green) — approximate positions from Console.h
@@ -95,7 +95,7 @@ export class HUD {
         this.drawCellBars(ctx, 678, 122, player.powerPlant.getEngineCells());
 
         // Kills — at (660, 130), count right-aligned at (790, 130)
-        ctx.font = '11px XenoFont, monospace';
+        ctx.font = '12px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.fillText('Kills', 660, 140);
         ctx.textAlign = 'right';
@@ -106,20 +106,20 @@ export class HUD {
         const setting = player.powerPlant.currentSetting;
         const settingLabels = ["speed setting 'Q'", "power setting 'W'", "armor setting 'E'"];
         const settingY = [195, 215, 235];
-        ctx.font = '10px XenoFont, monospace';
+        ctx.font = '12px XenoFont, monospace';
         for (let i = 0; i < 3; i++) {
-            ctx.fillStyle = setting === i ? '#0f0' : '#484';
+            ctx.fillStyle = setting === i ? '#0f0' : '#9b9b9b';
             ctx.fillText(settingLabels[i], 660, settingY[i]);
         }
 
         // RU's — at (660, 280)
-        ctx.font = '11px XenoFont, monospace';
+        ctx.font = '12px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
-        ctx.fillText("RU's", 660, 270);
-        ctx.fillText(player.powerPlant.resourceUnits.toString(), 700, 270);
+        ctx.fillText("RU's", 660, 280);
+        ctx.fillText(player.powerPlant.resourceUnits.toString(), 695, 280);
 
         // Shield/Armor labels at y=335
-        ctx.font = '10px XenoFont, monospace';
+        ctx.font = '12px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.textAlign = 'center';
         ctx.fillText('Shields', 688, 340);
@@ -149,7 +149,7 @@ export class HUD {
         const fillH = Math.floor(value * 0.666);
 
         // Background
-        ctx.fillStyle = '#222';
+        ctx.fillStyle = '#111';
         ctx.fillRect(x, y - maxBarH, w, maxBarH);
 
         // Fill (grows upward from bottom) with dynamic color
@@ -158,8 +158,9 @@ export class HUD {
             ctx.fillRect(x, y - fillH, w, fillH);
         }
 
-        // Border
-        ctx.strokeStyle = '#555';
+        // Border — pink/magenta outline matching reference screenshots
+        ctx.strokeStyle = '#c060a0';
+        ctx.lineWidth = 2;
         ctx.strokeRect(x, y - maxBarH, w, maxBarH);
     }
 

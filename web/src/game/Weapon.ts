@@ -118,6 +118,13 @@ export class Weapon {
             }
         }
 
+        // Set sprite frame based on power level (frame = power_cell_2 - 1)
+        // Frames represent power levels, NOT animation
+        if (sprite) {
+            sprite.setFrame(this.powerMultiplier - 1);
+            sprite.loop = false;
+        }
+
         const actualDamage = this.damage * this.powerMultiplier;
         const proj = new Projectile(spawnX, spawnY, vx, vy, actualDamage, this.owner, sprite, this.type);
 

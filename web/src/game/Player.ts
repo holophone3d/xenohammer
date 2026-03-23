@@ -192,30 +192,42 @@ export class Player {
             ctx.fillRect(this.x, this.y, 48, 48);
         }
 
-        // Shield bubble — ring/bubble shape (dark center, bright edges)
-        // Shield.bmp is a ring texture, rendered with additive blending
-        // glColor4f(0.3, 0.6, 0.9, shields/300.0) with GL_SRC_ALPHA,GL_ONE
+        // Shield bubble — pure blue with additive blending
+        // C++: glColor4f(0.0, 0.0, 1.0, 0.7) with GL_SRC_ALPHA,GL_ONE
+        // Shield.bmp is a ring texture — transparent center, bright white ring edge
         if (this.shields > 0) {
             const cx = this.x + 38;
             const cy = this.y - 24 + 44.5;
             const rx = 64.5;
             const ry = 44.5;
-            const shieldAlpha = Math.min(1, this.shields / this.maxShields);
+            const shieldAlpha = Math.min(1.0, (this.shields / this.maxShields));
 
             ctx.save();
             ctx.globalCompositeOperation = 'lighter'; // additive blending
 
-            // Ring gradient: transparent center, bright blue edge
-            // This matches the Shield.bmp texture (bubble/ring shape)
+            // Sharp ring gradient: transparent center → bright blue edge
             const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
-            grad.addColorStop(0, 'rgba(77,153,230,0)');           // transparent center
-            grad.addColorStop(0.5, `rgba(40,80,150,${0.05 * shieldAlpha})`);  // mostly transparent inner
-            grad.addColorStop(0.75, `rgba(60,130,210,${0.25 * shieldAlpha})`); // brightening
-            grad.addColorStop(0.88, `rgba(77,153,230,${0.5 * shieldAlpha})`);  // bright edge
-            grad.addColorStop(0.95, `rgba(100,180,255,${0.6 * shieldAlpha})`); // brightest at rim
-            grad.addColorStop(1, `rgba(77,153,230,${0.15 * shieldAlpha})`);    // slight falloff at very edge
+            grad.addColorStop(0, 'rgba(0,0,0,0)');                                 // fully transparent center
+            grad.addColorStop(0.60, 'rgba(0,0,0,0)');                              // still transparent
+            grad.addColorStop(0.72, `rgba(0,40,180,${0.1 * shieldAlpha})`);        // start fading in
+            grad.addColorStop(0.82, `rgba(0,80,255,${0.4 * shieldAlpha})`);        // brightening
+            grad.addColorStop(0.90, `rgba(40,140,255,${0.7 * shieldAlpha})`);      // bright ring
+            grad.addColorStop(0.95, `rgba(100,200,255,${0.85 * shieldAlpha})`);    // brightest - nearly white-blue
+            grad.addColorStop(1.0, `rgba(30,100,255,${0.4 * shieldAlpha})`);       // slight falloff at edge
 
             ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw a second pass for extra brightness at the ring edge
+            const grad2 = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
+            grad2.addColorStop(0, 'rgba(0,0,0,0)');
+            grad2.addColorStop(0.80, 'rgba(0,0,0,0)');
+            grad2.addColorStop(0.90, `rgba(0,100,255,${0.3 * shieldAlpha})`);
+            grad2.addColorStop(0.96, `rgba(80,180,255,${0.5 * shieldAlpha})`);
+            grad2.addColorStop(1.0, `rgba(0,60,200,${0.15 * shieldAlpha})`);
+            ctx.fillStyle = grad2;
             ctx.beginPath();
             ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
             ctx.fill();
@@ -224,17 +236,25 @@ export class Player {
         }
     }
 
-    /** Emit engine flame particles. Call from GameManager each frame. */
+    /** Emit engine flame particles. Call from GameManager each frame.
+     * C++: make_engine(x+38, y+47, intensity)
+     * Angle: 175+rand(10) degrees, Color: R=1.0, G/B=rand(0-2)/255
+     * We emit 2-3 particles per frame for visibility in Canvas 2D */
     emitEngineFlame(particles: import('../engine').ParticleSystem): void {
         if (!this.alive) return;
-        const gVal = Math.random() * 0.4;
-        particles.emit(this.x + 38, this.y + 47, 1, {
-            color: { r: 1.0, g: gVal, b: gVal },
-            speed: 15 + Math.random() * 10,
-            life: 0.05 + Math.random() * 0.1,
-            fade: 8,
-            direction: Math.PI * 0.97,
-            spread: 0.3,
-        });
+        // Emit 2 particles per frame for a visible glow
+        for (let i = 0; i < 2; i++) {
+            const tempVal = Math.random() * 0.15; // slight pink tint
+            const angleDeg = 175 + Math.random() * 10;
+            const angleRad = (angleDeg * Math.PI) / 180;
+            particles.emit(this.x + 38, this.y + 47, 1, {
+                color: { r: 1.0, g: tempVal, b: tempVal },
+                speed: 10 + Math.random() * 25,
+                life: 0.05 + Math.random() * 0.15,
+                fade: 3,
+                direction: angleRad,
+                spread: 0,
+            });
+        }
     }
 }

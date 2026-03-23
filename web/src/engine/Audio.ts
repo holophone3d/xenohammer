@@ -12,7 +12,8 @@ export interface SoundInstance {
 export class AudioManager {
     private audioCtx: AudioContext | null = null;
     private sounds: Map<string, AudioBuffer> = new Map();
-    private musicTracks: Map<string, HTMLAudioElement> = new Map();
+    private _musicBuffers: Map<string, AudioBuffer> = new Map();
+    private _musicSources: Map<string, { source: AudioBufferSourceNode; gain: GainNode }> = new Map();
     private activeSounds: SoundInstance[] = [];
     private musicVolume = 0.5;
     private sfxVolume = 0.7;
@@ -102,28 +103,42 @@ export class AudioManager {
         return instance;
     }
 
-    /** Load a named music track (streamed via HTML5 Audio). Non-blocking — track loads lazily. */
+    /** Load a named music track via Web Audio API (supports OGG in all contexts). */
     async loadMusic(id: string, url: string): Promise<void> {
-        const audio = new Audio();
-        audio.preload = 'auto';
-        audio.src = url;
-        audio.volume = this.musicVolume;
-        this.musicTracks.set(id, audio);
-        // Don't await canplaythrough — browser may block loading before user interaction.
-        // The track will load when play() is called after user gesture.
+        try {
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            const ctx = this.ensureContext();
+            const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+            this._musicBuffers.set(id, audioBuffer);
+        } catch (e) {
+            console.warn(`Music "${id}" load failed:`, e);
+        }
     }
 
-    /** Play a named music track. */
+    /** Play a named music track via Web Audio API. */
     playMusic(id: string, loop = true, volume?: number): void {
-        const track = this.musicTracks.get(id);
-        if (!track) return;
-        track.loop = loop;
-        track.volume = volume !== undefined ? Math.max(0, Math.min(1, volume)) : this.musicVolume;
+        const buffer = this._musicBuffers.get(id);
+        if (!buffer) {
+            console.warn(`Music "${id}" not loaded`);
+            return;
+        }
         const doPlay = () => {
-            track.currentTime = 0;
-            track.play().catch(e => {
-                console.warn(`Music "${id}" play failed:`, e);
-            });
+            // Stop any currently playing music source for this id
+            const existing = this._musicSources.get(id);
+            if (existing) {
+                try { existing.source.stop(); } catch { /* already stopped */ }
+            }
+            const ctx = this.ensureContext();
+            const source = ctx.createBufferSource();
+            const gainNode = ctx.createGain();
+            source.buffer = buffer;
+            source.loop = loop;
+            gainNode.gain.value = volume !== undefined ? Math.max(0, Math.min(1, volume)) : this.musicVolume;
+            source.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            source.start(0);
+            this._musicSources.set(id, { source, gain: gainNode });
         };
         if (this._userInteracted) {
             doPlay();
@@ -135,15 +150,15 @@ export class AudioManager {
     /** Stop a specific music track, or all tracks if no id provided. */
     stopMusic(id?: string): void {
         if (id !== undefined) {
-            const track = this.musicTracks.get(id);
-            if (track) {
-                track.pause();
-                track.currentTime = 0;
+            const entry = this._musicSources.get(id);
+            if (entry) {
+                try { entry.source.stop(); } catch { /* already stopped */ }
+                this._musicSources.delete(id);
             }
         } else {
-            for (const track of this.musicTracks.values()) {
-                track.pause();
-                track.currentTime = 0;
+            for (const [key, entry] of this._musicSources) {
+                try { entry.source.stop(); } catch { /* already stopped */ }
+                this._musicSources.delete(key);
             }
         }
     }
@@ -160,8 +175,8 @@ export class AudioManager {
 
     setMusicVolume(vol: number): void {
         this.musicVolume = Math.max(0, Math.min(1, vol));
-        for (const track of this.musicTracks.values()) {
-            track.volume = this.musicVolume;
+        for (const entry of this._musicSources.values()) {
+            entry.gain.gain.value = this.musicVolume;
         }
     }
 

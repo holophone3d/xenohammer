@@ -1,7 +1,7 @@
 /**
  * Parallax starfield background — Section 12 of SPEC.md.
  * 600 stars at varying depths (z: 1–300) scrolling downward with parallax.
- * Includes Earth (z=200) and Moon (z=400) celestial bodies.
+ * Includes Earth (z=150) and Moon (z=200) celestial bodies.
  */
 
 import { AssetLoader } from '../engine';
@@ -27,8 +27,8 @@ export class StarField {
 
     private earthSprite: HTMLImageElement | null = null;
     private moonSprite: HTMLImageElement | null = null;
-    private earthY = 300;
-    private moonY = 300;
+    private earthY = 0;
+    private moonY = 0;
 
     constructor(assets?: AssetLoader) {
         for (let i = 0; i < MAX_STARS; i++) {
@@ -83,12 +83,12 @@ export class StarField {
             }
         }
 
-        // Scroll celestial bodies after 300ms
+        // Scroll celestial bodies after 300ms delay (bodies visible from start)
         if (this.elapsed >= 0.3) {
-            const earthSpeed = this.speed * (STAR_DISTANCE / (200 + 1));
+            const earthSpeed = this.speed * (STAR_DISTANCE / (150 + 1));
             this.earthY += earthSpeed * dt;
 
-            const moonSpeed = this.speed * (STAR_DISTANCE / (400 + 1));
+            const moonSpeed = this.speed * (STAR_DISTANCE / (200 + 1));
             this.moonY += moonSpeed * dt;
         }
     }
@@ -99,18 +99,18 @@ export class StarField {
             ctx.fillRect(star.x | 0, star.y | 0, star.size, star.size);
         }
 
-        if (nearEarth && this.elapsed >= 0.3) {
+        if (nearEarth) {
             if (this.earthSprite) {
                 ctx.drawImage(
                     this.earthSprite,
-                    SCREEN_W / 2 - this.earthSprite.width / 2,
+                    0,
                     this.earthY | 0,
                 );
             }
             if (this.moonSprite) {
                 ctx.drawImage(
                     this.moonSprite,
-                    SCREEN_W / 2 + 100,
+                    0,
                     this.moonY | 0,
                 );
             }

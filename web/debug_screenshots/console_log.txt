@@ -1,6 +1,5 @@
 [DEBUG] [vite] connecting...
 [DEBUG] [vite] connected.
-[ERROR] Failed to load resource: the server responded with a status of 404 (Not Found)
 [WARN] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio
 [WARN] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio
 [WARN] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio
@@ -13,5 +12,5 @@
 [WARN] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio
 [WARN] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio
 [WARN] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio
-[FAILED_REQUEST] http://localhost:5173/assets/sounds/bossTEST.ogg - net::ERR_ABORTED
-[ERROR] Failed to load resource: the server responded with a status of 404 (Not Found)
+[WARN] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio
+[WARN] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio

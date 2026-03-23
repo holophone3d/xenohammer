@@ -37,6 +37,14 @@ fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
         console.log(entry);
     });
 
+    page.on('response', res => {
+        if (res.status() >= 400) {
+            const entry = `[HTTP_${res.status()}] ${res.url()}`;
+            logs.push(entry);
+            console.log(entry);
+        }
+    });
+
     console.log('--- Navigating to game ---');
     await page.goto(URL, { waitUntil: 'networkidle0', timeout: 30000 });
 

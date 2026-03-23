@@ -117,8 +117,8 @@ export class GameManager {
 
         // Load music tracks (original only uses Level2.ogg + bossTEST.ogg)
         const musicFiles = [
-            ['Level2', 'sounds/Level2.ogg'],
-            ['bossTEST', 'sounds/bossTEST.ogg'],
+            ['Level2', 'sounds/Level2.mp3'],
+            ['bossTEST', 'sounds/bossTEST.mp3'],
         ];
         for (const [id, path] of musicFiles) {
             try { await this.audio.loadMusic(id, `/assets/${path}`); } catch { /* skip */ }
@@ -371,7 +371,7 @@ export class GameManager {
         const inRight = mx >= 601 && mx <= 800 && my >= 0 && my <= 540;
 
         // Zone hover labels (appear on hover)
-        ctx.font = '14px XenoFont, monospace';
+        ctx.font = '18px XenoFont, monospace';
         ctx.textAlign = 'center';
         if (inLeft) {
             ctx.fillStyle = '#0f0';
@@ -388,17 +388,17 @@ export class GameManager {
 
         // Notification labels
         if (this.levelBriefed <= this.level) {
-            ctx.font = '12px XenoFont, monospace';
+            ctx.font = '18px XenoFont, monospace';
             ctx.fillStyle = '#0f0';
-            ctx.fillText('New Level Briefing Available!', 300, 206 - (inCenter ? 16 : 0));
+            ctx.fillText('New Level Briefing Available!', 300, 206 - (inCenter ? 20 : 0));
         }
 
         // Bottom tooltip bar — black background
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 550, 800, 50);
 
-        // Dynamic tooltip text
-        ctx.font = '14px XenoFont, monospace';
+        // Dynamic tooltip text — large font matching original
+        ctx.font = '26px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.textAlign = 'center';
 
@@ -795,10 +795,13 @@ export class GameManager {
         this.hud.draw(ctx, this.player, this.score, this.level,
             timeRemaining, this.player?.kills ?? 0);
 
-        // Level start animation overlay — sprite frames at 100ms each, from 600ms to 4000ms
+        // Level start animation overlay — typewriter text at 100ms per character
+        // C++: GameAnimation at (253, 200), 8 frames = 8 characters "LEVEL 1_"
+        // Since level_anim sprites don't exist, we render with typewriter code
         if (this.stateTimer < 4 && this.stateTimer > 0.6) {
             const frames = this.levelAnimFrames[this.level] ?? [];
             if (frames.length > 0) {
+                // Sprite-based animation (if sprites exist)
                 const elapsed = this.stateTimer - 0.6;
                 const frameIndex = Math.min(Math.floor(elapsed / 0.1), frames.length - 1);
                 const frame = frames[frameIndex];
@@ -806,16 +809,20 @@ export class GameManager {
                     ctx.drawImage(frame, 253, 200);
                 }
             } else {
-                // Fallback: text-based level title
+                // Code-based typewriter: "LEVEL X" with cursor
+                const fullText = `LEVEL ${this.level + 1}`;
+                const elapsed = this.stateTimer - 0.6;
+                const charsShown = Math.min(Math.floor(elapsed / 0.1) + 1, fullText.length);
+                const displayText = fullText.substring(0, charsShown);
+                // Blinking cursor (500ms blink)
+                const showCursor = Math.floor(elapsed * 4) % 2 === 0 || charsShown < fullText.length;
+                const cursor = showCursor ? '_' : '';
+
                 ctx.save();
-                ctx.textAlign = 'center';
+                ctx.textAlign = 'left';
                 ctx.font = '28px XenoFont, monospace';
                 ctx.fillStyle = '#0f0';
-                const alpha = Math.min(1, (this.stateTimer - 0.6) / 0.5);
-                ctx.globalAlpha = alpha;
-                ctx.fillText(`LEVEL ${this.level + 1}`, PLAY_AREA_W / 2, 280);
-                ctx.globalAlpha = 1;
-                ctx.textAlign = 'left';
+                ctx.fillText(displayText + cursor, 253, 220);
                 ctx.restore();
             }
         }
@@ -1349,9 +1356,9 @@ export class GameManager {
         { x1: 215, y1: 45,  x2: 290, y2: 110, lx: 250, ly: 63,  name: 'Nose Blaster',       c1: 'blasterCell1'      as const, c2: 'blasterCell2'      as const },
         { x1: 100, y1: 105, x2: 170, y2: 170, lx: 132, ly: 123, name: 'Left Turret',        c1: 'leftTurretCell1'   as const, c2: 'leftTurretCell2'   as const },
         { x1: 340, y1: 105, x2: 410, y2: 170, lx: 372, ly: 123, name: 'Right Turret',       c1: 'rightTurretCell1'  as const, c2: 'rightTurretCell2'  as const },
-        { x1: 180, y1: 115, x2: 245, y2: 180, lx: 209, ly: 133, name: 'Left Missile',       c1: 'leftMissileCell1'  as const, c2: 'leftMissileCell2'  as const },
-        { x1: 265, y1: 115, x2: 335, y2: 180, lx: 297, ly: 133, name: 'Right Missile',      c1: 'rightMissileCell1' as const, c2: 'rightMissileCell2' as const },
-        { x1: 220, y1: 195, x2: 290, y2: 265, lx: 249, ly: 213, name: 'Engine/Power Plant', c1: 'shipPowerCell1'    as const, c2: 'shipPowerCell2'    as const },
+        { x1: 180, y1: 115, x2: 245, y2: 180, lx: 209, ly: 133, name: 'Left Photon Torpedo',  c1: 'leftMissileCell1'  as const, c2: 'leftMissileCell2'  as const },
+        { x1: 265, y1: 115, x2: 335, y2: 180, lx: 297, ly: 133, name: 'Right Photon Torpedo', c1: 'rightMissileCell1' as const, c2: 'rightMissileCell2' as const },
+        { x1: 220, y1: 195, x2: 290, y2: 265, lx: 249, ly: 213, name: 'Ship Power Plant',     c1: 'shipPowerCell1'    as const, c2: 'shipPowerCell2'    as const },
     ];
 
     private updateShipCustomization(): void {
@@ -1470,6 +1477,19 @@ export class GameManager {
             ctx.fillStyle = '#0a1a0a';
             ctx.fillRect(0, 0, 800, 600);
 
+            // Top bar — "RU's: N" (left), Rank (center), "Kills: N" (right)
+            if (this.player) {
+                ctx.font = '18px XenoFont, monospace';
+                ctx.fillStyle = '#0f0';
+                ctx.fillText(`RU's:  ${this.player.powerPlant.resourceUnits}`, 10, 18);
+                ctx.textAlign = 'center';
+                const rank = this.getRank(this.player.kills);
+                ctx.fillText(rank, 400, 18);
+                ctx.textAlign = 'right';
+                ctx.fillText(`Kills:    ${this.player.kills}`, 790, 18);
+                ctx.textAlign = 'left';
+            }
+
             // Draw ship silhouette in the ship area
             ctx.save();
             ctx.strokeStyle = '#1a3a1a';
@@ -1508,7 +1528,7 @@ export class GameManager {
         }
 
         // Draw system zone outlines with labels
-        ctx.font = '10px XenoFont, monospace';
+        ctx.font = '14px XenoFont, monospace';
         for (let i = 0; i < this.custSystemZones.length; i++) {
             const z = this.custSystemZones[i];
             const isHover = i === this.custHoverSystem;
@@ -1536,23 +1556,37 @@ export class GameManager {
         }
         ctx.textAlign = 'left';
 
-        // ===== Right panel info =====
-        const sel = this.custSelectedSystem;
+        // "Select All Systems" label below the ship diagram
+        ctx.font = '16px XenoFont, monospace';
+        ctx.fillStyle = '#0f0';
+        ctx.textAlign = 'right';
+        ctx.fillText('Select All Systems', 470, 273);
+        ctx.textAlign = 'left';
 
+        // "System Selected:" label
+        const sel = this.custSelectedSystem;
+        ctx.font = '16px XenoFont, monospace';
+        ctx.fillStyle = '#0f0';
+        const selectedName = sel >= 0 && sel < this.custSystemZones.length
+            ? this.custSystemZones[sel].name : 'All';
+        ctx.fillText(`System Selected: ${selectedName}`, 20, 295);
+
+        // Horizontal divider
+        ctx.strokeStyle = '#1a3a1a';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, 305);
+        ctx.lineTo(510, 305);
+        ctx.stroke();
+
+        // ===== Left panel info (below divider) =====
         if (sel >= 0 && sel < this.custSystemZones.length && this.player) {
             const zone = this.custSystemZones[sel];
             const setting = this.player.powerPlant.getSetting();
 
-            // System name header
-            ctx.fillStyle = '#0f0';
-            ctx.font = '16px XenoFont, monospace';
-            ctx.fillText('System Selected:', 20, 290);
-            ctx.fillStyle = '#5f5';
-            ctx.fillText(zone.name, 190, 290);
-
             // Column descriptions
             ctx.fillStyle = '#0a0';
-            ctx.font = '12px XenoFont, monospace';
+            ctx.font = '14px XenoFont, monospace';
             if (sel <= 4) {
                 ctx.fillText('Left column: Shot Rate', 20, 320);
                 ctx.fillText('Right column: Shot Power', 20, 340);
@@ -1570,7 +1604,7 @@ export class GameManager {
 
             // Column headers
             ctx.fillStyle = '#0a0';
-            ctx.font = '10px XenoFont, monospace';
+            ctx.font = '12px XenoFont, monospace';
             ctx.textAlign = 'center';
             ctx.fillText('Rate', cellX1 + 7, cellBaseY + 18);
             ctx.fillText('Power', cellX2 + 7, cellBaseY + 18);
@@ -1603,27 +1637,38 @@ export class GameManager {
             const total = Math.min(c1 + c2, 5);
             const mux = this.player.powerPlant.getWeaponMultiplier(c1, c2);
             ctx.fillStyle = '#0a0';
-            ctx.font = '11px XenoFont, monospace';
+            ctx.font = '14px XenoFont, monospace';
             ctx.fillText(`Total: ${total}/5 cells`, 530, 380);
             ctx.fillText(`Multiplier: ${mux.toFixed(1)}x`, 530, 400);
         } else {
-            // No system selected — show instructions
-            ctx.fillStyle = '#0a0';
-            ctx.font = '14px XenoFont, monospace';
-            ctx.fillText('Select a system on the ship', 20, 290);
-            ctx.fillText('to view and modify power', 20, 310);
-            ctx.fillText('distribution.', 20, 330);
-        }
+            // No system selected — show "Ship Customization" header + instructions
+            ctx.fillStyle = '#0f0';
+            ctx.font = 'bold 20px XenoFont, monospace';
+            ctx.fillText('Ship Customization :', 20, 330);
 
-        // Resource Units
-        ctx.fillStyle = '#0f0';
-        ctx.font = '14px XenoFont, monospace';
-        if (this.player) {
-            ctx.fillText(`Resource Units: ${this.player.powerPlant.resourceUnits}`, 20, 400);
+            ctx.font = '14px XenoFont, monospace';
+            ctx.fillStyle = '#0f0';
+            ctx.fillText('- Click on a system to Buy power for', 30, 360);
+            ctx.fillText('  it or to do research concerning it', 30, 378);
+            ctx.fillText('- You can also modify its internal', 30, 406);
+            ctx.fillText('  power settings', 30, 424);
+            ctx.fillText('  - Weapons(nose blaster, turrets,', 40, 448);
+            ctx.fillText('    and photon torpedoes)', 40, 466);
+            ctx.fillText('    Have Shot Rate vs. Shot Power', 40, 484);
+            ctx.fillText("  - Ship's power plant", 40, 506);
+            ctx.fillText('    Has Maneuverability vs. Shield', 50, 524);
+            ctx.fillText('    Recharge Rate', 50, 542);
         }
 
         // Buy Power Pod button (only when system selected)
         if (sel >= 0) {
+            // Resource Units (shown near Buy button when a system is selected)
+            ctx.fillStyle = '#0f0';
+            ctx.font = '14px XenoFont, monospace';
+            if (this.player) {
+                ctx.fillText(`Resource Units: ${this.player.powerPlant.resourceUnits}`, 20, 410);
+            }
+
             const buyHover = this.input.getMousePos();
             const inBuy = buyHover.x >= 20 && buyHover.x <= 250 && buyHover.y >= 420 && buyHover.y <= 450;
             ctx.fillStyle = inBuy ? 'rgb(70,85,70)' : 'rgb(51,64,51)';
@@ -1644,15 +1689,16 @@ export class GameManager {
 
         // Settings display (right panel, upper)
         if (this.player) {
-            ctx.font = '13px XenoFont, monospace';
+            ctx.font = '18px XenoFont, monospace';
             ctx.fillStyle = '#0f0';
-            ctx.fillText('User Settings', 530, 80);
+            ctx.fillText('User Settings', 530, 60);
 
             const settingIdx = this.player.powerPlant.currentSetting;
-            const labels = ['speed setting (Q)', 'power setting (W)', 'armor setting (E)'];
+            const labels = ["speed setting (HOTKEY 'Q')", "power setting (HOTKEY 'W')", "armor setting (HOTKEY 'E')"];
             for (let i = 0; i < 3; i++) {
-                ctx.fillStyle = settingIdx === i ? '#0f0' : '#333';
-                ctx.fillText(labels[i], 530, 110 + i * 25);
+                ctx.fillStyle = settingIdx === i ? '#0f0' : '#9b9b9b';
+                ctx.font = settingIdx === i ? 'bold 16px XenoFont, monospace' : '16px XenoFont, monospace';
+                ctx.fillText(labels[i], 520, 90 + i * 28);
             }
         }
 
@@ -1664,7 +1710,7 @@ export class GameManager {
         ctx.fillStyle = '#0f0';
         ctx.font = '16px XenoFont, monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('Done', 658, 582);
+        ctx.fillText('Exit Ship Customization', 658, 582);
         ctx.textAlign = 'left';
     }
 
