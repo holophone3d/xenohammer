@@ -1,0 +1,12 @@
+#define TESTPILOT 0
+#define AIRMAN 20
+#define SERGEANT 42
+#define LIEUTENANT 66
+#define CAPTAIN 98
+#define MAJOR 135
+#define COLONEL 182
+#define GENERAL 245
+#define HERO 295
+#define SAVIOR 350
+#define GOD 420
+#define PONDEROSA 666
