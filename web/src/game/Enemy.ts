@@ -121,19 +121,10 @@ export class Enemy {
             weapon.setEnemyVelocity(this.vx, this.vy);
         }
 
-        // Gunships alternate dual cannons
-        if (this.type === 'gunship' && this.ai instanceof GunshipAI) {
-            const cannonIdx = this.ai.getNextCannon();
-            const weapon = this.weapons[cannonIdx];
-            if (weapon) {
-                const proj = weapon.fire(this.x, this.y, now, assets);
-                if (proj) projectiles.push(proj);
-            }
-        } else {
-            for (const weapon of this.weapons) {
-                const proj = weapon.fire(this.x, this.y, now, assets);
-                if (proj) projectiles.push(proj);
-            }
+        // C++ fires ALL weapons simultaneously (gunship fires both cannons at once)
+        for (const weapon of this.weapons) {
+            const proj = weapon.fire(this.x, this.y, now, assets);
+            if (proj) projectiles.push(proj);
         }
         return projectiles;
     }

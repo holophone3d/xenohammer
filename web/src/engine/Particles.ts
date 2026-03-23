@@ -42,7 +42,7 @@ export class ParticleSystem {
     gravityX: number;
     gravityY: number;
 
-    constructor(maxParticles = 500) {
+    constructor(maxParticles = 1000) {
         this.maxParticles = maxParticles;
         this.gravityX = 0;
         this.gravityY = 0;
@@ -129,7 +129,9 @@ export class ParticleSystem {
         }
     }
 
-    /** Render all active particles with additive blending glow. */
+    /** Render all active particles with additive blending glow.
+     * C++ renders each as a 33×33 textured quad (Particle.bmp)
+     * with glColor4f(r,g,b,life) and additive blending. */
     draw(ctx: CanvasRenderingContext2D): void {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
@@ -143,18 +145,14 @@ export class ParticleSystem {
             const g = Math.round(p.g * 255);
             const b = Math.round(p.b * 255);
 
-            // Core dot (3×3)
-            ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
-            ctx.fillRect((p.x | 0) - 1, (p.y | 0) - 1, 3, 3);
-
-            // Soft glow halo
-            if (alpha > 0.2) {
-                const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 8);
-                grad.addColorStop(0, `rgba(${r},${g},${b},${alpha * 0.4})`);
-                grad.addColorStop(1, 'rgba(0,0,0,0)');
-                ctx.fillStyle = grad;
-                ctx.fillRect(p.x - 8, p.y - 8, 16, 16);
-            }
+            // C++ 33×33 textured quad → radial gradient glow (16px radius)
+            const radius = 16;
+            const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius);
+            grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
+            grad.addColorStop(0.3, `rgba(${r},${g},${b},${alpha * 0.6})`);
+            grad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(p.x - radius, p.y - radius, radius * 2, radius * 2);
         }
 
         ctx.restore();

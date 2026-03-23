@@ -721,11 +721,13 @@ export class GameManager {
         if (this.player) this.player.kills++;
 
         const frames = enemy.config.explosionType === 'large' ? this.bigExpFrames : this.smallExpFrames;
-        this.gameExplosions.push(new Explosion(enemy.x, enemy.y,
+        const cx = enemy.x + enemy.width / 2;
+        const cy = enemy.y + enemy.height / 2;
+        this.gameExplosions.push(new Explosion(cx, cy,
             enemy.config.explosionType === 'large' ? 'big' : 'small', frames));
 
         const count = enemy.config.explosionType === 'large' ? 30 : 15;
-        this.particles.emit(enemy.x + 16, enemy.y + 16, count, {
+        this.particles.emit(cx, cy, count, {
             color: { r: 1, g: 0.6, b: 0.1 }, speed: 100, life: 0.8, fade: 1.5,
         });
 

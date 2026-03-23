@@ -248,23 +248,26 @@ export class Player {
 
     /** Emit engine flame particles. Call from GameManager each frame.
      * C++: make_engine(x+38, y+47, intensity)
-     * Angle: 175+rand(10) degrees, Color: R=1.0, G/B=rand(0-2)/255
-     * We emit 2-3 particles per frame for visibility in Canvas 2D */
+     * Particle.bmp textured 33×33 quad, additive blending
+     * Angle: 175+rand(10)°, Speed: ~0, Color: R=1.0, G/B=rand(0-2)
+     * Fade: 0.003-0.103 per frame → 0.18-6.18 per second */
     emitEngineFlame(particles: import('../engine').ParticleSystem): void {
         if (!this.alive) return;
-        // Emit 2 particles per frame for a visible glow
-        for (let i = 0; i < 2; i++) {
-            const tempVal = Math.random() * 0.15; // slight pink tint
-            const angleDeg = 175 + Math.random() * 10;
-            const angleRad = (angleDeg * Math.PI) / 180;
-            particles.emit(this.x + 38, this.y + 47, 1, {
-                color: { r: 1.0, g: tempVal, b: tempVal },
-                speed: 10 + Math.random() * 25,
-                life: 0.05 + Math.random() * 0.15,
-                fade: 3,
-                direction: angleRad,
-                spread: 0,
-            });
-        }
+        // C++ emits 1 particle per call; nearly stationary with slow fade
+        const tempVal = Math.min(1.0, Math.random() * 2); // G/B = rand(0-2), clamped for canvas
+        const angleDeg = 175 + Math.random() * 10;
+        const angleRad = (angleDeg * Math.PI) / 180;
+        // C++ fade: (rand()%100)/1000 + 0.003 = 0.003-0.103 per frame
+        // At 60fps → 0.18-6.18 per second
+        const cppFade = (Math.random() * 100) / 1000 + 0.003;
+        const fadePerSec = cppFade * 60;
+        particles.emit(this.x + 38, this.y + 47, 1, {
+            color: { r: 1.0, g: tempVal, b: tempVal },
+            speed: 2 + Math.random() * 3,  // nearly stationary (C++ speed ≈ 0)
+            life: 1.0,
+            fade: fadePerSec,
+            direction: angleRad,
+            spread: 0,
+        });
     }
 }
