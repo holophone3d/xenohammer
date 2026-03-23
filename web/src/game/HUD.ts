@@ -67,7 +67,7 @@ export class HUD {
 
         // Rank — centered at (725, 0) per original
         const rank = this.getRank(kills);
-        ctx.font = '11px monospace';
+        ctx.font = '11px XenoFont, monospace';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#0f0';
         ctx.fillText(rank, 725, 12);
@@ -95,7 +95,7 @@ export class HUD {
         this.drawCellBars(ctx, 678, 122, player.powerPlant.getEngineCells());
 
         // Kills — at (660, 130), count right-aligned at (790, 130)
-        ctx.font = '11px monospace';
+        ctx.font = '11px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.fillText('Kills', 660, 140);
         ctx.textAlign = 'right';
@@ -106,20 +106,20 @@ export class HUD {
         const setting = player.powerPlant.currentSetting;
         const settingLabels = ["speed setting 'Q'", "power setting 'W'", "armor setting 'E'"];
         const settingY = [195, 215, 235];
-        ctx.font = '10px monospace';
+        ctx.font = '10px XenoFont, monospace';
         for (let i = 0; i < 3; i++) {
             ctx.fillStyle = setting === i ? '#0f0' : '#484';
             ctx.fillText(settingLabels[i], 660, settingY[i]);
         }
 
         // RU's — at (660, 280)
-        ctx.font = '11px monospace';
+        ctx.font = '11px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.fillText("RU's", 660, 270);
         ctx.fillText(player.powerPlant.resourceUnits.toString(), 700, 270);
 
         // Shield/Armor labels at y=335
-        ctx.font = '10px monospace';
+        ctx.font = '10px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.textAlign = 'center';
         ctx.fillText('Shields', 688, 340);

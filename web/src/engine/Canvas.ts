@@ -71,7 +71,7 @@ export class GameCanvas {
     /** Draw text on the canvas. */
     drawText(
         text: string, x: number, y: number,
-        color = '#ffffff', font = '16px monospace',
+        color = '#ffffff', font = '16px XenoFont, monospace',
         textAlign: CanvasTextAlign = 'left'
     ): void {
         this.ctx.font = font;
@@ -84,7 +84,7 @@ export class GameCanvas {
     /** Draw text centered at (x,y). */
     drawTextCentered(
         text: string, x: number, y: number,
-        color = '#ffffff', font = '16px monospace'
+        color = '#ffffff', font = '16px XenoFont, monospace'
     ): void {
         this.drawText(text, x, y, color, font, 'center');
     }

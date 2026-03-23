@@ -5,7 +5,8 @@
  */
 
 import { AssetLoader } from '../engine';
-import { PLAY_AREA_W, PLAY_AREA_H } from './Collision';
+const SCREEN_W = 800;
+const SCREEN_H = 600;
 
 interface Star {
     x: number;
@@ -57,8 +58,8 @@ export class StarField {
         }
 
         return {
-            x: Math.random() * PLAY_AREA_W,
-            y: randomY ? Math.random() * PLAY_AREA_H : -2,
+            x: Math.random() * SCREEN_W,
+            y: randomY ? Math.random() * SCREEN_H : -2,
             z,
             size: z < 100 ? 2 : 1,
             color: `rgb(${r},${g},${blue})`,
@@ -72,7 +73,7 @@ export class StarField {
             const layerSpeed = this.speed * (STAR_DISTANCE / (star.z + 1));
             star.y += layerSpeed * dt;
 
-            if (star.y > PLAY_AREA_H) {
+            if (star.y > SCREEN_H) {
                 const fresh = this.createStar(false);
                 star.x = fresh.x;
                 star.y = fresh.y;
@@ -102,14 +103,14 @@ export class StarField {
             if (this.earthSprite) {
                 ctx.drawImage(
                     this.earthSprite,
-                    PLAY_AREA_W / 2 - this.earthSprite.width / 2,
+                    SCREEN_W / 2 - this.earthSprite.width / 2,
                     this.earthY | 0,
                 );
             }
             if (this.moonSprite) {
                 ctx.drawImage(
                     this.moonSprite,
-                    PLAY_AREA_W / 2 + 100,
+                    SCREEN_W / 2 + 100,
                     this.moonY | 0,
                 );
             }

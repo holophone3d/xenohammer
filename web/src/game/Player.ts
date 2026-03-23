@@ -192,8 +192,9 @@ export class Player {
             ctx.fillRect(this.x, this.y, 48, 48);
         }
 
-        // Shield bubble — additive-blended radial gradient mimicking GL_SRC_ALPHA,GL_ONE
-        // Original: Shield.bmp texture with glColor4f(0.3,0.6,0.9, shields/300)
+        // Shield bubble — ring/bubble shape (dark center, bright edges)
+        // Shield.bmp is a ring texture, rendered with additive blending
+        // glColor4f(0.3, 0.6, 0.9, shields/300.0) with GL_SRC_ALPHA,GL_ONE
         if (this.shields > 0) {
             const cx = this.x + 38;
             const cy = this.y - 24 + 44.5;
@@ -204,25 +205,19 @@ export class Player {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter'; // additive blending
 
-            // Radial gradient: bright center fading to transparent edge
+            // Ring gradient: transparent center, bright blue edge
+            // This matches the Shield.bmp texture (bubble/ring shape)
             const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
-            grad.addColorStop(0, `rgba(77,153,230,${0.5 * shieldAlpha})`);
-            grad.addColorStop(0.4, `rgba(77,153,230,${0.35 * shieldAlpha})`);
-            grad.addColorStop(0.7, `rgba(60,130,210,${0.2 * shieldAlpha})`);
-            grad.addColorStop(1, `rgba(40,100,180,0)`);
+            grad.addColorStop(0, 'rgba(77,153,230,0)');           // transparent center
+            grad.addColorStop(0.5, `rgba(40,80,150,${0.05 * shieldAlpha})`);  // mostly transparent inner
+            grad.addColorStop(0.75, `rgba(60,130,210,${0.25 * shieldAlpha})`); // brightening
+            grad.addColorStop(0.88, `rgba(77,153,230,${0.5 * shieldAlpha})`);  // bright edge
+            grad.addColorStop(0.95, `rgba(100,180,255,${0.6 * shieldAlpha})`); // brightest at rim
+            grad.addColorStop(1, `rgba(77,153,230,${0.15 * shieldAlpha})`);    // slight falloff at very edge
 
             ctx.fillStyle = grad;
             ctx.beginPath();
             ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Second pass — brighter inner core for glow punch
-            const grad2 = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx * 0.5);
-            grad2.addColorStop(0, `rgba(150,200,255,${0.3 * shieldAlpha})`);
-            grad2.addColorStop(1, 'rgba(77,153,230,0)');
-            ctx.fillStyle = grad2;
-            ctx.beginPath();
-            ctx.ellipse(cx, cy, rx * 0.6, ry * 0.6, 0, 0, Math.PI * 2);
             ctx.fill();
 
             ctx.restore();

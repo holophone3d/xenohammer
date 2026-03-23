@@ -271,7 +271,7 @@ export class GameManager {
     private renderLoading(): void {
         const ctx = this.canvas.ctx;
         ctx.fillStyle = '#0f0';
-        ctx.font = '24px monospace';
+        ctx.font = '24px XenoFont, monospace';
         ctx.textAlign = 'center';
         ctx.fillText('XENOHAMMER Loading...', 400, 300);
         const progress = this.assets.getProgress();
@@ -307,12 +307,12 @@ export class GameManager {
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, 800, 600);
             ctx.fillStyle = '#0f0';
-            ctx.font = '32px monospace';
+            ctx.font = '32px XenoFont, monospace';
             ctx.textAlign = 'center';
             ctx.fillText('XENOHAMMER', 400, 280);
         }
         ctx.fillStyle = '#0f0';
-        ctx.font = '20px monospace';
+        ctx.font = '20px XenoFont, monospace';
         ctx.textAlign = 'center';
         ctx.fillText('Start Game', 400, 580);
         ctx.textAlign = 'left';
@@ -371,7 +371,7 @@ export class GameManager {
         const inRight = mx >= 601 && mx <= 800 && my >= 0 && my <= 540;
 
         // Zone hover labels (appear on hover)
-        ctx.font = '14px monospace';
+        ctx.font = '14px XenoFont, monospace';
         ctx.textAlign = 'center';
         if (inLeft) {
             ctx.fillStyle = '#0f0';
@@ -388,7 +388,7 @@ export class GameManager {
 
         // Notification labels
         if (this.levelBriefed <= this.level) {
-            ctx.font = '12px monospace';
+            ctx.font = '12px XenoFont, monospace';
             ctx.fillStyle = '#0f0';
             ctx.fillText('New Level Briefing Available!', 300, 206 - (inCenter ? 16 : 0));
         }
@@ -398,7 +398,7 @@ export class GameManager {
         ctx.fillRect(0, 550, 800, 50);
 
         // Dynamic tooltip text
-        ctx.font = '14px monospace';
+        ctx.font = '14px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.textAlign = 'center';
 
@@ -809,7 +809,7 @@ export class GameManager {
                 // Fallback: text-based level title
                 ctx.save();
                 ctx.textAlign = 'center';
-                ctx.font = '28px monospace';
+                ctx.font = '28px XenoFont, monospace';
                 ctx.fillStyle = '#0f0';
                 const alpha = Math.min(1, (this.stateTimer - 0.6) / 0.5);
                 ctx.globalAlpha = alpha;
@@ -826,7 +826,7 @@ export class GameManager {
         if (levelDuration - levelTimer <= 5 && levelDuration - levelTimer > 0) {
             ctx.save();
             ctx.textAlign = 'center';
-            ctx.font = '24px monospace';
+            ctx.font = '24px XenoFont, monospace';
             ctx.fillStyle = '#ff0';
             ctx.fillText(`END OF LEVEL ${this.level + 1}`, PLAY_AREA_W / 2, 300);
             ctx.textAlign = 'left';
@@ -850,10 +850,10 @@ export class GameManager {
         const ctx = this.canvas.ctx;
         ctx.textAlign = 'center';
         ctx.fillStyle = '#0f0';
-        ctx.font = '28px monospace';
+        ctx.font = '28px XenoFont, monospace';
         ctx.fillText(`END OF LEVEL ${this.level + 1}`, 400, 280);
         ctx.fillStyle = '#fff';
-        ctx.font = '16px monospace';
+        ctx.font = '16px XenoFont, monospace';
         ctx.fillText(`Score: ${this.score}`, 400, 330);
         ctx.textAlign = 'left';
     }
@@ -879,10 +879,10 @@ export class GameManager {
             ctx.fillRect(0, 0, 800, 600);
             ctx.textAlign = 'center';
             ctx.fillStyle = '#f00';
-            ctx.font = '32px monospace';
+            ctx.font = '32px XenoFont, monospace';
             ctx.fillText('GAME OVER', 400, 280);
             ctx.fillStyle = '#fff';
-            ctx.font = '16px monospace';
+            ctx.font = '16px XenoFont, monospace';
             ctx.fillText(`Final Score: ${this.score}`, 400, 330);
             ctx.textAlign = 'left';
         }
@@ -911,11 +911,11 @@ export class GameManager {
 
         ctx.textAlign = 'center';
         ctx.fillStyle = '#ffd700';
-        ctx.font = '32px monospace';
+        ctx.font = '32px XenoFont, monospace';
         ctx.fillText('VICTORY!', 400, 120);
 
         ctx.fillStyle = '#fff';
-        ctx.font = '16px monospace';
+        ctx.font = '16px XenoFont, monospace';
         ctx.fillText(`Final Score: ${this.score}`, 400, 280);
         if (this.player) {
             ctx.fillText(`Kills: ${this.player.kills}`, 400, 310);
@@ -924,7 +924,7 @@ export class GameManager {
         }
 
         ctx.fillStyle = '#aaa';
-        ctx.font = '14px monospace';
+        ctx.font = '14px XenoFont, monospace';
         ctx.fillText('Press ENTER or SPACE to continue', 400, 420);
         ctx.textAlign = 'left';
     }
@@ -944,7 +944,7 @@ export class GameManager {
         ctx.fillStyle = inButton ? 'rgb(70,85,70)' : 'rgb(51,64,51)';
         ctx.fillRect(200, yCenter - 33, 400, 33);
         ctx.fillStyle = '#0f0';
-        ctx.font = '14px monospace';
+        ctx.font = '14px XenoFont, monospace';
         ctx.textAlign = 'center';
         ctx.fillText(text, 400, yCenter - 10);
         ctx.textAlign = 'left';
@@ -965,7 +965,7 @@ export class GameManager {
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 550, 800, 50);
         ctx.fillStyle = '#0f0';
-        ctx.font = '14px monospace';
+        ctx.font = '14px XenoFont, monospace';
         ctx.textAlign = 'center';
         ctx.fillText(text, 400, 580);
         ctx.textAlign = 'left';
@@ -1188,7 +1188,7 @@ export class GameManager {
         } else {
             // Fallback text
             ctx.fillStyle = '#0f0';
-            ctx.font = '16px monospace';
+            ctx.font = '16px XenoFont, monospace';
             ctx.textAlign = 'center';
             ctx.fillText('Backstory image not available', 400, 300 + this.briefingScrollY);
             ctx.textAlign = 'left';
@@ -1231,7 +1231,7 @@ export class GameManager {
             ctx.drawImage(img, 0, this.briefingScrollY);
         } else {
             ctx.fillStyle = '#0f0';
-            ctx.font = '16px monospace';
+            ctx.font = '16px XenoFont, monospace';
             ctx.textAlign = 'center';
             ctx.fillText(`Level ${this.level + 1} Briefing`, 400, 300 + this.briefingScrollY);
             ctx.textAlign = 'left';
@@ -1264,10 +1264,10 @@ export class GameManager {
             ctx.fillStyle = '#0a1a0a';
             ctx.fillRect(0, 0, 800, 600);
             ctx.fillStyle = '#0f0';
-            ctx.font = '20px monospace';
+            ctx.font = '20px XenoFont, monospace';
             ctx.textAlign = 'center';
             ctx.fillText('Ship Specifications', 400, 280);
-            ctx.font = '14px monospace';
+            ctx.font = '14px XenoFont, monospace';
             ctx.fillText('Press ESC to return', 400, 320);
             ctx.textAlign = 'left';
         }
@@ -1278,7 +1278,7 @@ export class GameManager {
         ctx.fillStyle = inDone ? 'rgb(70,85,70)' : 'rgb(51,64,51)';
         ctx.fillRect(680, 540, 120, 60);
         ctx.fillStyle = '#0f0';
-        ctx.font = '14px monospace';
+        ctx.font = '14px XenoFont, monospace';
         ctx.textAlign = 'center';
         ctx.fillText('Done', 740, 575);
         ctx.textAlign = 'left';
@@ -1508,7 +1508,7 @@ export class GameManager {
         }
 
         // Draw system zone outlines with labels
-        ctx.font = '10px monospace';
+        ctx.font = '10px XenoFont, monospace';
         for (let i = 0; i < this.custSystemZones.length; i++) {
             const z = this.custSystemZones[i];
             const isHover = i === this.custHoverSystem;
@@ -1545,14 +1545,14 @@ export class GameManager {
 
             // System name header
             ctx.fillStyle = '#0f0';
-            ctx.font = '16px monospace';
+            ctx.font = '16px XenoFont, monospace';
             ctx.fillText('System Selected:', 20, 290);
             ctx.fillStyle = '#5f5';
             ctx.fillText(zone.name, 190, 290);
 
             // Column descriptions
             ctx.fillStyle = '#0a0';
-            ctx.font = '12px monospace';
+            ctx.font = '12px XenoFont, monospace';
             if (sel <= 4) {
                 ctx.fillText('Left column: Shot Rate', 20, 320);
                 ctx.fillText('Right column: Shot Power', 20, 340);
@@ -1570,7 +1570,7 @@ export class GameManager {
 
             // Column headers
             ctx.fillStyle = '#0a0';
-            ctx.font = '10px monospace';
+            ctx.font = '10px XenoFont, monospace';
             ctx.textAlign = 'center';
             ctx.fillText('Rate', cellX1 + 7, cellBaseY + 18);
             ctx.fillText('Power', cellX2 + 7, cellBaseY + 18);
@@ -1593,7 +1593,7 @@ export class GameManager {
             // Transfer arrows between columns
             const arrowX = (cellX1 + cellX2) / 2 + 7;
             ctx.fillStyle = '#0f0';
-            ctx.font = '16px monospace';
+            ctx.font = '16px XenoFont, monospace';
             ctx.textAlign = 'center';
             ctx.fillText('\u25C0', arrowX, 475);  // ◀ transfer right→left
             ctx.fillText('\u25B6', arrowX, 505);  // ▶ transfer left→right
@@ -1603,13 +1603,13 @@ export class GameManager {
             const total = Math.min(c1 + c2, 5);
             const mux = this.player.powerPlant.getWeaponMultiplier(c1, c2);
             ctx.fillStyle = '#0a0';
-            ctx.font = '11px monospace';
+            ctx.font = '11px XenoFont, monospace';
             ctx.fillText(`Total: ${total}/5 cells`, 530, 380);
             ctx.fillText(`Multiplier: ${mux.toFixed(1)}x`, 530, 400);
         } else {
             // No system selected — show instructions
             ctx.fillStyle = '#0a0';
-            ctx.font = '14px monospace';
+            ctx.font = '14px XenoFont, monospace';
             ctx.fillText('Select a system on the ship', 20, 290);
             ctx.fillText('to view and modify power', 20, 310);
             ctx.fillText('distribution.', 20, 330);
@@ -1617,7 +1617,7 @@ export class GameManager {
 
         // Resource Units
         ctx.fillStyle = '#0f0';
-        ctx.font = '14px monospace';
+        ctx.font = '14px XenoFont, monospace';
         if (this.player) {
             ctx.fillText(`Resource Units: ${this.player.powerPlant.resourceUnits}`, 20, 400);
         }
@@ -1629,7 +1629,7 @@ export class GameManager {
             ctx.fillStyle = inBuy ? 'rgb(70,85,70)' : 'rgb(51,64,51)';
             ctx.fillRect(20, 420, 230, 30);
             ctx.fillStyle = '#0f0';
-            ctx.font = '12px monospace';
+            ctx.font = '12px XenoFont, monospace';
             ctx.textAlign = 'center';
             ctx.fillText('Buy Power Pod (1 RU)', 135, 440);
             ctx.textAlign = 'left';
@@ -1638,13 +1638,13 @@ export class GameManager {
         // Status message
         if (this.custStatusMsg) {
             ctx.fillStyle = '#ff0';
-            ctx.font = '14px monospace';
+            ctx.font = '14px XenoFont, monospace';
             ctx.fillText(this.custStatusMsg, 20, 530);
         }
 
         // Settings display (right panel, upper)
         if (this.player) {
-            ctx.font = '13px monospace';
+            ctx.font = '13px XenoFont, monospace';
             ctx.fillStyle = '#0f0';
             ctx.fillText('User Settings', 530, 80);
 
@@ -1662,7 +1662,7 @@ export class GameManager {
         ctx.fillStyle = inDone ? 'rgb(70,85,70)' : 'rgb(51,64,51)';
         ctx.fillRect(517, 553, 283, 47);
         ctx.fillStyle = '#0f0';
-        ctx.font = '16px monospace';
+        ctx.font = '16px XenoFont, monospace';
         ctx.textAlign = 'center';
         ctx.fillText('Done', 658, 582);
         ctx.textAlign = 'left';

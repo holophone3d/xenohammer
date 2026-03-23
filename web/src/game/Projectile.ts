@@ -95,7 +95,9 @@ export class Projectile {
             // Additive glow behind sprite — color by weapon type
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
-            const glowSize = this.width * 1.5;
+            // Enemy projectiles: fixed glow size; player projectiles: scale with sprite
+            const baseSize = (this.owner === 'enemy') ? 27 : this.width;
+            const glowSize = baseSize * 1.5;
             let glowColor: string;
             switch (this.weaponType) {
                 case 'blaster':    glowColor = 'rgba(0,255,51,0.25)'; break;   // green

@@ -70,7 +70,7 @@ export function renderStartScreen(
 ): void {
     drawBackground(ctx, assets, 'XenoStart');
     drawCentered(ctx, 'Start Game', 580, '26px sans-serif', '#0f0');
-    drawBlinking(ctx, 'Click or press SPACE', 550, '14px monospace', '#aaa', time);
+    drawBlinking(ctx, 'Click or press SPACE', 550, '14px XenoFont, monospace', '#aaa', time);
 }
 
 /** Draw the ready room with 3 interactive zones */
@@ -107,7 +107,7 @@ export function renderReadyRoom(
 
     // Contextual message at bottom
     ctx.save();
-    ctx.font = '14px monospace';
+    ctx.font = '14px XenoFont, monospace';
     ctx.fillStyle = '#aaa';
     ctx.textAlign = 'center';
     let msg = 'Click on a screen or the launch door';
@@ -135,10 +135,10 @@ export function renderLoadingScreen(
 ): void {
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
-    drawCentered(ctx, 'XENOHAMMER', 260, '32px monospace', '#0f0');
-    drawCentered(ctx, 'Loading...', 300, '16px monospace', '#aaa');
+    drawCentered(ctx, 'XENOHAMMER', 260, '32px XenoFont, monospace', '#0f0');
+    drawCentered(ctx, 'Loading...', 300, '16px XenoFont, monospace', '#aaa');
     drawProgressBar(ctx, 250, 330, 300, 20, progress);
-    drawCentered(ctx, `${Math.floor(progress * 100)}%`, 370, '14px monospace', '#666');
+    drawCentered(ctx, `${Math.floor(progress * 100)}%`, 370, '14px XenoFont, monospace', '#666');
 }
 
 /** Draw game over screen */
@@ -149,11 +149,11 @@ export function renderGameOverScreen(
     time: number
 ): void {
     if (!drawBackground(ctx, assets, 'game_over')) {
-        drawCentered(ctx, 'GAME OVER', 250, '32px monospace', '#f00');
+        drawCentered(ctx, 'GAME OVER', 250, '32px XenoFont, monospace', '#f00');
     }
-    drawCentered(ctx, `Score: ${score}`, 400, '20px monospace', '#fff');
+    drawCentered(ctx, `Score: ${score}`, 400, '20px XenoFont, monospace', '#fff');
     if (time > 3) {
-        drawBlinking(ctx, 'Press SPACE to continue', 450, '14px monospace', '#aaa', time);
+        drawBlinking(ctx, 'Press SPACE to continue', 450, '14px XenoFont, monospace', '#aaa', time);
     }
 }
 
@@ -167,12 +167,12 @@ export function renderVictoryScreen(
     time: number
 ): void {
     drawBackground(ctx, assets, 'aftermath');
-    drawCentered(ctx, 'MISSION COMPLETE', 120, '28px monospace', '#ff0');
-    drawCentered(ctx, `Score: ${score}`, 200, '20px monospace', '#fff');
-    drawCentered(ctx, `Kills: ${kills}`, 230, '16px monospace', '#aaa');
-    drawCentered(ctx, `Rank: ${rank}`, 260, '18px monospace', '#0f0');
+    drawCentered(ctx, 'MISSION COMPLETE', 120, '28px XenoFont, monospace', '#ff0');
+    drawCentered(ctx, `Score: ${score}`, 200, '20px XenoFont, monospace', '#fff');
+    drawCentered(ctx, `Kills: ${kills}`, 230, '16px XenoFont, monospace', '#aaa');
+    drawCentered(ctx, `Rank: ${rank}`, 260, '18px XenoFont, monospace', '#0f0');
     if (time > 3) {
-        drawBlinking(ctx, 'Press SPACE to continue', 400, '14px monospace', '#aaa', time);
+        drawBlinking(ctx, 'Press SPACE to continue', 400, '14px XenoFont, monospace', '#aaa', time);
     }
 }
 
@@ -186,7 +186,7 @@ export function renderLevelStartOverlay(
     const alpha = elapsed < 1.5 ? (elapsed - 0.6) / 0.9 : elapsed > 3.0 ? (4.0 - elapsed) / 1.0 : 1.0;
     ctx.save();
     ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-    ctx.font = '48px monospace';
+    ctx.font = '48px XenoFont, monospace';
     ctx.fillStyle = '#fff';
     ctx.textAlign = 'center';
     ctx.fillText(`LEVEL ${level + 1}`, 325, 300);
@@ -204,7 +204,7 @@ export function renderLevelEndOverlay(
     const alpha = Math.min(1, (5 - timeRemaining) / 2);
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.font = '36px monospace';
+    ctx.font = '36px XenoFont, monospace';
     ctx.fillStyle = '#0f0';
     ctx.textAlign = 'center';
     ctx.fillText(`END OF LEVEL ${level + 1}`, 325, 300);
