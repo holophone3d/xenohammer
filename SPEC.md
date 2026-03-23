@@ -74,35 +74,81 @@ this.y += this.vy * moveScale;
 - **Only shown once** on first launch — subsequent returns go to Ready Room
 
 ### 3.3 Ready Room
-- Background image (`room`) with overlay screen (`room_screen`)
-- Three clickable zones:
+- Background image: `room_GUI` sprite at (0, 0) — 3D-rendered sci-fi room with two CRT monitors and a glowing door
+- **No green CRT overlay** on default room view (overlay only in Options_GUI)
+- Bottom tooltip bar: black rectangle (0, 550) to (800, 600)
 
-| Zone | Coordinates | Action |
-|------|-------------|--------|
-| Left (Ship Customization) | x: 10–218, y: 260–380 | Opens Cust_GUI |
-| Center (Briefing & Options) | x: 200–400, y: 185–218 | Opens Options_GUI |
-| Right (Launch Door) | x: 601–800, y: 0–540 | Starts current level |
+**Three clickable/hover zones** with dynamic tooltip text:
 
-- Contextual messages displayed based on game state:
-  - Level 0, no briefing read: "Read the briefing before your first mission"
-  - Level 0, briefing read: "You are cleared for launch, pilot"
-  - Level 1+: "Next mission: Level {N+1}"
-  - After death: "Better luck this time, pilot"
+| Zone | Coordinates | Hover Label | Bottom Tooltip Text |
+|------|-------------|-------------|---------------------|
+| Left (Ship Customization) | x: 10–218, y: 260–380 | "Ship Customization" at (114, 340) | "Click here to customize your ship." |
+| Center (Briefing & Options) | x: 200–400, y: 185–218 | "Briefing Area and Options" at (300, 206) | "Click here to See Briefings, Save, Load, or Quit" |
+| Right (Launch Door) | x: 601–800, y: 0–540 | "Launch" at (600, 270) | See launch tooltips below |
+
+**Default tooltip** (no hover): "Click on a screen or the door opening" at (400, 580)
+
+**Launch zone tooltips** (varies by level and briefing state):
+| Level | Briefed? | Tooltip Text |
+|-------|----------|-------------|
+| Level 1 (levelNum=0) | No | "Recon has new info see the level briefing." |
+| Level 1 (levelNum=0) | Yes | "Launch into the Outer Earth Sector" |
+| Level 2 (levelNum=1) | No | "Recon has new info see the level briefing." |
+| Level 2 (levelNum=1) | Yes | "Penetrate the Outer Defense Matrix" |
+| Level 3 (levelNum=2) | No | "Recon has new info see the level briefing." |
+| Level 3 (levelNum=2) | Yes | "Destroy the Nexus Core" |
+| Completed | — | "You Have Completed the Mission!" |
+
+**After player death:** tooltip shows "You have died, your game has been restarted"
+
+**Notification labels:**
+- **"New Level Briefing Available!"** at (300, 206) using `font` — shown when `new_level_briefing == true`
+- **"NEW!"** at (114, 340) using `large_font` — shown when `new_cust == true`
+- These reset when entering respective screens
 
 ### 3.4 Ship Customization (Cust_GUI)
-- Ship diagram on left half (0–512), config panel on right (512–800)
-- Background: `cust_start` with `custimization_ship` overlay
+- **Background sprite:** `cust_GUI` at (0, 0)
+- **Additional sprites:** `b_pressed`, `b_unpressed`, `gui_button`, `buy_button`, `cust_start`, `left_turret_pannel`, `right_turret_pannel`, `turret_selector`
+- **Black fill regions:**
+  - Top bar: (0, 0) to (800, 40) — black
+  - Left panel bottom: (0, 301) to (512, 600) — black
+  - Right panel: (512, 45) to (800, 553) — black
+  - Button separator: (512, 553) to (517, 600) — black
+
+**Top stats bar (y=35):**
+- "RU's:" at (5, 35) + count at (55, 35)
+- Rank centered at (400, 35) — e.g., "Test Pilot"
+- "Kills:" at (600, 35) + count at (675, 35)
+
+**Ship diagram area (left half: 0–512, y: 45–301):**
 
 **6 Clickable Weapon/System Zones** (on ship diagram):
 
-| Zone | System | Config Panel Position |
-|------|--------|----------------------|
-| Nose area | Blaster | Rate x:230, Power x:265, y:102 |
-| Left wing upper | Left Turret | Rate x:111, Power x:145, y:162 |
-| Right wing upper | Right Turret | Rate x:352, Power x:387, y:162 |
-| Left wing lower | Left Missile | Rate x:188, Power x:223, y:171 |
-| Right wing lower | Right Missile | Rate x:276, Power x:311, y:171 |
-| Center body | Ship Power (Shields/Engine) | Shield x:230, Engine x:265, y:258 |
+| Zone | Coordinates | System | Config Panel Position |
+|------|-------------|--------|----------------------|
+| Nose area | x: 215–290, y: 45–110 | Blaster | Rate x:230, Power x:265, y:102 |
+| Left wing upper | x: 100–170, y: 105–170 | Left Turret | Rate x:111, Power x:145, y:162 |
+| Right wing upper | x: 340–410, y: 105–170 | Right Turret | Rate x:352, Power x:387, y:162 |
+| Left wing lower | x: 180–245, y: 115–180 | Left Missile | Rate x:188, Power x:223, y:171 |
+| Right wing lower | x: 265–335, y: 115–180 | Right Missile | Rate x:276, Power x:311, y:171 |
+| Center body | x: 220–290, y: 195–265 | Ship Power (Shields/Engine) | Shield x:230, Engine x:265, y:258 |
+
+**"Select All Systems"** displayed at (490, 260)  
+**"System Selected:"** at (10, 285) + current system name at (160, 285)
+
+**Right panel — User Settings (x: 520+):**
+| Setting | Y | Hotkey | Hit Zone |
+|---------|---|--------|----------|
+| speed setting | 110 | Q | x: 520–800, y: 80–110 |
+| power setting | 140 | W | x: 520–800, y: 111–140 |
+| armor setting | 170 | E | x: 520–800, y: 141–170 |
+
+Active setting uses green font (`font`), inactive uses dimmed font (`inactive_font`).
+
+**Weapon panel functions** (called per-system click):
+- `nose_blaster_clicked()`, `l_turret_clicked()`, `r_turret_clicked()`
+- `l_missle_clicked()`, `r_missle_clicked()`, `engine_clicked()`
+- Each shows: weapon name, research info + cost, power pods display, buy button at (300, 460)
 
 **Power Cell Distribution:**
 - Each system has 2 cells (Rate and Power)
@@ -119,23 +165,68 @@ this.y += this.vy * moveScale;
 - Right turret angles: 90°, 45°, 0°, 315°, 270°
 - Default: Left = 135°, Right = 45°
 
-**Done Button:** Resets shields and armor to 300 (full repair)
+**Done/Exit Button:** (517, 553) to (800, 600) — resets shields and armor to 300 (full repair)
 
 ### 3.5 Options Screen (Options_GUI)
-5 menu items:
-1. **Briefing** → Briefing submenu
-2. **Save** → Save game state
-3. **Load** → Load game state
-4. **Difficulty** → Cycle through Easy/Normal/Hard/Nightmare
-5. **Quit** → Exit game
+- **Background:** `room_screen` sprite at (0, 0) — **green CRT scanline overlay** composited over room
+- 6 menu buttons: dark greenish-gray bars (RGB 0.2, 0.25, 0.2), width 400px (x: 200–600), height 33px each
+
+| # | Button Text | Y Center | Hit Zone Y | Tooltip | Action |
+|---|------------|----------|------------|---------|--------|
+| 1 | "Briefing Area" | 100 | 77–110 | "XenoHammer Back Story or Level Briefing" | → Briefing_Options_GUI |
+| 2 | "Save Your Game" | 175 | 152–185 | "Click Here To Save" / "Save Done" | Save game state |
+| 3 | "Load Your Game" | 250 | 227–260 | "Load Your Saved Game" / "Load Done" | Load game state |
+| 4 | "Set Difficulty" | 325 | 302–335 | (see difficulty screen) | → set_difficulty() |
+| 5 | "Quit to the Ready Room" | 400 | 377–410 | "Go Back to the Ready Room" | Return to Room |
+| 6 | "Quit to System" | 475 | 452–485 | "Exit The Game" | Exit application |
 
 Sound effects: `MenuChange` on hover, `MenuSelect` on click.
 
-### 3.6 Briefing Submenu
-Three sub-options:
-1. **Backstory** — Scrolling background image (`backstory`)
-2. **Level Briefing** — Scrolling per-level briefing image (`briefing_lvl_1`, `briefing_lvl_2`, `briefing_lvl_3`)
-3. **Ship Specs** — Static ship specification image (`ship_specs`)
+### 3.6 Briefing Submenu (Briefing_Options_GUI)
+Same green CRT overlay background as Options_GUI. 5 menu buttons (same style):
+
+| # | Button Text | Y Center | Hit Zone Y | Action |
+|---|------------|----------|------------|--------|
+| 1 | "Back Story" | 133 | 110–143 | → Backstory_GUI |
+| 2 | "Level Briefing" | 208 | 185–218 | → Level_Briefing_GUI |
+| 3 | "XenoHammer Ship Specifications" | 283 | 260–293 | → ship_specs() |
+| 4 | "Quit to the Options Screen" | 358 | 325–358 | Return to Options_GUI |
+| 5 | "Quit to the Ready Room" | 433 | 400–433 | Return to Room_GUI |
+
+**Backstory (Backstory_GUI):**
+- **Starfield background** (same `m_stars` system, with `near_earth=false` — stars only, no Earth/Moon)
+- Sprite: `backstory` — scrolls upward from y=475
+- Scroll rate: 1 pixel per 60ms (≈16.7 px/s)
+- Ends when y ≤ −550 (total scroll: 1025 pixels, ~61.5 seconds)
+- Click to exit: `exit_button->is_pressed()`
+
+**Level Briefing (Level_Briefing_GUI):**
+- **Starfield background** (same, `near_earth=false`)
+- Per-level sprites: `briefing_lvl_1`, `briefing_lvl_2`, `briefing_lvl_3`
+- Scroll rate: 1 pixel per 40ms (25 px/s), starts at y=600
+- Level 1 ends at y=−620 (1220 pixels, ~48.8s)
+- Level 2 ends at y=−420 (1020 pixels, ~40.8s)
+- Level 3 ends at y=−400 (1000 pixels, ~40s)
+- Click to skip (only when y < 0)
+- Sets `level_briefed` flag per level
+
+**Ship Specs (ship_specs):**
+- Static full-screen sprite: `ship_specs` at (0, 0)
+- "Done" button zone: x: 680–800, y: 540–600
+- All content is baked into the bitmap — no procedural text rendering
+
+### 3.6b Difficulty Screen (set_difficulty)
+Same green CRT overlay. 5 buttons:
+
+| # | Button Text | Y Center | Sets Difficulty |
+|---|------------|----------|----------------|
+| 1 | "Easy" | 143 | 0 |
+| 2 | "Medium" | 208 | 1 |
+| 3 | "Hard" | 283 | 2 |
+| 4 | "Extremely Hard" | 358 | 3 |
+| 5 | "Done" | 433 | (return to Options) |
+
+Bottom text (y=580) shows currently selected difficulty.
 
 ### 3.7 Level Start
 1. 2-second wait period
@@ -144,9 +235,14 @@ Three sub-options:
 4. Engine sound (`ShipEngine`) starts looping
 
 ### 3.8 Level Start Animation
-- "LEVEL X" text animation sequence
-- Appears at ~600ms into level, fades/animates through ~4000ms
-- Uses `in_game_start2` / `in_game_start3` level-specific animation frames
+- **Sprite frame animation** (NOT typewriter text — pre-rendered bitmap frames)
+- `GameAnimation` objects at position (253, 200)
+- **Frame update interval:** 100ms per frame
+- **Timing:** Starts at 600ms into level, plays until 4000ms
+- **Level 1 frames:** `level_anim_1` through `level_anim_8` (8 frames, ~800ms)
+- **Level 2 frames:** `level_anim_1` through `level_anim_7` + `level_anim_2_start`
+- **Level 3 frames:** `level_anim_1` through `level_anim_7` + `level_anim_3_start`
+- The "LEVEL 1" text and blinking cursor effect are baked into the sprite frames
 
 ### 3.9 Gameplay
 - Main combat loop — see Sections 4–11 for all mechanics
@@ -195,6 +291,27 @@ Three sub-options:
   - Moving RIGHT (`hori_axis > 0.2`): `curr_frame--` (toward frame 0)
   - Moving LEFT (`hori_axis < -0.2`): `curr_frame++` (toward frame 16)
   - No horizontal input: frame drifts back toward 8 (center)
+
+### Shield Bubble Effect (Visual)
+- Rendered as an **OpenGL textured quad** using `Shield.bmp` texture (`texture[1]` in GL_Handler)
+- **Color:** Blue `(R=0.3, G=0.6, B=0.9)` with alpha = `shields / 300.0` (fades as shields deplete)
+- **Size:** 129×89 pixel quad (offsets: ±64.5 horizontal, ±44.5 vertical from center)
+- **Position:** Player ship center + offset (x+38, y−24)
+- Uses `GL_TRIANGLE_STRIP` with blending enabled
+- Always visible when shields > 0; fully transparent when shields = 0
+- **Boss shield** uses same texture but purple-blue `(R=0.4, G=0.15, B=1.0)`, alpha = `orbCount / 4.0`
+
+### Engine Flame Effect (Visual)
+- **Particle system effect**, NOT a sprite — created by `GameManager::make_engine()`
+- Called from `PlayerShip::update()` at position `(ship_x + 38, ship_y + 47)` (engine nozzle)
+- **Particle properties:**
+  - Color: Red/pink `(R=1.0, G=random 0–2, B=random 0–2)` — creates flickering red/orange/pink
+  - Angle: ~175° (pointing downward/backward from ship)
+  - Speed: `StarField::rnd() / 20.0` (small random)
+  - Lifetime: 0.003–0.103 seconds (very short-lived particles)
+  - Count: 1 particle per call
+  - No gravity
+- **Capital ship** has a similar dual-engine effect via `make_CapShipEngine()`
 
 ### Movement
 - **Base speed:** 7 px/frame
@@ -721,8 +838,15 @@ Projectiles destroyed when 64px beyond any play area edge (650×600).
 - Rendered as 2×2 pixels with alpha = life
 
 ### Engine Particles
-- 1 particle per frame emitted from ship rear
-- Color intensity based on engine power level
+Created by `GameManager::make_engine(int x, int y, float intensity)`:
+- **Count:** 1 particle per call (called from `PlayerShip::update()`)
+- **Position:** Player ship at `(x+38, y+47)` — engine nozzle location
+- **Color:** `R=1.0, G=random(0–2), B=random(0–2)` — red/pink/orange flicker
+- **Angle:** ~175° (downward/backward)
+- **Speed:** `StarField::rnd() / 20.0` (small random velocity)
+- **Lifetime:** `(rand()%100) / 1000.0 + 0.003` → 0.003–0.103 seconds
+- **No gravity**, uses intensity parameter from engine power level
+- Capital ships use `make_CapShipEngine()` with dual particle streams
 
 ### Original C++ Particle System
 The original uses a more complex gravity-well system:
@@ -772,32 +896,82 @@ Closer stars (lower z) move faster.
 
 ### Layout
 Right panel: x = 650–800, y = 0–600  
-Background: `console` sprite
+Background: `console` sprite at (SCREEN_WIDTH − CONSOLE_WIDTH, 0) = (650, 0)  
+Console width: 150 pixels
 
-### Console Element Positions
+### Font System
+5 font variants loaded from resources:
+- `fnt_clansoft` — main menu font
+- `fnt_large` — large titles (notifications like "NEW!")
+- `fnt_inactive` — dimmed/greyed-out text
+- `fnt_ingame` — active in-game HUD text (green)
+- `fnt_ingame_1` — inactive in-game HUD text (dimmed)
 
-| Element | X | Y | Notes |
-|---------|--:|--:|-------|
-| Score label | 660 | 20 | — |
-| Score value | 660 | 34 | — |
-| Level | 660 | 56 | — |
-| Timer | 740 | 56 | Format M:SS, red if < 10s |
-| Rank | 660 | 78 | Based on kill count |
-| Blaster Rate/Power | 719 / 729 | 52 | Bar indicator |
-| Left Turret Rate/Power | 768 / 778 | 80 | Bar indicator |
-| Right Turret Rate/Power | 868 / 878 | 80 | Bar indicator |
-| Left Missile Rate/Power | 798 / 808 | 83 | Bar indicator |
-| Right Missile Rate/Power | 838 / 848 | 83 | Bar indicator |
-| Ship Shield/Engine | 718 / 728 | 122 | Bar indicator |
-| Shield Bar | 667 | 565 | Width 45, height 1 (per row) |
-| Armor Bar | 740 | 565 | Width 45, height 1 (per row) |
+### In-Game HUD Element Positions
 
-### Bar Indicators
-- Console bars: width 4, height 4 pixels per cell
-- Customization screen bars: width 14, height 10 pixels per cell
+| Element | Position | Font | Notes |
+|---------|----------|------|-------|
+| Rank | centered at (725, 0) | `ingame_font` | e.g., "TEST PILOT" |
+| Kills label | (660, 130) | `ingame_font` | "Kills" |
+| Kills count | right-aligned (790, 130) | `ingame_font` | Integer |
+| Speed setting 'Q' | (660, 190) | green/dimmed | Green when active |
+| Power setting 'W' | (660, 220) | green/dimmed | Green when active |
+| Armor setting 'E' | (660, 250) | green/dimmed | Green when active |
+| RU's label | (660, 280) | `ingame_font` | "RU's" |
+| RU's count | (700, 280) | `ingame_font` | Integer |
+| "Shields" header | centered (688, 335) | `ingame_font` | Column label |
+| "Armor" header | centered (760, 335) | `ingame_font` | Column label |
+
+### Power Setting Display
+- Active setting uses **green font** (`ingame_font`)
+- Inactive settings use **dimmed font** (`ingame_font_1`)
+- Settings cycle with Q/W/E hotkeys
+- Text format: `"speed setting 'Q'"`, `"power setting 'W'"`, `"armor setting 'E'"`
+
+### Weapon Power Cell Bars (in HUD)
+
+| System | Rate X | Power X | Y |
+|--------|-------:|--------:|--:|
+| Nose Blaster | 719 | 729 | 52 |
+| Left Turret | 668 | 678 | 80 |
+| Right Turret | 768 | 778 | 80 |
+| Left Missile | 698 | 708 | 83 |
+| Right Missile | 738 | 748 | 83 |
+| Ship Shield/Engine | 668 / 678 | — | 122 |
+
+- Bar dimensions: width 4, height 4 pixels per cell
+- All bars rendered in pure green `(0.0, 1.0, 0.0)`
+- Bars draw upward from Y position
+
+### Shield & Armor Bars (Main Health Display)
+
+| Bar | X | Y | Width | Notes |
+|-----|--:|--:|------:|-------|
+| Shields | 667 | 565 | 45 | Draws upward |
+| Armor | 740 | 565 | 45 | Draws upward |
+
+**Dynamic color based on depletion level:**
+
+**When value ≥ 150 (healthy → depleting):**
+- Red = `(value × −0.015) + 4.5` — transitions from ~0 (green) at 300 to ~2.25 at 150
+- Green = 1.0 (constant)
+- Blue = 0.0
+- **Effect:** Pure green at full → yellow-green as it depletes
+
+**When 0 < value < 150 (critical):**
+- Red = 1.0 (constant)
+- Green = `value × 0.0066` — transitions from ~1.0 at 150 to 0 at 0
+- Blue = 0.0
+- **Effect:** Yellow at 150 → pure red at 0
+
+Bar height = `value × 0.666` pixels (300 HP = 200 pixels tall)
 
 ### Speed Ship Animation
 `speed_ship` sprite displayed in console, animates based on engine power level.
+
+### Customization Screen Bars
+- Bar dimensions: width 14, height 10 pixels per cell
+- All bars rendered in pure green `(0.0, 1.0, 0.0)`
 
 ---
 
@@ -883,9 +1057,16 @@ The original game has only **TWO music tracks** (from `Sound.cpp`):
 | Level 3 Briefing | `briefing_lvl_3` |
 
 ### In-Game Animations
-- Level start: `in_game_start2`, `in_game_start3`
+
+**Level Start Animations** (GameAnimation class, 100ms per frame):
+- Level 1: `level_anim_1` through `level_anim_8` (8 frames)
+- Level 2: `level_anim_1` through `level_anim_7` + `level_anim_2_start`
+- Level 3: `level_anim_1` through `level_anim_7` + `level_anim_3_start`
+
+**Level End/In-Game Overlays:**
+- Level start overlays: `in_game_start2`, `in_game_start3`
 - Level end: `in_game_end2`
-- In-game overlays: `in_game_1` through `in_game_22`, `in_game_empty`
+- In-game text frames: `in_game_1` through `in_game_22`, `in_game_empty`
 
 ### Other Graphics
 `bar`, `pointer`, `target`, `warning`, `Shield`, `Particle`, `star`, `earth`, `moon`, `moon2`, `powerup`, `speed_ship`, `GUI_button`, `GUI_ship`, `ship_selected`, `finger2`, `buy`, `setup`, `turret_pannel`, `turret_pannel_left`, `turret_pannel_right`, `turret_selector`, `turretbig`, `pturret0`, `pturret45`, `b_pressed`, `b_unpressed`, `exit_GUI_button`, `exit_GUI_BUTTON_pressed`, `exit_GUI_BUTTON_unpressed`, `capShip`, `gun_turret`, `gun_turretDest`, `xenofont`, `xenofont1`, `clanfont`, `Image7`, `InstallXenoStart`
@@ -930,12 +1111,12 @@ See Section 14 for event mapping. Formats: WAV (most), OGG Vorbis (`Level2`, `SM
 
 ### Difficulty Settings
 
-| Difficulty | Wave Modifier | Boss Armor Modifier | Description |
-|-----------|:------------:|:-------------------:|-------------|
-| Easy (0) | −2 | −200 | Fewer enemies, weaker boss |
-| Normal (1) | 0 | 0 | Standard difficulty |
-| Hard (2) | +2 | +200 | More enemies, tougher boss |
-| Nightmare (3) | +5 | +1000 | Maximum difficulty |
+| Difficulty | Level | Wave Modifier | Boss Armor Modifier | Description |
+|-----------|:-----:|:------------:|:-------------------:|-------------|
+| Easy | 0 | −2 | −200 | Fewer enemies, weaker boss |
+| Medium | 1 | 0 | 0 | Standard difficulty |
+| Hard | 2 | +2 | +200 | More enemies, tougher boss |
+| Extremely Hard | 3 | +5 | +1000 | Maximum difficulty |
 
 ---
 
