@@ -278,6 +278,12 @@ export class Boss {
     // Track initial turret AI tick
     private turretAIInitialized = false;
 
+    private hitFlashComp: BossComponent | null = null; // which component was hit
+    // Component explosions (spawned when turrets/orbs/nodes destroyed)
+    private componentExplosions: Explosion[] = [];
+    private smallExpFrames: HTMLImageElement[] = [];
+    private bigExpFrames: HTMLImageElement[] = [];
+
     // C++ GL_Handler pulsing alpha values
     private warningAlpha = 1.0;
     private warningAlphaUp = false;
@@ -416,6 +422,10 @@ export class Boss {
             const img = tryImg(`Turret${i.toString().padStart(2, '0')}`);
             if (img) this.turretSprites.push(img);
         }
+
+        // Explosion sprite frames
+        this.smallExpFrames = Explosion.loadFrames(assets, 'small');
+        this.bigExpFrames = Explosion.loadFrames(assets, 'big');
     }
 
     // ---------------------------------------------------------------
@@ -430,7 +440,8 @@ export class Boss {
         if (this.state === BossState.Dead) return;
 
         if (this.state === BossState.Dying) {
-            this.deathExplosion.update(dt, null);
+            this.deathExplosion.update(dt, this.assets);
+            this.updateComponentExplosions(dt);
             if (this.deathExplosion.finished) {
                 this.alive = false;
                 this.state = BossState.Dead;
@@ -503,6 +514,7 @@ export class Boss {
         this.updateComponentPositions();
         this.updateShieldState();
         this.handleOrbDestruction();
+        this.updateComponentExplosions(dt);
     }
 
     shouldTriggerMusic(): boolean {
@@ -702,10 +714,10 @@ export class Boss {
         const bob = Math.sin(this.stateTimer * 0.5) * 3;
         this.y = BOSS_HOVER_Y + bob;
 
-        // Morph moves at 1 pixel per 100ms tick
+        // C++ 1px/100ms; sped up 5× for web (1px/20ms)
         this.morphTickAccum += dt * 1000;
-        while (this.morphTickAccum >= 100) {
-            this.morphTickAccum -= 100;
+        while (this.morphTickAccum >= 20) {
+            this.morphTickAccum -= 20;
 
             if (this.state === BossState.Morph1) {
                 // Move U-pieces straight down
@@ -805,7 +817,11 @@ export class Boss {
 
             // Destroy turrets i and i+4
             this.outerTurretAIs[i].destroyed = true;
-            if (i + 4 < 8) this.outerTurretAIs[i + 4].destroyed = true;
+            this.outerTurretAIs[i].comp.destroyed = true;
+            if (i + 4 < 8) {
+                this.outerTurretAIs[i + 4].destroyed = true;
+                this.outerTurretAIs[i + 4].comp.destroyed = true;
+            }
 
             // Destroy platforms i and i+4
             this.platforms[i].destroyed = true;
@@ -817,6 +833,24 @@ export class Boss {
             }
 
             this.orbCount--;
+
+            // C++ destroy_ship(): 9 explosion clusters at node position
+            const nx = this.outerNodes[i].x;
+            const ny = this.outerNodes[i].y;
+            const nodeExpOffsets = [
+                [32,32],[32,96],[96,32],[96,96],[62,32],
+                [62,96],[96,62],[32,62],[62,62],
+            ];
+            for (const [ox, oy] of nodeExpOffsets) {
+                this.spawnExplosion(nx + ox, ny + oy, 'big');
+                for (let t = 0; t < 4; t++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = 8 + Math.random() * 24;
+                    this.spawnExplosion(
+                        nx + ox + Math.cos(angle) * dist,
+                        ny + oy + Math.sin(angle) * dist, 'small');
+                }
+            }
         }
 
         // When all orbs gone, destroy boss shield
@@ -854,15 +888,27 @@ export class Boss {
                 this.bossShield.destroyed = true;
             }
             this.hitFlashTimer = 0.1;
+            this.hitFlashComp = comp;
             return;
         }
 
         comp.armor -= damage;
         this.hitFlashTimer = 0.1;
+        this.hitFlashComp = comp;
 
         if (comp.armor <= 0) {
             comp.armor = 0;
             comp.destroyed = true;
+
+            // Spawn explosion at destroyed component center
+            const cx = comp.x + comp.width / 2;
+            const cy = comp.y + comp.height / 2;
+            this.spawnExplosion(cx, cy, 'big');
+            for (let t = 0; t < 4; t++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 8 + Math.random() * 20;
+                this.spawnExplosion(cx + Math.cos(angle) * dist, cy + Math.sin(angle) * dist, 'small');
+            }
 
             // Sync turret component destruction back to AI
             for (const ai of this.outerTurretAIs) {
@@ -924,7 +970,18 @@ export class Boss {
         this.stateTimer = 0;
 
         // Destroy all U-turrets
-        for (const ai of this.uTurretAIs) ai.destroyed = true;
+        for (const ai of this.uTurretAIs) {
+            ai.destroyed = true;
+            ai.comp.destroyed = true;
+            const tx = this.x + ai.offsetX + 32;
+            const ty = this.y + ai.offsetY + 32;
+            this.spawnExplosion(tx, ty, 'big');
+            for (let t = 0; t < 3; t++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = Math.random() * 20;
+                this.spawnExplosion(tx + Math.cos(angle) * dist, ty + Math.sin(angle) * dist, 'small');
+            }
+        }
 
         const cx = this.centerNode.x + this.centerNode.width / 2;
         const cy = this.centerNode.y + this.centerNode.height / 2;
@@ -990,6 +1047,7 @@ export class Boss {
     draw(ctx: CanvasRenderingContext2D, _assets: AssetLoader | null): void {
         if (this.state === BossState.Dying || this.state === BossState.Dead) {
             this.deathExplosion.draw(ctx);
+            this.drawComponentExplosions(ctx);
             return;
         }
         if (this.state === BossState.Waiting) return;
@@ -997,16 +1055,22 @@ export class Boss {
         // Back to front: connectors → U-components → platforms → nodes → orbs → turrets → shield
 
         // Connectors
-        for (const conn of this.connectors) this.drawComp(ctx, conn, '#556');
+        for (const conn of this.connectors) {
+            if (!conn.destroyed) this.drawComp(ctx, conn, '#556');
+        }
 
         // U-components
         for (const u of this.uComponents) this.drawComp(ctx, u, '#446');
 
         // Platforms
-        for (const p of this.platforms) this.drawComp(ctx, p, '#444');
+        for (const p of this.platforms) {
+            if (!p.destroyed) this.drawComp(ctx, p, '#444');
+        }
 
         // Outer nodes
-        for (const n of this.outerNodes) this.drawComp(ctx, n, '#688');
+        for (const n of this.outerNodes) {
+            if (!n.destroyed) this.drawComp(ctx, n, '#688');
+        }
 
         // Center node
         this.drawComp(ctx, this.centerNode, '#889');
@@ -1067,14 +1131,42 @@ export class Boss {
             ctx.fillRect(this.centerOrb.x, this.centerOrb.y - 6, this.centerOrb.width * fill, 3);
         }
 
+        // Turret armor bars
+        for (const ai of this.outerTurretAIs) {
+            if (ai.destroyed || ai.armor >= ai.maxArmor) continue;
+            const fill = ai.armor / ai.maxArmor;
+            const tx = this.x + ai.offsetX;
+            const ty = this.y + ai.offsetY;
+            ctx.fillStyle = '#300';
+            ctx.fillRect(tx, ty - 6, 64, 3);
+            ctx.fillStyle = fill > 0.5 ? '#0f0' : fill > 0.25 ? '#ff0' : '#f00';
+            ctx.fillRect(tx, ty - 6, 64 * fill, 3);
+        }
+        if (this.state === BossState.Final) {
+            for (const ai of this.uTurretAIs) {
+                if (ai.destroyed || ai.armor >= ai.maxArmor) continue;
+                const fill = ai.armor / ai.maxArmor;
+                const tx = this.x + ai.offsetX;
+                const ty = this.y + ai.offsetY;
+                ctx.fillStyle = '#300';
+                ctx.fillRect(tx, ty - 6, 64, 3);
+                ctx.fillStyle = fill > 0.5 ? '#0f0' : fill > 0.25 ? '#ff0' : '#f00';
+                ctx.fillRect(tx, ty - 6, 64 * fill, 3);
+            }
+        }
+
         // Hit flash
-        if (this.hitFlashTimer > 0) {
+        if (this.hitFlashTimer > 0 && this.hitFlashComp) {
+            const hc = this.hitFlashComp;
             ctx.save();
-            ctx.globalAlpha = this.hitFlashTimer * 2;
+            ctx.globalAlpha = this.hitFlashTimer * 3;
             ctx.fillStyle = '#fff';
-            ctx.fillRect(this.centerNode.x, this.centerNode.y, this.centerNode.width, this.centerNode.height);
+            ctx.fillRect(hc.x, hc.y, hc.width, hc.height);
             ctx.restore();
         }
+
+        // Component explosions (on top of everything)
+        this.drawComponentExplosions(ctx);
     }
 
     render(ctx: CanvasRenderingContext2D): void {
@@ -1084,18 +1176,29 @@ export class Boss {
     // --- Draw helpers ---
 
     private drawComp(ctx: CanvasRenderingContext2D, comp: BossComponent, color: string): void {
-        if (comp.destroyed) {
-            if (comp.destroyedSprite) {
-                comp.destroyedSprite.drawAt(ctx, comp.x, comp.y);
-            }
-            return;
-        }
+        if (comp.destroyed) return; // C++: set_visible(false) — destroyed components vanish
         if (comp.sprite) {
             comp.sprite.drawAt(ctx, comp.x, comp.y);
         } else {
             ctx.fillStyle = color;
             ctx.fillRect(comp.x, comp.y, comp.width, comp.height);
         }
+    }
+
+    // --- Component explosion helpers ---
+
+    private spawnExplosion(x: number, y: number, type: 'small' | 'big'): void {
+        const frames = type === 'big' ? this.bigExpFrames : this.smallExpFrames;
+        this.componentExplosions.push(new Explosion(x, y, type, frames));
+    }
+
+    private updateComponentExplosions(dt: number): void {
+        for (const exp of this.componentExplosions) exp.update(dt);
+        this.componentExplosions = this.componentExplosions.filter(e => !e.isFinished());
+    }
+
+    private drawComponentExplosions(ctx: CanvasRenderingContext2D): void {
+        for (const exp of this.componentExplosions) exp.draw(ctx);
     }
 
     private drawFallbackOrb(ctx: CanvasRenderingContext2D, cx: number, cy: number, idx: number): void {
