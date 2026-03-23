@@ -5,10 +5,12 @@
 export class Input {
     private keys: Map<string, boolean> = new Map();
     private prevKeys: Map<string, boolean> = new Map();
+    private pressedQueue: Set<string> = new Set(); // catches fast press+release between frames
     private mouseX = 0;
     private mouseY = 0;
     private mouseDown = false;
     private prevMouseDown = false;
+    private mouseClickQueued = false;
 
     // Common key constants
     static readonly UP = 'ArrowUp';
@@ -26,8 +28,10 @@ export class Input {
 
     constructor(canvas: HTMLCanvasElement) {
         window.addEventListener('keydown', (e) => {
+            if (!this.keys.get(e.key)) {
+                this.pressedQueue.add(e.key);
+            }
             this.keys.set(e.key, true);
-            // Prevent default for game keys to stop page scrolling
             if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
                 e.preventDefault();
             }
@@ -47,6 +51,7 @@ export class Input {
 
         canvas.addEventListener('mousedown', () => {
             this.mouseDown = true;
+            this.mouseClickQueued = true;
         });
 
         canvas.addEventListener('mouseup', () => {
@@ -61,6 +66,8 @@ export class Input {
 
     /** True only on the frame the key was first pressed. */
     isKeyPressed(key: string): boolean {
+        // Check queue first (catches fast press+release between frames)
+        if (this.pressedQueue.has(key)) return true;
         return this.keys.get(key) === true && this.prevKeys.get(key) !== true;
     }
 
@@ -70,6 +77,7 @@ export class Input {
 
     /** True only on the frame the mouse button was first pressed. */
     isMousePressed(): boolean {
+        if (this.mouseClickQueued) return true;
         return this.mouseDown && !this.prevMouseDown;
     }
 
@@ -84,5 +92,7 @@ export class Input {
     endFrame(): void {
         this.prevKeys = new Map(this.keys);
         this.prevMouseDown = this.mouseDown;
+        this.pressedQueue.clear();
+        this.mouseClickQueued = false;
     }
 }

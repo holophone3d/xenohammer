@@ -25,6 +25,12 @@ export enum GameState {
     LevelComplete,
     GameOver,
     Victory,
+    OptionsMenu,
+    BriefingSubmenu,
+    Backstory,
+    LevelBriefing,
+    ShipSpecs,
+    DifficultyScreen,
 }
 
 export class GameManager {
@@ -59,6 +65,11 @@ export class GameManager {
     private smallExpFrames: HTMLImageElement[] = [];
     private bigExpFrames: HTMLImageElement[] = [];
     private levelAnimFrames: HTMLImageElement[][] = []; // per-level animation frames
+    private briefingScrollY = 0;
+    private briefingScrollStart = 0;
+    private menuHoverIndex = -1;  // tracks which menu button is hovered
+    private optionsSaveTooltip = '';  // tooltip for save/load feedback
+    private optionsSaveTooltipTimer = 0;
 
     constructor(canvasId: string) {
         this.canvas = new GameCanvas(canvasId);
@@ -171,6 +182,24 @@ export class GameManager {
             case GameState.Victory:
                 this.updateVictory();
                 break;
+            case GameState.OptionsMenu:
+                this.updateOptionsMenu();
+                break;
+            case GameState.BriefingSubmenu:
+                this.updateBriefingSubmenu();
+                break;
+            case GameState.Backstory:
+                this.updateBackstory();
+                break;
+            case GameState.LevelBriefing:
+                this.updateLevelBriefingScreen();
+                break;
+            case GameState.ShipSpecs:
+                this.updateShipSpecs();
+                break;
+            case GameState.DifficultyScreen:
+                this.updateDifficultyScreen();
+                break;
         }
 
         this.input.endFrame();
@@ -200,6 +229,24 @@ export class GameManager {
                 break;
             case GameState.Victory:
                 this.renderVictory();
+                break;
+            case GameState.OptionsMenu:
+                this.renderOptionsMenu();
+                break;
+            case GameState.BriefingSubmenu:
+                this.renderBriefingSubmenu();
+                break;
+            case GameState.Backstory:
+                this.renderBackstory();
+                break;
+            case GameState.LevelBriefing:
+                this.renderLevelBriefingScreen();
+                break;
+            case GameState.ShipSpecs:
+                this.renderShipSpecs();
+                break;
+            case GameState.DifficultyScreen:
+                this.renderDifficultyScreen();
                 break;
         }
     }
@@ -271,7 +318,7 @@ export class GameManager {
             // Center zone: Briefing & Options
             if (mx >= 200 && mx <= 400 && my >= 185 && my <= 218) {
                 try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
-                this.levelBriefed = this.level + 1;
+                this.state = GameState.OptionsMenu;
             }
             // Right zone: Launch
             if (mx >= 601 && mx <= 800 && my >= 0 && my <= 540) {
@@ -866,5 +913,411 @@ export class GameManager {
             if (kills >= r.minKills) rank = r.rank;
         }
         return rank;
+    }
+
+    // ========== Helper: drawMenuButton ==========
+
+    private drawMenuButton(ctx: CanvasRenderingContext2D, text: string, yCenter: number, mouseY: number, mouseX: number): boolean {
+        const inButton = mouseX >= 200 && mouseX <= 600 && mouseY >= yCenter - 33 && mouseY <= yCenter;
+        ctx.fillStyle = inButton ? 'rgb(70,85,70)' : 'rgb(51,64,51)';
+        ctx.fillRect(200, yCenter - 33, 400, 33);
+        ctx.fillStyle = '#0f0';
+        ctx.font = '14px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(text, 400, yCenter - 10);
+        ctx.textAlign = 'left';
+        return inButton;
+    }
+
+    private drawCrtOverlay(ctx: CanvasRenderingContext2D): void {
+        const overlay = this.assets.tryGetImage('room_screen');
+        if (overlay) {
+            ctx.drawImage(overlay, 0, 0, 800, 600);
+        } else {
+            ctx.fillStyle = '#0a1a0a';
+            ctx.fillRect(0, 0, 800, 600);
+        }
+    }
+
+    private drawMenuTooltipBar(ctx: CanvasRenderingContext2D, text: string): void {
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 550, 800, 50);
+        ctx.fillStyle = '#0f0';
+        ctx.font = '14px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(text, 400, 580);
+        ctx.textAlign = 'left';
+    }
+
+    // ========== State: OptionsMenu ==========
+
+    private updateOptionsMenu(): void {
+        if (this.input.isKeyPressed('Escape')) {
+            this.state = GameState.ReadyRoom;
+            return;
+        }
+
+        if (this.optionsSaveTooltipTimer > 0) {
+            this.optionsSaveTooltipTimer -= 1 / 60;
+            if (this.optionsSaveTooltipTimer <= 0) {
+                this.optionsSaveTooltip = '';
+            }
+        }
+
+        const mouse = this.input.getMousePos();
+        const mx = mouse.x;
+        const my = mouse.y;
+
+        const buttonYCenters = [100, 175, 250, 325, 400, 475];
+        let newHover = -1;
+        for (let i = 0; i < buttonYCenters.length; i++) {
+            const yc = buttonYCenters[i];
+            if (mx >= 200 && mx <= 600 && my >= yc - 33 && my <= yc) {
+                newHover = i;
+                break;
+            }
+        }
+        if (newHover !== this.menuHoverIndex) {
+            this.menuHoverIndex = newHover;
+            if (newHover >= 0) {
+                try { this.audio.playSound('MenuChange'); } catch { /* skip */ }
+            }
+        }
+
+        if (this.input.isMousePressed()) {
+            if (newHover === 0) {
+                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.state = GameState.BriefingSubmenu;
+            } else if (newHover === 1) {
+                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.optionsSaveTooltip = 'Save Done';
+                this.optionsSaveTooltipTimer = 2;
+            } else if (newHover === 2) {
+                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.optionsSaveTooltip = 'Load Done';
+                this.optionsSaveTooltipTimer = 2;
+            } else if (newHover === 3) {
+                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.state = GameState.DifficultyScreen;
+            } else if (newHover === 4) {
+                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.state = GameState.ReadyRoom;
+            } else if (newHover === 5) {
+                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                // Quit to system — reload page
+                window.location.reload();
+            }
+        }
+    }
+
+    private renderOptionsMenu(): void {
+        const ctx = this.canvas.ctx;
+        this.drawCrtOverlay(ctx);
+
+        const mouse = this.input.getMousePos();
+        const mx = mouse.x;
+        const my = mouse.y;
+
+        const labels = [
+            'Briefing Area',
+            'Save Your Game',
+            'Load Your Game',
+            'Set Difficulty',
+            'Quit to the Ready Room',
+            'Quit to System',
+        ];
+        const yCenters = [100, 175, 250, 325, 400, 475];
+        const tooltips = [
+            'View briefings and ship specifications',
+            'Save your current progress',
+            'Load a previously saved game',
+            'Change the game difficulty setting',
+            'Return to the Ready Room',
+            'Exit the game',
+        ];
+
+        let tooltipText = '';
+        for (let i = 0; i < labels.length; i++) {
+            const hover = this.drawMenuButton(ctx, labels[i], yCenters[i], my, mx);
+            if (hover) tooltipText = tooltips[i];
+        }
+
+        if (this.optionsSaveTooltip) {
+            tooltipText = this.optionsSaveTooltip;
+        }
+
+        this.drawMenuTooltipBar(ctx, tooltipText);
+    }
+
+    // ========== State: BriefingSubmenu ==========
+
+    private updateBriefingSubmenu(): void {
+        if (this.input.isKeyPressed('Escape')) {
+            this.state = GameState.OptionsMenu;
+            return;
+        }
+
+        const mouse = this.input.getMousePos();
+        const mx = mouse.x;
+        const my = mouse.y;
+
+        const buttonYCenters = [133, 208, 283, 358, 433];
+        let newHover = -1;
+        for (let i = 0; i < buttonYCenters.length; i++) {
+            const yc = buttonYCenters[i];
+            if (mx >= 200 && mx <= 600 && my >= yc - 33 && my <= yc) {
+                newHover = i;
+                break;
+            }
+        }
+        if (newHover !== this.menuHoverIndex) {
+            this.menuHoverIndex = newHover;
+            if (newHover >= 0) {
+                try { this.audio.playSound('MenuChange'); } catch { /* skip */ }
+            }
+        }
+
+        if (this.input.isMousePressed()) {
+            if (newHover === 0) {
+                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.state = GameState.Backstory;
+                this.briefingScrollStart = performance.now();
+            } else if (newHover === 1) {
+                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.state = GameState.LevelBriefing;
+                this.briefingScrollStart = performance.now();
+                this.levelBriefed = this.level + 1;
+            } else if (newHover === 2) {
+                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.state = GameState.ShipSpecs;
+            } else if (newHover === 3) {
+                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.state = GameState.OptionsMenu;
+            } else if (newHover === 4) {
+                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.state = GameState.ReadyRoom;
+            }
+        }
+    }
+
+    private renderBriefingSubmenu(): void {
+        const ctx = this.canvas.ctx;
+        this.drawCrtOverlay(ctx);
+
+        const mouse = this.input.getMousePos();
+        const mx = mouse.x;
+        const my = mouse.y;
+
+        const labels = [
+            'Back Story',
+            'Level Briefing',
+            'XenoHammer Ship Specifications',
+            'Quit to the Options Screen',
+            'Quit to the Ready Room',
+        ];
+        const yCenters = [133, 208, 283, 358, 433];
+        const tooltips = [
+            'Read the back story of XenoHammer',
+            'View the briefing for the current level',
+            'View your ship specifications',
+            'Return to the Options screen',
+            'Return to the Ready Room',
+        ];
+
+        let tooltipText = '';
+        for (let i = 0; i < labels.length; i++) {
+            const hover = this.drawMenuButton(ctx, labels[i], yCenters[i], my, mx);
+            if (hover) tooltipText = tooltips[i];
+        }
+
+        this.drawMenuTooltipBar(ctx, tooltipText);
+    }
+
+    // ========== State: Backstory ==========
+
+    private updateBackstory(): void {
+        if (this.input.isKeyPressed('Escape')) {
+            this.state = GameState.BriefingSubmenu;
+            return;
+        }
+
+        this.starField.update(1 / 60);
+        this.briefingScrollY = 475 - ((performance.now() - this.briefingScrollStart) / 60);
+
+        if (this.briefingScrollY <= -550) {
+            this.state = GameState.BriefingSubmenu;
+            return;
+        }
+
+        if (this.input.isMousePressed() && this.briefingScrollY < 0) {
+            this.state = GameState.BriefingSubmenu;
+        }
+    }
+
+    private renderBackstory(): void {
+        const ctx = this.canvas.ctx;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, 800, 600);
+        this.starField.draw(ctx, false);
+
+        const img = this.assets.tryGetImage('backstory');
+        if (img) {
+            ctx.drawImage(img, 0, this.briefingScrollY);
+        } else {
+            // Fallback text
+            ctx.fillStyle = '#0f0';
+            ctx.font = '16px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('Backstory image not available', 400, 300 + this.briefingScrollY);
+            ctx.textAlign = 'left';
+        }
+    }
+
+    // ========== State: LevelBriefing ==========
+
+    private updateLevelBriefingScreen(): void {
+        if (this.input.isKeyPressed('Escape')) {
+            this.state = GameState.BriefingSubmenu;
+            return;
+        }
+
+        this.starField.update(1 / 60);
+        this.briefingScrollY = 600 - ((performance.now() - this.briefingScrollStart) / 40);
+
+        const endPositions = [-620, -420, -400];
+        const endY = endPositions[this.level] ?? -620;
+
+        if (this.briefingScrollY <= endY) {
+            this.state = GameState.BriefingSubmenu;
+            return;
+        }
+
+        if (this.input.isMousePressed() && this.briefingScrollY < 0) {
+            this.state = GameState.BriefingSubmenu;
+        }
+    }
+
+    private renderLevelBriefingScreen(): void {
+        const ctx = this.canvas.ctx;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, 800, 600);
+        this.starField.draw(ctx, false);
+
+        const spriteId = `briefing_lvl_${this.level + 1}`;
+        const img = this.assets.tryGetImage(spriteId);
+        if (img) {
+            ctx.drawImage(img, 0, this.briefingScrollY);
+        } else {
+            ctx.fillStyle = '#0f0';
+            ctx.font = '16px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Level ${this.level + 1} Briefing`, 400, 300 + this.briefingScrollY);
+            ctx.textAlign = 'left';
+        }
+    }
+
+    // ========== State: ShipSpecs ==========
+
+    private updateShipSpecs(): void {
+        if (this.input.isKeyPressed('Escape')) {
+            this.state = GameState.BriefingSubmenu;
+            return;
+        }
+
+        if (this.input.isMousePressed()) {
+            const mouse = this.input.getMousePos();
+            if (mouse.x >= 680 && mouse.x <= 800 && mouse.y >= 540 && mouse.y <= 600) {
+                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.state = GameState.BriefingSubmenu;
+            }
+        }
+    }
+
+    private renderShipSpecs(): void {
+        const ctx = this.canvas.ctx;
+        const img = this.assets.tryGetImage('ship_specs');
+        if (img) {
+            ctx.drawImage(img, 0, 0, 800, 600);
+        } else {
+            ctx.fillStyle = '#0a1a0a';
+            ctx.fillRect(0, 0, 800, 600);
+            ctx.fillStyle = '#0f0';
+            ctx.font = '20px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('Ship Specifications', 400, 280);
+            ctx.font = '14px monospace';
+            ctx.fillText('Press ESC to return', 400, 320);
+            ctx.textAlign = 'left';
+        }
+
+        // Draw "Done" button area
+        const mouse = this.input.getMousePos();
+        const inDone = mouse.x >= 680 && mouse.x <= 800 && mouse.y >= 540 && mouse.y <= 600;
+        ctx.fillStyle = inDone ? 'rgb(70,85,70)' : 'rgb(51,64,51)';
+        ctx.fillRect(680, 540, 120, 60);
+        ctx.fillStyle = '#0f0';
+        ctx.font = '14px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('Done', 740, 575);
+        ctx.textAlign = 'left';
+    }
+
+    // ========== State: DifficultyScreen ==========
+
+    private updateDifficultyScreen(): void {
+        if (this.input.isKeyPressed('Escape')) {
+            this.state = GameState.OptionsMenu;
+            return;
+        }
+
+        const mouse = this.input.getMousePos();
+        const mx = mouse.x;
+        const my = mouse.y;
+
+        const buttonYCenters = [143, 208, 283, 358, 433];
+        let newHover = -1;
+        for (let i = 0; i < buttonYCenters.length; i++) {
+            const yc = buttonYCenters[i];
+            if (mx >= 200 && mx <= 600 && my >= yc - 33 && my <= yc) {
+                newHover = i;
+                break;
+            }
+        }
+        if (newHover !== this.menuHoverIndex) {
+            this.menuHoverIndex = newHover;
+            if (newHover >= 0) {
+                try { this.audio.playSound('MenuChange'); } catch { /* skip */ }
+            }
+        }
+
+        if (this.input.isMousePressed()) {
+            if (newHover >= 0 && newHover <= 3) {
+                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.difficulty = newHover;
+            } else if (newHover === 4) {
+                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.state = GameState.OptionsMenu;
+            }
+        }
+    }
+
+    private renderDifficultyScreen(): void {
+        const ctx = this.canvas.ctx;
+        this.drawCrtOverlay(ctx);
+
+        const mouse = this.input.getMousePos();
+        const mx = mouse.x;
+        const my = mouse.y;
+
+        const labels = ['Easy', 'Medium', 'Hard', 'Extremely Hard', 'Done'];
+        const yCenters = [143, 208, 283, 358, 433];
+
+        for (let i = 0; i < labels.length; i++) {
+            this.drawMenuButton(ctx, labels[i], yCenters[i], my, mx);
+        }
+
+        const diffNames = ['Easy', 'Medium', 'Hard', 'Extremely Hard'];
+        const currentName = diffNames[this.difficulty] ?? 'Medium';
+        this.drawMenuTooltipBar(ctx, `Current Difficulty: ${currentName}`);
     }
 }

@@ -92,13 +92,13 @@ export class StarField {
         }
     }
 
-    draw(ctx: CanvasRenderingContext2D): void {
+    draw(ctx: CanvasRenderingContext2D, nearEarth = true): void {
         for (const star of this.stars) {
             ctx.fillStyle = star.color;
             ctx.fillRect(star.x | 0, star.y | 0, star.size, star.size);
         }
 
-        if (this.elapsed >= 0.3) {
+        if (nearEarth && this.elapsed >= 0.3) {
             if (this.earthSprite) {
                 ctx.drawImage(
                     this.earthSprite,

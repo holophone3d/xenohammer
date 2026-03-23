@@ -52,52 +52,62 @@ fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '02_ready_room.png') });
     console.log('Screenshot: 02_ready_room.png');
 
-    // Click Briefing zone (center: x=200-400, y=185-218) to mark as briefed
+    // Click Briefing zone → should now go to Options Menu
     await page.mouse.click(300, 200, { delay: 150 });
     await new Promise(r => setTimeout(r, 1000));
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '03_after_briefing.png') });
-    console.log('Screenshot: 03_after_briefing.png');
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '03_options_menu.png') });
+    console.log('Screenshot: 03_options_menu.png');
 
-    // Click Launch zone (right: x=601-800, y=0-540)
+    // Click "Briefing Area" button (y center=100, so click at y=90)
+    await page.mouse.click(400, 90, { delay: 150 });
+    await new Promise(r => setTimeout(r, 1000));
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '04_briefing_submenu.png') });
+    console.log('Screenshot: 04_briefing_submenu.png');
+
+    // Click "Back Story" (y center=133, click at y=120)
+    await page.mouse.click(400, 120, { delay: 150 });
+    await new Promise(r => setTimeout(r, 3000));
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '05_backstory_scroll.png') });
+    console.log('Screenshot: 05_backstory_scroll.png');
+
+    // ESC back to briefing submenu
+    await page.keyboard.press('Escape');
+    await new Promise(r => setTimeout(r, 800));
+
+    // Click "Level Briefing" (y center=208, click at y=195)
+    await page.mouse.click(400, 195, { delay: 150 });
+    await new Promise(r => setTimeout(r, 3000));
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '06_level_briefing.png') });
+    console.log('Screenshot: 06_level_briefing.png');
+
+    // ESC back to briefing → ESC to options → ESC to ready room
+    await page.keyboard.press('Escape');
+    await new Promise(r => setTimeout(r, 800));
+    await page.keyboard.press('Escape');
+    await new Promise(r => setTimeout(r, 800));
+    await page.keyboard.press('Escape');
+    await new Promise(r => setTimeout(r, 800));
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '07_back_to_ready_room.png') });
+    console.log('Screenshot: 07_back_to_ready_room.png');
+
+    // Launch the game (right zone)
     await page.mouse.click(700, 270, { delay: 150 });
     await new Promise(r => setTimeout(r, 3000));
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '04_gameplay_start.png') });
-    console.log('Screenshot: 04_gameplay_start.png');
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '08_gameplay_start.png') });
+    console.log('Screenshot: 08_gameplay_start.png');
 
     // Gameplay: hold Space (fire) + move around
     await page.keyboard.down('Space');
     await page.keyboard.down('ArrowUp');
     await new Promise(r => setTimeout(r, 2000));
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '05_gameplay_moving.png') });
-    console.log('Screenshot: 05_gameplay_moving.png');
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '09_gameplay_moving.png') });
+    console.log('Screenshot: 09_gameplay_moving.png');
 
-    // Bank left
+    // Wait for enemies + combat
     await page.keyboard.up('ArrowUp');
-    await page.keyboard.down('ArrowLeft');
-    await new Promise(r => setTimeout(r, 1500));
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '06_banking_left.png') });
-    console.log('Screenshot: 06_banking_left.png');
-
-    // Bank right
-    await page.keyboard.up('ArrowLeft');
-    await page.keyboard.down('ArrowRight');
-    await new Promise(r => setTimeout(r, 1500));
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '07_banking_right.png') });
-    console.log('Screenshot: 07_banking_right.png');
-
-    await page.keyboard.up('ArrowRight');
-    await page.keyboard.up('Space');
-
-    // Wait for enemies to spawn
     await new Promise(r => setTimeout(r, 5000));
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '08_enemies.png') });
-    console.log('Screenshot: 08_enemies.png');
-
-    // More gameplay with firing
-    await page.keyboard.down('Space');
-    await new Promise(r => setTimeout(r, 5000));
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '09_combat.png') });
-    console.log('Screenshot: 09_combat.png');
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '10_combat.png') });
+    console.log('Screenshot: 10_combat.png');
     await page.keyboard.up('Space');
 
     // Dump console log summary
