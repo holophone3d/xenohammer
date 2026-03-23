@@ -1,62 +1,58 @@
 /**
- * Boss fight (Type 4)  multi-component ship with destructible nodes,
- * animated orbs, gun turrets on platforms, shield, and destruction sequence.
+ * Boss fight — multi-component ship rewritten from C++ Boss.cpp.
  *
- * Spec Section 8  full layout:
- *   Center node + center orb (cosmetic)
- *   4 outer nodes (500,000 HP structural) + 4 outer orbs (500 HP, damageable)
- *   8 platforms (LEFT/RIGHT/DOWN), 8 outer turrets, 6 U-turrets
- *   Shield (1000 HP) protects center while any outer node lives
+ * Layout (all offsets relative to boss origin):
+ *   CenterNode (160×160) at (0,0)
+ *   CenterOrb (64×64) at (48,48) — cosmetic until Final phase
+ *   4 OuterNodes (128×128) — upper-left, lower-left, lower-right, upper-right
+ *   4 OuterOrbs (64×64) — damageable targets on each outer node
+ *   8 Platforms (80×80) — 2 per outer node (side + down)
+ *   8 OuterTurrets (64×64) — one per platform, frame-based TurretAI
+ *   3 Connectors — sprites linking adjacent nodes
+ *   2 U-components (144×288) — start off-screen, animate in during morph
+ *   6 U-turrets (64×64) — 3 per U, only active in Final state
+ *   BossShield (256×256) — sprite at (-48,-48), 50000 HP
  *
- * Destruction order:
- *   Destroy all 4 outer orbs  their parent nodes collapse 
- *   center becomes vulnerable  defeat.
+ * State machine (from C++):
+ *   WAITING → ENTERING → NORMAL → (all 4 orbs dead) → MORPH1 → MORPH2 → FINAL → DYING → DEAD
  */
 
 import { Sprite, AssetLoader } from '../engine';
 import { Rect, PLAY_AREA_W, PLAY_AREA_H } from './Collision';
-import { Weapon } from './Weapon';
 import { Projectile } from './Projectile';
 import { Explosion, ChainExplosion } from './Explosion';
 
-// --- Boss constants (Spec 8) ---
+// --- Constants from C++ Boss.cpp ---
 const BOSS_START_X = 245;
 const BOSS_START_Y = -600;
-const BOSS_HOVER_Y = 40;
-const BOSS_DESCENT_SPEED = 40;   // px/s
-const BOSS_WAIT_TIME = 110_000;  // ms  boss appears 110s into level
-const BOSS_MUSIC_TIME = 96_000;  // ms  music triggers at 96s
-const BOSS_SHIELDS = 1000;
+const BOSS_HOVER_Y = -50;           // C++: boss stops at y=-50
+const BOSS_DESCENT_SPEED = 50;      // px/s (C++ ~60px/s at 60fps, frame-dependent)
+const BOSS_WAIT_TIME = 110_000;     // ms before boss enters
+const BOSS_MUSIC_TIME = 96_000;     // ms before boss music starts
 
-const ORB_FRAME_COUNT = 33;      // orb00orb32
-const ORB_ANIM_SPEED = 60;       // ms per frame
-const TURRET_SPRITE_FRAMES = 33; // Turret00Turret32
-
-// Center armor by difficulty
-const CENTER_ARMOR: Record<number, number> = {
-    0: 800,    // Easy
-    1: 1000,   // Normal
-    2: 1200,   // Hard
-    3: 2000,   // Nightmare
-};
-
-// Center orb offset from center node
-const CENTER_ORB_OFFSET = { x: 48, y: 48 };
+const ORB_FRAME_COUNT = 33;         // orb00–orb32
+const ORB_ANIM_SPEED = 60;          // ms per frame
+const TURRET_FRAME_COUNT = 33;      // Turret00–Turret32
+const TURRET_TURN_RATE = 65;        // ms between frame changes
 
 // Outer node positions relative to boss origin
-const OUTER_NODE_DEFS = [
-    { id: 0, offsetX: -213, offsetY: 111 },   // upper-left
-    { id: 1, offsetX:  -65, offsetY: 259 },   // lower-left
-    { id: 2, offsetX:   97, offsetY: 259 },   // lower-right
-    { id: 3, offsetX:  245, offsetY: 111 },   // upper-right
-] as const;
+const NODE_OFFSETS = [
+    { x: -213, y: 111 },  // 0: upper-left
+    { x:  -65, y: 259 },  // 1: lower-left
+    { x:   97, y: 259 },  // 2: lower-right
+    { x:  245, y: 111 },  // 3: upper-right
+];
 
-const OUTER_NODE_ARMOR = 500_000;
-const OUTER_ORB_ARMOR = 500;
+// U-component base positions
+const LEFTU_X = -94, LEFTU_Y = -68;
+const RIGHTU_X = 112, RIGHTU_Y = -65;
+
+// Center orb offset from boss origin
+const CENTER_ORB_OFFSET = { x: 48, y: 48 };
 const OUTER_ORB_OFFSET = { x: 32, y: 31 };
 const OUTER_ORB_START_FRAMES = [5, 25, 10, 15];
 
-// Platform definitions (8 platforms, 2 per node)
+// Platform defs: absolute offsets from boss origin
 type PlatformType = 'LEFT' | 'RIGHT' | 'DOWN';
 interface PlatformDef {
     type: PlatformType;
@@ -64,37 +60,68 @@ interface PlatformDef {
     offsetX: number;
     offsetY: number;
 }
-
 const PLATFORM_DEFS: PlatformDef[] = [
-    { type: 'LEFT',  nodeIndex: 0, offsetX: -51, offsetY: 23  },
-    { type: 'LEFT',  nodeIndex: 1, offsetX: -51, offsetY: 23  },
-    { type: 'RIGHT', nodeIndex: 2, offsetX: 101, offsetY: 24  },
-    { type: 'RIGHT', nodeIndex: 3, offsetX: 101, offsetY: 24  },
-    { type: 'DOWN',  nodeIndex: 0, offsetX:  25, offsetY: 100 },
-    { type: 'DOWN',  nodeIndex: 1, offsetX:  25, offsetY: 100 },
-    { type: 'DOWN',  nodeIndex: 2, offsetX:  25, offsetY: 100 },
-    { type: 'DOWN',  nodeIndex: 3, offsetX:  25, offsetY: 100 },
+    { type: 'LEFT',  nodeIndex: 0, offsetX: -213 - 51, offsetY: 111 + 23  },
+    { type: 'LEFT',  nodeIndex: 1, offsetX:  -65 - 51, offsetY: 259 + 23  },
+    { type: 'RIGHT', nodeIndex: 2, offsetX:   97 + 101, offsetY: 259 + 24 },
+    { type: 'RIGHT', nodeIndex: 3, offsetX:  245 + 101, offsetY: 111 + 24 },
+    { type: 'DOWN',  nodeIndex: 0, offsetX: -213 + 25, offsetY: 111 + 100 },
+    { type: 'DOWN',  nodeIndex: 1, offsetX:  -65 + 25, offsetY: 259 + 100 },
+    { type: 'DOWN',  nodeIndex: 2, offsetX:   97 + 25, offsetY: 259 + 100 },
+    { type: 'DOWN',  nodeIndex: 3, offsetX:  245 + 25, offsetY: 111 + 100 },
 ];
 
-// Turret AI
-type TurretAIType = 'sweeping' | 'random';
-interface TurretCfg { aiType: TurretAIType; aiParam: number }
+// Turret offsets: platform position + 8 (centers 64×64 turret on 80×80 platform)
+const TURRET_OFFSET = 8;
 
-const OUTER_TURRET_CONFIGS: TurretCfg[] = [
-    { aiType: 'sweeping', aiParam: 60   },
-    { aiType: 'random',   aiParam: 2000 },
-    { aiType: 'random',   aiParam: 2000 },
-    { aiType: 'sweeping', aiParam: 60   },
-    { aiType: 'random',   aiParam: 2000 },
-    { aiType: 'random',   aiParam: 2000 },
-    { aiType: 'random',   aiParam: 2000 },
-    { aiType: 'random',   aiParam: 2000 },
+// Connector positions (absolute offsets from boss origin)
+const CONNECTOR_DEFS = [
+    { type: 'UL', offsetX: (-213 + -65) / 2,          offsetY: (111 + 259) / 2 },
+    { type: 'H',  offsetX: (-65 + 97) / 2 + 64 - 32,  offsetY: (259 + 259) / 2 + 48 },
+    { type: 'UR', offsetX: (97 + 245) / 2,            offsetY: (259 + 111) / 2 },
 ];
 
-// U-component offsets (cosmetic / non-damageable)
-const U_DEFS = [
-    { offsetX: -174, offsetY: -404, armor: 500 },
-    { offsetX:  192, offsetY: -401, armor: 500 },
+// TurretAI types (matching C++ TurretAI.h)
+const enum TurretAIType { NORMAL, FIXED, SWEEPING, RANDOM }
+
+// OuterTurret AI configs (from C++ Boss.cpp)
+const OUTER_TURRET_AI: { type: TurretAIType; fireRate: number }[] = [
+    { type: TurretAIType.SWEEPING, fireRate: 60 },
+    { type: TurretAIType.RANDOM,   fireRate: 2000 },
+    { type: TurretAIType.RANDOM,   fireRate: 2000 },
+    { type: TurretAIType.SWEEPING, fireRate: 60 },
+    { type: TurretAIType.RANDOM,   fireRate: 2000 },
+    { type: TurretAIType.RANDOM,   fireRate: 2000 },
+    { type: TurretAIType.RANDOM,   fireRate: 2000 },
+    { type: TurretAIType.RANDOM,   fireRate: 2000 },
+];
+
+// U-turret AI configs
+const U_TURRET_AI: { type: TurretAIType; fireRate: number }[] = [
+    { type: TurretAIType.SWEEPING, fireRate: 30 },
+    { type: TurretAIType.NORMAL,   fireRate: 500 },
+    { type: TurretAIType.SWEEPING, fireRate: 60 },
+    { type: TurretAIType.SWEEPING, fireRate: 30 },
+    { type: TurretAIType.NORMAL,   fireRate: 500 },
+    { type: TurretAIType.SWEEPING, fireRate: 60 },
+];
+
+// U-turret offsets (absolute from boss origin, same as C++)
+const U_TURRET_OFFSETS = [
+    { x: LEFTU_X - 80 + 46,  y: LEFTU_Y - 336 + 214 },  // 0
+    { x: LEFTU_X - 80 + 15,  y: LEFTU_Y - 336 + 173 },  // 1
+    { x: LEFTU_X - 80 + 15,  y: LEFTU_Y - 336 + 122 },  // 2
+    { x: RIGHTU_X + 80 + 32, y: RIGHTU_Y - 336 + 212 },  // 3
+    { x: RIGHTU_X + 80 + 60, y: RIGHTU_Y - 336 + 171 },  // 4
+    { x: RIGHTU_X + 80 + 60, y: RIGHTU_Y - 336 + 120 },  // 5
+];
+
+// Orb-to-connector mapping: when orb i dies, which connectors to destroy
+const ORB_CONNECTOR_MAP: number[][] = [
+    [0],    // orb 0 → connector 0
+    [0, 1], // orb 1 → connectors 0, 1
+    [1, 2], // orb 2 → connectors 1, 2
+    [2],    // orb 3 → connector 2
 ];
 
 // --- Enums / Interfaces ---
@@ -103,9 +130,9 @@ export enum BossState {
     Waiting,
     Entering,
     Normal,
-    Morph1,
-    Morph2,
-    Final,
+    Morph1,   // U-pieces moving down
+    Morph2,   // U-pieces moving down + inward
+    Final,    // Center vulnerable, U-turrets active
     Dying,
     Dead,
 }
@@ -126,36 +153,74 @@ export interface BossComponent {
     destroyedSprite: Sprite | null;
 }
 
-interface BossTurret {
-    platformIndex: number;
-    weapon: Weapon;
-    fireTimer: number;
-    fireRate: number;
-    turretAngle: number;
-    aiType: TurretAIType;
-    aiParam: number;
-    sweepAngle: number;
-    sweepDirection: number;
+// Frame-based turret AI state (matching C++ TurretAI)
+interface BossTurretAI {
+    frame: number;           // current turret frame 0-31
+    type: TurretAIType;
+    fireRate: number;        // ms between shots
+    lastTurnMs: number;      // last turn timestamp (ms)
+    lastFireMs: number;      // last fire timestamp (ms)
+    sweepState: number;      // 0=waiting, 1=sweeping (for SWEEPING type)
+    turnTarget: number;      // target frame for DoTurn
     destroyed: boolean;
-    turretSprites: HTMLImageElement[];
+    offsetX: number;         // offset from boss origin
+    offsetY: number;
 }
 
-// --- Helpers ---
-
 function makeComp(
-    name: string,
-    offX: number, offY: number,
-    armor: number, w: number, h: number,
-    damageable: boolean,
+    name: string, offX: number, offY: number,
+    armor: number, w: number, h: number, damageable: boolean,
 ): BossComponent {
     return {
-        name, x: 0, y: 0,
-        offsetX: offX, offsetY: offY,
-        armor, maxArmor: armor,
-        destroyed: false, damageable,
-        width: w, height: h,
-        sprite: null, destroyedSprite: null,
+        name, x: 0, y: 0, offsetX: offX, offsetY: offY,
+        armor, maxArmor: armor, destroyed: false, damageable,
+        width: w, height: h, sprite: null, destroyedSprite: null,
     };
+}
+
+function makeTurretAI(
+    type: TurretAIType, fireRate: number, offX: number, offY: number,
+): BossTurretAI {
+    return {
+        frame: 0, type, fireRate,
+        lastTurnMs: 0, lastFireMs: 0,
+        sweepState: 0, turnTarget: 0,
+        destroyed: false, offsetX: offX, offsetY: offY,
+    };
+}
+
+/** C++ TurretAI::CalculateHeading — frame-based heading from turret to target */
+function calculateHeading(
+    playerX: number, playerY: number, enemyX: number, enemyY: number,
+): number {
+    const xoffset = playerX - enemyX;
+    const yoffset = (playerY - enemyY) * -1;
+    let targetRad: number;
+    if (Math.abs(xoffset) > 0.01)
+        targetRad = Math.atan(yoffset / xoffset);
+    else
+        targetRad = Math.atan(yoffset / 0.01);
+    if (xoffset < 0) targetRad += Math.PI;
+    targetRad += 2 * Math.PI;
+    let heading = Math.floor((targetRad + 0.0982) / 0.19635);
+    heading = (heading + 8) % 32;
+    return heading;
+}
+
+/** C++ TurretAI shortest-path turning logic */
+function doShortestTurn(currentFrame: number, desiredFrame: number): number {
+    if (currentFrame === desiredFrame) return currentFrame;
+    let f = currentFrame;
+    if (Math.abs(f - (desiredFrame + 32)) < Math.abs(f - desiredFrame)) {
+        f++;
+    } else if (Math.abs((f + 32) - desiredFrame) < Math.abs(f - desiredFrame)) {
+        f--;
+        if (f < 0) f += 32;
+    } else {
+        if (desiredFrame > f) f++;
+        else f--;
+    }
+    return ((f % 32) + 32) % 32;
 }
 
 // =====================================================================
@@ -170,82 +235,100 @@ export class Boss {
     musicTriggered = false;
 
     // --- Components ---
-    centerNode: BossComponent;
-    outerNodes: BossComponent[];     // 4
-    outerOrbs: BossComponent[];      // 4 (damageable targets)
-    platforms: BossComponent[];      // 8
-    uComponents: BossComponent[];    // 2 (cosmetic)
+    centerNode: BossComponent;         // 160×160
+    outerNodes: BossComponent[];       // 4 × 128×128
+    outerOrbs: BossComponent[];        // 4 × 64×64 (damageable)
+    centerOrb: BossComponent;          // 64×64 (damageable in Final)
+    platforms: BossComponent[];        // 8 × 80×80
+    connectors: BossComponent[];       // 3 (UL 128×128, H 64×32, UR 128×128)
+    uComponents: BossComponent[];      // 2 × 144×288
+    bossShield: BossComponent;         // 256×256, 50000 HP
 
-    // --- Turrets ---
-    outerTurrets: BossTurret[];      // 8 (one per platform)
+    // --- Turret AI ---
+    outerTurretAIs: BossTurretAI[];    // 8
+    uTurretAIs: BossTurretAI[];        // 6
 
     // --- Orb animations ---
     private centerOrbSprite: Sprite | null = null;
-    private outerOrbSprites: Sprite[] = [];  // one per outer orb
+    private outerOrbSprites: Sprite[] = [];
 
     // --- Shield ---
     shieldActive = true;
-    private shields: number;
-    private maxShields: number;
 
     // --- Internal ---
     private difficulty: number;
+    private hpOffset: number;
     private stateTimer = 0;
-    private levelTimeMs = 0;        // fed from outside
+    private levelTimeMs = 0;
+    private nowMs = 0;
     private deathExplosion: ChainExplosion;
     private hitFlashTimer = 0;
     private pendingProjectiles: Projectile[] = [];
+    private orbCount = 4;
+    private turretSprites: HTMLImageElement[] = [];
+    private assets: AssetLoader | null = null;
+    private morphTickAccum = 0;
+
+    // Track initial turret AI tick
+    private turretAIInitialized = false;
 
     constructor(difficulty = 1) {
         this.difficulty = difficulty;
+        this.hpOffset = difficulty === 0 ? -200 : difficulty === 2 ? 200 : difficulty === 3 ? 1000 : 0;
         this.x = BOSS_START_X;
         this.y = BOSS_START_Y;
-        this.shields = BOSS_SHIELDS;
-        this.maxShields = BOSS_SHIELDS;
 
-        // Center node
-        const cArmor = CENTER_ARMOR[difficulty] ?? 1000;
-        this.centerNode = makeComp('CenterNode', 0, 0, cArmor, 96, 96, false);
+        const hp = this.hpOffset;
 
-        // 4 outer nodes (structural, extremely high HP, not directly targetable)
-        this.outerNodes = OUTER_NODE_DEFS.map((d, i) =>
-            makeComp(`OuterNode${i}`, d.offsetX, d.offsetY, OUTER_NODE_ARMOR, 64, 64, false),
-        );
+        // Center node: 160×160, not damageable until Final
+        this.centerNode = makeComp('CenterNode', 0, 0, 1000 + hp, 160, 160, false);
 
-        // 4 outer orbs (the actual damageable targets)
-        this.outerOrbs = OUTER_NODE_DEFS.map((d, i) =>
-            makeComp(
-                `OuterOrb${i}`,
-                d.offsetX + OUTER_ORB_OFFSET.x,
-                d.offsetY + OUTER_ORB_OFFSET.y,
-                OUTER_ORB_ARMOR, 32, 32, true,
-            ),
-        );
+        // Center orb: 64×64, not damageable until Final (win condition target)
+        this.centerOrb = makeComp('CenterOrb', CENTER_ORB_OFFSET.x, CENTER_ORB_OFFSET.y,
+            1000 + hp, 64, 64, false);
 
-        // 8 platforms
+        // 4 outer nodes: 128×128, structural
+        this.outerNodes = NODE_OFFSETS.map((n, i) =>
+            makeComp(`OuterNode${i}`, n.x, n.y, 500_000, 128, 128, false));
+
+        // 4 outer orbs: 64×64, damageable
+        this.outerOrbs = NODE_OFFSETS.map((n, i) =>
+            makeComp(`OuterOrb${i}`, n.x + OUTER_ORB_OFFSET.x, n.y + OUTER_ORB_OFFSET.y,
+                500 + hp, 64, 64, true));
+
+        // 8 platforms: 80×80
         this.platforms = PLATFORM_DEFS.map((d, i) =>
-            makeComp(`Platform${i}`, 0, 0, 10, 48, 16, false),
-        );
+            makeComp(`Platform${i}`, d.offsetX, d.offsetY, 10, 80, 80, false));
 
-        // 2 U-components (cosmetic)
-        this.uComponents = U_DEFS.map((d, i) =>
-            makeComp(`U${i}`, d.offsetX, d.offsetY, d.armor, 64, 64, false),
-        );
+        // 3 connectors
+        const connSizes = [
+            { w: 128, h: 128 }, // UL
+            { w: 64,  h: 32  }, // H
+            { w: 128, h: 128 }, // UR
+        ];
+        this.connectors = CONNECTOR_DEFS.map((c, i) =>
+            makeComp(`Connector${i}`, c.offsetX, c.offsetY,
+                10000, connSizes[i].w, connSizes[i].h, true));
 
-        // 8 outer turrets (one per platform)
-        this.outerTurrets = OUTER_TURRET_CONFIGS.map((cfg, i) => ({
-            platformIndex: i,
-            weapon: Weapon.createEnemyWeapon('enemyBlast', 0, 0),
-            fireTimer: Math.random() * 2000,
-            fireRate: cfg.aiType === 'sweeping' ? 800 : cfg.aiParam,
-            turretAngle: 180,
-            aiType: cfg.aiType,
-            aiParam: cfg.aiParam,
-            sweepAngle: 90,
-            sweepDirection: i % 2 === 0 ? 1 : -1,
-            destroyed: false,
-            turretSprites: [],
-        }));
+        // 2 U-components: 144×288, start off-screen
+        this.uComponents = [
+            makeComp('LeftU',  LEFTU_X - 80,  LEFTU_Y - 336, 500 + hp, 144, 288, false),
+            makeComp('RightU', RIGHTU_X + 80, RIGHTU_Y - 336, 500 + hp, 144, 288, false),
+        ];
+
+        // Boss shield: 256×256, 50000 HP
+        this.bossShield = makeComp('BossShield', -48, -48, 50000, 256, 256, true);
+
+        // 8 outer turret AIs
+        this.outerTurretAIs = OUTER_TURRET_AI.map((cfg, i) =>
+            makeTurretAI(cfg.type, cfg.fireRate,
+                PLATFORM_DEFS[i].offsetX + TURRET_OFFSET,
+                PLATFORM_DEFS[i].offsetY + TURRET_OFFSET));
+
+        // 6 U-turret AIs
+        this.uTurretAIs = U_TURRET_AI.map((cfg, i) =>
+            makeTurretAI(cfg.type, cfg.fireRate,
+                U_TURRET_OFFSETS[i].x, U_TURRET_OFFSETS[i].y));
 
         this.deathExplosion = new ChainExplosion();
     }
@@ -255,6 +338,7 @@ export class Boss {
     // ---------------------------------------------------------------
 
     loadSprites(assets: AssetLoader): void {
+        this.assets = assets;
         const tryImg = (id: string): HTMLImageElement | null => {
             try { return assets.getImage(id); } catch { return null; }
         };
@@ -263,13 +347,13 @@ export class Boss {
             return img ? new Sprite([img], 100) : null;
         };
 
-        this.centerNode.sprite = trySprite('boss_center');
-        this.centerNode.destroyedSprite = trySprite('boss_center_destroyed');
+        // Center node
+        this.centerNode.sprite = trySprite('BossNode1');
+        this.centerNode.destroyedSprite = trySprite('BossNode1Destroyed');
 
-        // Outer nodes
+        // Outer nodes (BossNode2, no destroyed sprite in C++)
         for (const node of this.outerNodes) {
-            node.sprite = trySprite('boss_node');
-            node.destroyedSprite = trySprite('boss_node_destroyed');
+            node.sprite = trySprite('BossNode2');
         }
 
         // Platforms
@@ -277,46 +361,47 @@ export class Boss {
             LEFT: 'BossLeftPlatform', RIGHT: 'BossRightPlatform', DOWN: 'BossDownPlatform',
         };
         for (let i = 0; i < this.platforms.length; i++) {
-            const def = PLATFORM_DEFS[i];
-            this.platforms[i].sprite = trySprite(platSpriteMap[def.type]);
+            this.platforms[i].sprite = trySprite(platSpriteMap[PLATFORM_DEFS[i].type]);
+        }
+
+        // Connectors
+        const connNames = ['ConnectorUL', 'ConnectorH', 'ConnectorUR'];
+        const connRedNames = ['ConnectorULRED', 'ConnectorHRED', 'ConnectorURRED'];
+        for (let i = 0; i < this.connectors.length; i++) {
+            this.connectors[i].sprite = trySprite(connNames[i]);
+            this.connectors[i].destroyedSprite = trySprite(connRedNames[i]);
         }
 
         // U-components
-        const uSprites = ['BossLeftU', 'BossRightU'];
-        for (let i = 0; i < this.uComponents.length; i++) {
-            this.uComponents[i].sprite = trySprite(uSprites[i]);
-        }
+        this.uComponents[0].sprite = trySprite('BossLeftU');
+        this.uComponents[1].sprite = trySprite('BossRightU');
 
-        // Orb animation frames (orb00-orb32, shared across all orbs)
+        // Boss shield
+        this.bossShield.sprite = trySprite('bossShield');
+
+        // Orb animation frames (orb00–orb32)
         const orbFrames: HTMLImageElement[] = [];
         try {
             for (let i = 0; i < ORB_FRAME_COUNT; i++) {
-                const img = assets.getImage(`orb${i.toString().padStart(2, '0')}`);
-                orbFrames.push(img);
+                orbFrames.push(assets.getImage(`orb${i.toString().padStart(2, '0')}`));
             }
-        } catch { /* orb frames not available */ }
+        } catch { /* not available */ }
 
         if (orbFrames.length > 0) {
-            // Center orb - start frame 0
             this.centerOrbSprite = new Sprite(orbFrames, ORB_ANIM_SPEED);
             this.centerOrbSprite.currentFrame = 0;
-
-            // Outer orbs - staggered start frames
             for (let i = 0; i < 4; i++) {
                 const orb = new Sprite(orbFrames, ORB_ANIM_SPEED);
-                orb.currentFrame = (OUTER_ORB_START_FRAMES[i] ?? 0) % ORB_FRAME_COUNT;
+                orb.currentFrame = OUTER_ORB_START_FRAMES[i] % ORB_FRAME_COUNT;
                 this.outerOrbSprites.push(orb);
             }
         }
 
-        // Turret sprites (Turret00-Turret32)
-        const turretFrames: HTMLImageElement[] = [];
-        for (let i = 0; i < TURRET_SPRITE_FRAMES; i++) {
+        // Turret sprites (Turret00–Turret32)
+        this.turretSprites = [];
+        for (let i = 0; i < TURRET_FRAME_COUNT; i++) {
             const img = tryImg(`Turret${i.toString().padStart(2, '0')}`);
-            if (img) turretFrames.push(img);
-        }
-        for (const t of this.outerTurrets) {
-            t.turretSprites = turretFrames;
+            if (img) this.turretSprites.push(img);
         }
     }
 
@@ -326,6 +411,7 @@ export class Boss {
 
     update(dt: number, playerX: number, playerY: number, now: number, levelTimeMs: number): void {
         this.levelTimeMs = levelTimeMs;
+        this.nowMs = now;
         this.pendingProjectiles = [];
 
         if (this.state === BossState.Dead) return;
@@ -348,7 +434,7 @@ export class Boss {
                     this.state = BossState.Entering;
                     this.stateTimer = 0;
                 }
-                return; // invisible - don't update positions or fire
+                return;
 
             case BossState.Entering:
                 this.y += BOSS_DESCENT_SPEED * dt;
@@ -360,22 +446,32 @@ export class Boss {
                 break;
 
             case BossState.Normal:
+            case BossState.Final:
+                this.updateCombat(dt, playerX, playerY);
+                break;
+
             case BossState.Morph1:
             case BossState.Morph2:
-            case BossState.Final:
-                this.updateCombat(dt, playerX, playerY, now);
+                this.updateMorph(dt);
+                this.updateTurretFiring(dt, playerX, playerY);
                 break;
         }
 
-        // Update orb animations
-        if (this.centerOrbSprite) this.centerOrbSprite.update(dt * 1000);
-        for (const orb of this.outerOrbSprites) orb.update(dt * 1000);
+        // Animate orbs
+        if (this.centerOrbSprite && !this.centerOrb.destroyed) {
+            this.centerOrbSprite.update(dt * 1000);
+        }
+        for (let i = 0; i < this.outerOrbSprites.length; i++) {
+            if (!this.outerOrbs[i].destroyed) {
+                this.outerOrbSprites[i].update(dt * 1000);
+            }
+        }
 
         this.updateComponentPositions();
         this.updateShieldState();
+        this.handleOrbDestruction();
     }
 
-    /** Whether boss music should start playing (96s into level). */
     shouldTriggerMusic(): boolean {
         if (this.musicTriggered) return false;
         if (this.levelTimeMs >= BOSS_MUSIC_TIME) {
@@ -386,69 +482,227 @@ export class Boss {
     }
 
     // ---------------------------------------------------------------
-    // Combat update
+    // Combat
     // ---------------------------------------------------------------
 
-    private updateCombat(dt: number, playerX: number, playerY: number, now: number): void {
+    private updateCombat(dt: number, playerX: number, playerY: number): void {
         // Gentle hover bob
         const bob = Math.sin(this.stateTimer * 0.5) * 3;
         this.y = BOSS_HOVER_Y + bob;
 
-        // Check morph state transitions
-        const destroyedCount = this.outerOrbs.filter(o => o.destroyed).length;
-        if (destroyedCount >= 4 && this.state !== BossState.Final) {
-            this.state = BossState.Final;
-            this.centerNode.damageable = true;
-            this.stateTimer = 0;
-        } else if (destroyedCount >= 2 && this.state === BossState.Normal) {
+        // Check morph transition: ALL 4 outer orbs destroyed → MORPH1
+        if (this.state === BossState.Normal && this.orbCount <= 0) {
             this.state = BossState.Morph1;
-            this.stateTimer = 0;
-        } else if (destroyedCount >= 3 && this.state === BossState.Morph1) {
-            this.state = BossState.Morph2;
+            this.morphTickAccum = 0;
             this.stateTimer = 0;
         }
 
-        // Fire rate multiplier by phase
-        const fireRateMul = this.state === BossState.Final  ? 0.5 :
-                            this.state === BossState.Morph2 ? 0.6 :
-                            this.state === BossState.Morph1 ? 0.75 : 1.0;
+        this.updateTurretFiring(dt, playerX, playerY);
+    }
 
-        // Update outer turrets
-        for (const turret of this.outerTurrets) {
-            if (turret.destroyed) continue;
-
-            // Destroy turret if parent node's orb is destroyed
-            const parentNodeIdx = PLATFORM_DEFS[turret.platformIndex]?.nodeIndex ?? 0;
-            if (this.outerOrbs[parentNodeIdx]?.destroyed) {
-                turret.destroyed = true;
-                continue;
+    private updateTurretFiring(dt: number, playerX: number, playerY: number): void {
+        // Initialize turret AI timestamps on first frame
+        if (!this.turretAIInitialized) {
+            this.turretAIInitialized = true;
+            const t = this.nowMs;
+            for (const ai of this.outerTurretAIs) {
+                ai.lastTurnMs = t;
+                ai.lastFireMs = t;
             }
+            for (const ai of this.uTurretAIs) {
+                ai.lastTurnMs = t;
+                ai.lastFireMs = t;
+            }
+        }
 
-            const plat = this.platforms[turret.platformIndex];
-            const tx = plat.x + plat.width / 2;
-            const ty = plat.y + plat.height / 2;
-
-            // AI aiming
-            if (turret.aiType === 'sweeping') {
-                turret.sweepAngle += turret.sweepDirection * turret.aiParam * dt;
-                if (turret.sweepAngle > 270 || turret.sweepAngle < 90) {
-                    turret.sweepDirection *= -1;
+        // Outer turrets (active in Normal, Morph, Final)
+        if (this.state !== BossState.Entering) {
+            for (let i = 0; i < 8; i++) {
+                const ai = this.outerTurretAIs[i];
+                if (ai.destroyed) continue;
+                const tx = this.x + ai.offsetX + 32; // center of 64×64 turret
+                const ty = this.y + ai.offsetY + 32;
+                const result = this.runTurretAI(ai, playerX, playerY, tx, ty);
+                if (result.fire) {
+                    this.fireTurret(ai.frame, tx, ty);
                 }
-                turret.turretAngle = turret.sweepAngle;
-            } else {
-                const dx = playerX - tx;
-                const dy = playerY - ty;
-                turret.turretAngle = Math.atan2(dy, dx) * (180 / Math.PI);
+            }
+        }
+
+        // U-turrets (only active in Final)
+        if (this.state === BossState.Final) {
+            for (let i = 0; i < 6; i++) {
+                const ai = this.uTurretAIs[i];
+                if (ai.destroyed) continue;
+                const tx = this.x + ai.offsetX + 32;
+                const ty = this.y + ai.offsetY + 32;
+                const result = this.runTurretAI(ai, playerX, playerY, tx, ty);
+                if (result.fire) {
+                    this.fireTurret(ai.frame, tx, ty);
+                }
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // TurretAI (C++ port)
+    // ---------------------------------------------------------------
+
+    private runTurretAI(
+        ai: BossTurretAI, playerX: number, playerY: number,
+        turretX: number, turretY: number,
+    ): { fire: boolean } {
+        const tic = this.nowMs;
+        const desiredHeading = calculateHeading(playerX, playerY, turretX, turretY);
+
+        switch (ai.type) {
+            case TurretAIType.NORMAL:
+            case TurretAIType.RANDOM: {
+                if (ai.frame === desiredHeading) {
+                    // Aimed at player — try to fire
+                    if (tic - ai.lastFireMs < ai.fireRate) {
+                        ai.lastTurnMs = tic;
+                        return { fire: false };
+                    }
+                    if (ai.type === TurretAIType.NORMAL)
+                        ai.lastFireMs = tic;
+                    else
+                        ai.lastFireMs = tic - Math.floor(Math.random() * 500);
+                    return { fire: true };
+                }
+                // Turn toward player
+                if (tic - ai.lastTurnMs >= TURRET_TURN_RATE) {
+                    ai.lastTurnMs = tic;
+                    ai.frame = doShortestTurn(ai.frame, desiredHeading);
+                }
+                return { fire: false };
             }
 
-            // Fire
-            turret.fireTimer += dt * 1000;
-            const effectiveRate = turret.fireRate * fireRateMul;
-            if (turret.fireTimer >= effectiveRate) {
-                turret.fireTimer = 0;
-                turret.weapon.angle = turret.turretAngle + 90;
-                const proj = turret.weapon.fire(tx, ty, now, null);
-                if (proj) this.pendingProjectiles.push(proj);
+            case TurretAIType.SWEEPING: {
+                if (ai.sweepState === 0) {
+                    // Waiting: turn to heading - 5
+                    const target = ((desiredHeading - 5) + 32) % 32;
+                    ai.turnTarget = target;
+                    // DoTurn
+                    if (ai.frame !== ai.turnTarget && tic - ai.lastTurnMs >= TURRET_TURN_RATE) {
+                        ai.lastTurnMs += TURRET_TURN_RATE;
+                        ai.frame = doShortestTurn(ai.frame, ai.turnTarget);
+                    }
+                    // Wait 3000ms then sweep
+                    if (tic - ai.lastFireMs > 3000) {
+                        ai.lastFireMs = tic;
+                        ai.lastTurnMs = tic;
+                        ai.sweepState = 1;
+                    }
+                    return { fire: false };
+                } else {
+                    // Sweeping: advance frame and fire
+                    let fire = false;
+                    if (tic - ai.lastFireMs >= ai.fireRate) {
+                        fire = true;
+                        ai.frame = (ai.frame + 1) % 32;
+                        ai.lastFireMs += ai.fireRate;
+                    }
+                    // Stop sweep at heading + 5
+                    if (ai.frame === (desiredHeading + 5) % 32) {
+                        ai.sweepState = 0;
+                        ai.lastFireMs = tic;
+                        ai.lastTurnMs = tic;
+                    }
+                    return { fire };
+                }
+            }
+
+            case TurretAIType.FIXED: {
+                if (ai.frame === desiredHeading) {
+                    if (tic - ai.lastFireMs < ai.fireRate) {
+                        ai.lastTurnMs = tic;
+                        return { fire: false };
+                    }
+                    ai.lastFireMs = tic;
+                    return { fire: true };
+                }
+                return { fire: false };
+            }
+        }
+        return { fire: false };
+    }
+
+    // ---------------------------------------------------------------
+    // Fire turret projectile (C++ Boss::FireTurret)
+    // ---------------------------------------------------------------
+
+    private fireTurret(frame: number, turretCenterX: number, turretCenterY: number): void {
+        const rad = ((frame - 8) / 32) * 2 * Math.PI;
+        const xOff = Math.cos(rad) * 24;
+        const yOff = Math.sin(rad) * -24;
+
+        const spawnX = turretCenterX + xOff;
+        const spawnY = turretCenterY + yOff;
+
+        let sprite: Sprite | null = null;
+        if (this.assets) {
+            try {
+                const frames: HTMLImageElement[] = [];
+                for (let i = 0; i < 8; i++) {
+                    frames.push(this.assets.getImage(`enemy_${i + 1}`));
+                }
+                sprite = new Sprite(frames, 100);
+                sprite.setFrame(Math.min(3, frames.length - 1));
+                sprite.loop = false;
+            } catch { /* no sprite */ }
+        }
+
+        const proj = new Projectile(
+            spawnX, spawnY,
+            xOff / 2, yOff / 2,
+            10, 'enemy', sprite, 'enemyBlast',
+        );
+        this.pendingProjectiles.push(proj);
+    }
+
+    // ---------------------------------------------------------------
+    // Morph animation (C++ BOSS_MORPH1 / BOSS_MORPH2)
+    // ---------------------------------------------------------------
+
+    private updateMorph(dt: number): void {
+        const bob = Math.sin(this.stateTimer * 0.5) * 3;
+        this.y = BOSS_HOVER_Y + bob;
+
+        // Morph moves at 1 pixel per 100ms tick
+        this.morphTickAccum += dt * 1000;
+        while (this.morphTickAccum >= 100) {
+            this.morphTickAccum -= 100;
+
+            if (this.state === BossState.Morph1) {
+                // Move U-pieces straight down
+                this.uComponents[0].offsetY += 1;
+                this.uComponents[1].offsetY += 1;
+                for (const ai of this.uTurretAIs) ai.offsetY += 1;
+
+                // Transition when LeftU reaches LEFTU_Y - 80 = -148
+                if (this.uComponents[0].offsetY >= LEFTU_Y - 80) {
+                    this.state = BossState.Morph2;
+                }
+            } else if (this.state === BossState.Morph2) {
+                // Move U-pieces down + inward
+                this.uComponents[0].offsetY += 1;
+                this.uComponents[0].offsetX += 1;
+                this.uComponents[1].offsetY += 1;
+                this.uComponents[1].offsetX -= 1;
+                for (let i = 0; i < 6; i++) {
+                    this.uTurretAIs[i].offsetY += 1;
+                    if (i < 3) this.uTurretAIs[i].offsetX += 1;
+                    else this.uTurretAIs[i].offsetX -= 1;
+                }
+
+                // Transition when LeftU reaches LEFTU_Y = -68
+                if (this.uComponents[0].offsetY >= LEFTU_Y) {
+                    this.state = BossState.Final;
+                    this.centerNode.damageable = true;
+                    this.centerOrb.damageable = true;
+                    this.stateTimer = 0;
+                }
             }
         }
     }
@@ -458,41 +712,76 @@ export class Boss {
     // ---------------------------------------------------------------
 
     private updateComponentPositions(): void {
-        // Center node at boss origin
-        this.centerNode.x = this.x;
-        this.centerNode.y = this.y;
+        this.centerNode.x = this.x + this.centerNode.offsetX;
+        this.centerNode.y = this.y + this.centerNode.offsetY;
 
-        // Outer nodes
+        this.centerOrb.x = this.x + this.centerOrb.offsetX;
+        this.centerOrb.y = this.y + this.centerOrb.offsetY;
+
         for (const node of this.outerNodes) {
             node.x = this.x + node.offsetX;
             node.y = this.y + node.offsetY;
         }
-
-        // Outer orbs
         for (const orb of this.outerOrbs) {
             orb.x = this.x + orb.offsetX;
             orb.y = this.y + orb.offsetY;
         }
-
-        // Platforms - offset from their parent outer node
-        for (let i = 0; i < this.platforms.length; i++) {
-            const def = PLATFORM_DEFS[i];
-            const parentNode = this.outerNodes[def.nodeIndex];
-            this.platforms[i].x = parentNode.x + def.offsetX;
-            this.platforms[i].y = parentNode.y + def.offsetY;
+        for (const plat of this.platforms) {
+            plat.x = this.x + plat.offsetX;
+            plat.y = this.y + plat.offsetY;
         }
-
-        // U-components
+        for (const conn of this.connectors) {
+            conn.x = this.x + conn.offsetX;
+            conn.y = this.y + conn.offsetY;
+        }
         for (const u of this.uComponents) {
             u.x = this.x + u.offsetX;
             u.y = this.y + u.offsetY;
         }
+        this.bossShield.x = this.x + this.bossShield.offsetX;
+        this.bossShield.y = this.y + this.bossShield.offsetY;
     }
 
     private updateShieldState(): void {
-        this.shieldActive = this.outerOrbs.some(o => !o.destroyed);
-        if (!this.shieldActive) {
-            this.centerNode.damageable = true;
+        this.shieldActive = this.orbCount > 0;
+    }
+
+    // ---------------------------------------------------------------
+    // Orb destruction handling (C++ Boss::update component destruction)
+    // ---------------------------------------------------------------
+
+    private handleOrbDestruction(): void {
+        for (let i = 0; i < 4; i++) {
+            const orb = this.outerOrbs[i];
+            if (!orb.destroyed || !this.outerNodes[i] || this.outerNodes[i].destroyed) continue;
+
+            // Orb just destroyed — cascade destruction
+            this.outerNodes[i].destroyed = true;
+
+            // Destroy turrets i and i+4
+            this.outerTurretAIs[i].destroyed = true;
+            if (i + 4 < 8) this.outerTurretAIs[i + 4].destroyed = true;
+
+            // Destroy platforms i and i+4
+            this.platforms[i].destroyed = true;
+            if (i + 4 < 8) this.platforms[i + 4].destroyed = true;
+
+            // Destroy adjacent connectors
+            for (const ci of ORB_CONNECTOR_MAP[i]) {
+                if (ci < this.connectors.length) this.connectors[ci].destroyed = true;
+            }
+
+            this.orbCount--;
+        }
+
+        // When all orbs gone, destroy boss shield
+        if (this.orbCount <= 0 && !this.bossShield.destroyed) {
+            this.bossShield.destroyed = true;
+        }
+
+        // CenterOrb destroyed → death sequence
+        if (this.centerOrb.destroyed && this.state !== BossState.Dying && this.state !== BossState.Dead) {
+            this.beginDeathSequence();
         }
     }
 
@@ -500,26 +789,27 @@ export class Boss {
     // Damage
     // ---------------------------------------------------------------
 
-    /**
-     * Apply damage by hit position. Finds the closest damageable component
-     * overlapping (hitX, hitY) and applies damage with shield/propagation rules.
-     */
     takeDamage(hitX: number, hitY: number, damage: number): void {
         if (this.state === BossState.Waiting || this.state === BossState.Entering ||
             this.state === BossState.Dying  || this.state === BossState.Dead) return;
 
-        // Find hit component
         const comp = this.findHitComponent(hitX, hitY);
         if (!comp) return;
 
-        // Shield absorbs damage to center node while active
-        if (comp === this.centerNode && this.shieldActive) {
-            if (this.shields > 0) {
-                const absorbed = Math.min(this.shields, damage);
-                this.shields -= absorbed;
-                damage -= absorbed;
+        // Shield absorbs damage to center when active
+        if ((comp === this.centerNode || comp === this.centerOrb) && this.shieldActive) {
+            return;
+        }
+
+        // Boss shield component absorbs hits
+        if (comp === this.bossShield) {
+            this.bossShield.armor -= damage;
+            if (this.bossShield.armor <= 0) {
+                this.bossShield.armor = 0;
+                this.bossShield.destroyed = true;
             }
-            if (this.shieldActive) return; // center protected
+            this.hitFlashTimer = 0.1;
+            return;
         }
 
         comp.armor -= damage;
@@ -528,33 +818,31 @@ export class Boss {
         if (comp.armor <= 0) {
             comp.armor = 0;
             comp.destroyed = true;
-
-            // If an outer orb is destroyed, collapse its parent node
-            const orbIdx = this.outerOrbs.indexOf(comp);
-            if (orbIdx >= 0 && this.outerNodes[orbIdx]) {
-                this.outerNodes[orbIdx].destroyed = true;
-                // Destroy associated turrets
-                for (const turret of this.outerTurrets) {
-                    const ni = PLATFORM_DEFS[turret.platformIndex]?.nodeIndex;
-                    if (ni === orbIdx) turret.destroyed = true;
-                }
-            }
-
-            // Center node destroyed -> death sequence
-            if (comp === this.centerNode) {
-                this.beginDeathSequence();
-            }
         }
     }
 
     private findHitComponent(hitX: number, hitY: number): BossComponent | null {
-        // Check damageable components: outer orbs first, then center node
-        const candidates = [...this.outerOrbs, this.centerNode];
+        // Check order: center orb, center node, outer orbs, outer turrets (as collision rects),
+        // connectors, U-turrets, boss shield
+        const candidates: BossComponent[] = [];
+
+        // Center orb first (win condition)
+        if (this.centerOrb.damageable && !this.centerOrb.destroyed) candidates.push(this.centerOrb);
+        if (this.centerNode.damageable && !this.centerNode.destroyed) candidates.push(this.centerNode);
+        for (const orb of this.outerOrbs) {
+            if (!orb.destroyed && orb.damageable) candidates.push(orb);
+        }
+        // Connectors
+        for (const conn of this.connectors) {
+            if (!conn.destroyed && conn.damageable) candidates.push(conn);
+        }
+        // Boss shield
+        if (!this.bossShield.destroyed && this.bossShield.damageable) candidates.push(this.bossShield);
+
         let best: BossComponent | null = null;
         let bestDist = Infinity;
 
         for (const comp of candidates) {
-            if (comp.destroyed || !comp.damageable) continue;
             if (hitX >= comp.x && hitX <= comp.x + comp.width &&
                 hitY >= comp.y && hitY <= comp.y + comp.height) {
                 const dist = Math.abs(hitX - (comp.x + comp.width / 2)) +
@@ -571,25 +859,23 @@ export class Boss {
     private beginDeathSequence(): void {
         this.state = BossState.Dying;
         this.stateTimer = 0;
+
+        // Destroy all U-turrets
+        for (const ai of this.uTurretAIs) ai.destroyed = true;
+
         const cx = this.centerNode.x + this.centerNode.width / 2;
         const cy = this.centerNode.y + this.centerNode.height / 2;
-        // 30 explosions over 3 seconds, 200px radius, 50% big/small
-        this.deathExplosion.start(cx, cy, 200, 30, 3.0);
+        this.deathExplosion.start(cx, cy, 250, 40, 11.0);
     }
 
     // ---------------------------------------------------------------
-    // Projectiles
+    // Projectiles & Collision
     // ---------------------------------------------------------------
 
     getProjectiles(): Projectile[] {
         return this.pendingProjectiles;
     }
 
-    // ---------------------------------------------------------------
-    // Collision
-    // ---------------------------------------------------------------
-
-    /** Return collision rects for all alive components (used for projectile hit-testing). */
     getComponentRects(): Array<{ rect: Rect; component: BossComponent }> {
         if (this.state === BossState.Waiting || this.state === BossState.Entering ||
             this.state === BossState.Dying  || this.state === BossState.Dead) {
@@ -597,22 +883,20 @@ export class Boss {
         }
 
         const results: Array<{ rect: Rect; component: BossComponent }> = [];
+        const addComp = (comp: BossComponent) => {
+            if (comp.destroyed) return;
+            results.push({ component: comp, rect: { x: comp.x, y: comp.y, w: comp.width, h: comp.height } });
+        };
 
-        // Include damageable components (outer orbs, center node when vulnerable)
-        const comps = [
-            ...this.outerOrbs,
-            this.centerNode,
-            ...this.outerNodes,
-            ...this.platforms,
-        ];
+        // Damageable targets first
+        addComp(this.centerOrb);
+        addComp(this.centerNode);
+        for (const orb of this.outerOrbs) addComp(orb);
+        for (const node of this.outerNodes) addComp(node);
+        for (const plat of this.platforms) addComp(plat);
+        for (const conn of this.connectors) addComp(conn);
+        addComp(this.bossShield);
 
-        for (const comp of comps) {
-            if (comp.destroyed) continue;
-            results.push({
-                component: comp,
-                rect: { x: comp.x, y: comp.y, w: comp.width, h: comp.height },
-            });
-        }
         return results;
     }
 
@@ -620,17 +904,9 @@ export class Boss {
     // State queries
     // ---------------------------------------------------------------
 
-    isDefeated(): boolean {
-        return this.state === BossState.Dead;
-    }
-
-    isEntering(): boolean {
-        return this.state === BossState.Entering;
-    }
-
-    isVisible(): boolean {
-        return this.state !== BossState.Waiting;
-    }
+    isDefeated(): boolean { return this.state === BossState.Dead; }
+    isEntering(): boolean { return this.state === BossState.Entering; }
+    isVisible(): boolean { return this.state !== BossState.Waiting; }
 
     getCenter(): { x: number; y: number } {
         return {
@@ -644,18 +920,16 @@ export class Boss {
     // ---------------------------------------------------------------
 
     draw(ctx: CanvasRenderingContext2D, _assets: AssetLoader | null): void {
-        // Death explosions render even after boss body disappears
         if (this.state === BossState.Dying || this.state === BossState.Dead) {
             this.deathExplosion.draw(ctx);
-            if (this.state === BossState.Dead) return;
-            return; // don't draw boss body during death
+            return;
         }
-
-        // Invisible during wait
         if (this.state === BossState.Waiting) return;
 
-        // Connectors from center to outer nodes
-        this.drawConnectors(ctx);
+        // Back to front: connectors → U-components → platforms → nodes → orbs → turrets → shield
+
+        // Connectors
+        for (const conn of this.connectors) this.drawComp(ctx, conn, '#556');
 
         // U-components
         for (const u of this.uComponents) this.drawComp(ctx, u, '#446');
@@ -670,13 +944,13 @@ export class Boss {
         this.drawComp(ctx, this.centerNode, '#889');
 
         // Center orb
-        if (!this.centerNode.destroyed) {
-            const ox = this.centerNode.x + CENTER_ORB_OFFSET.x;
-            const oy = this.centerNode.y + CENTER_ORB_OFFSET.y;
+        if (!this.centerOrb.destroyed) {
+            const ox = this.centerOrb.x;
+            const oy = this.centerOrb.y;
             if (this.centerOrbSprite) {
                 this.centerOrbSprite.drawAt(ctx, ox, oy);
             } else {
-                this.drawFallbackOrb(ctx, ox, oy, 0);
+                this.drawFallbackOrb(ctx, ox + 32, oy + 32, 0);
             }
         }
 
@@ -687,10 +961,10 @@ export class Boss {
             if (i < this.outerOrbSprites.length) {
                 this.outerOrbSprites[i].drawAt(ctx, orb.x, orb.y);
             } else {
-                this.drawFallbackOrb(ctx, orb.x, orb.y, i + 1);
+                this.drawFallbackOrb(ctx, orb.x + 32, orb.y + 32, i + 1);
             }
 
-            // Armor bar for outer orbs
+            // Armor bar
             if (orb.armor < orb.maxArmor) {
                 const fill = orb.armor / orb.maxArmor;
                 ctx.fillStyle = '#300';
@@ -700,26 +974,38 @@ export class Boss {
             }
         }
 
-        // Turrets
-        this.drawTurrets(ctx);
+        // Outer turrets
+        this.drawTurretSet(ctx, this.outerTurretAIs);
 
-        // Shield
-        if (this.shieldActive && this.shields > 0) this.drawShield(ctx);
+        // U-turrets (only visible in morph/final states)
+        if (this.state === BossState.Morph1 || this.state === BossState.Morph2 || this.state === BossState.Final) {
+            this.drawTurretSet(ctx, this.uTurretAIs);
+        }
+
+        // Boss shield sprite
+        if (!this.bossShield.destroyed && this.shieldActive) {
+            this.drawComp(ctx, this.bossShield, 'rgba(0,128,255,0.15)');
+        }
+
+        // Center orb armor bar (in Final state)
+        if (this.centerOrb.damageable && !this.centerOrb.destroyed && this.centerOrb.armor < this.centerOrb.maxArmor) {
+            const fill = this.centerOrb.armor / this.centerOrb.maxArmor;
+            ctx.fillStyle = '#300';
+            ctx.fillRect(this.centerOrb.x, this.centerOrb.y - 6, this.centerOrb.width, 3);
+            ctx.fillStyle = fill > 0.5 ? '#0f0' : fill > 0.25 ? '#ff0' : '#f00';
+            ctx.fillRect(this.centerOrb.x, this.centerOrb.y - 6, this.centerOrb.width * fill, 3);
+        }
 
         // Hit flash
         if (this.hitFlashTimer > 0) {
             ctx.save();
             ctx.globalAlpha = this.hitFlashTimer * 2;
             ctx.fillStyle = '#fff';
-            ctx.fillRect(
-                this.centerNode.x, this.centerNode.y,
-                this.centerNode.width, this.centerNode.height,
-            );
+            ctx.fillRect(this.centerNode.x, this.centerNode.y, this.centerNode.width, this.centerNode.height);
             ctx.restore();
         }
     }
 
-    /** Legacy alias for render. */
     render(ctx: CanvasRenderingContext2D): void {
         this.draw(ctx, null);
     }
@@ -730,116 +1016,54 @@ export class Boss {
         if (comp.destroyed) {
             if (comp.destroyedSprite) {
                 comp.destroyedSprite.drawAt(ctx, comp.x, comp.y);
-            } else {
-                ctx.fillStyle = '#222';
-                ctx.fillRect(comp.x, comp.y, comp.width, comp.height);
             }
             return;
         }
-
         if (comp.sprite) {
             comp.sprite.drawAt(ctx, comp.x, comp.y);
         } else {
             ctx.fillStyle = color;
             ctx.fillRect(comp.x, comp.y, comp.width, comp.height);
-            ctx.strokeStyle = '#aaa';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(comp.x, comp.y, comp.width, comp.height);
-        }
-
-        // Armor bar for large damageable components
-        if (comp.damageable && comp.maxArmor > 50 && comp.armor < comp.maxArmor) {
-            const fill = comp.armor / comp.maxArmor;
-            ctx.fillStyle = '#300';
-            ctx.fillRect(comp.x, comp.y - 6, comp.width, 3);
-            ctx.fillStyle = fill > 0.5 ? '#0f0' : fill > 0.25 ? '#ff0' : '#f00';
-            ctx.fillRect(comp.x, comp.y - 6, comp.width * fill, 3);
         }
     }
 
-    private drawConnectors(ctx: CanvasRenderingContext2D): void {
-        const cx = this.centerNode.x + this.centerNode.width / 2;
-        const cy = this.centerNode.y + this.centerNode.height / 2;
-
-        for (const node of this.outerNodes) {
-            const nx = node.x + node.width / 2;
-            const ny = node.y + node.height / 2;
-            ctx.strokeStyle = node.destroyed ? '#300' : '#556';
-            ctx.lineWidth = node.destroyed ? 1 : 3;
-            ctx.setLineDash(node.destroyed ? [4, 4] : []);
-            ctx.beginPath();
-            ctx.moveTo(cx, cy);
-            ctx.lineTo(nx, ny);
-            ctx.stroke();
-            ctx.setLineDash([]);
-        }
-    }
-
-    private drawFallbackOrb(ctx: CanvasRenderingContext2D, ox: number, oy: number, idx: number): void {
+    private drawFallbackOrb(ctx: CanvasRenderingContext2D, cx: number, cy: number, idx: number): void {
         const pulse = 0.5 + Math.sin(this.stateTimer * 4 + idx * 2) * 0.5;
-        const radius = 12 + pulse * 4;
-        const gradient = ctx.createRadialGradient(ox, oy, 0, ox, oy, radius);
+        const radius = 16 + pulse * 6;
+        const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
         gradient.addColorStop(0, `rgba(0, 255, 255, ${0.8 * pulse})`);
         gradient.addColorStop(0.5, `rgba(0, 128, 255, ${0.4 * pulse})`);
         gradient.addColorStop(1, 'rgba(0, 0, 128, 0)');
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(ox, oy, radius, 0, Math.PI * 2);
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
         ctx.fill();
     }
 
-    private drawTurrets(ctx: CanvasRenderingContext2D): void {
-        for (const turret of this.outerTurrets) {
-            if (turret.destroyed) continue;
+    private drawTurretSet(ctx: CanvasRenderingContext2D, turrets: BossTurretAI[]): void {
+        for (const ai of turrets) {
+            if (ai.destroyed) continue;
+            const tx = this.x + ai.offsetX;
+            const ty = this.y + ai.offsetY;
 
-            const plat = this.platforms[turret.platformIndex];
-            const tx = plat.x + plat.width / 2;
-            const ty = plat.y + plat.height / 2;
-
-            // Sprite-based turret
-            if (turret.turretSprites.length > 0) {
-                let angle = turret.turretAngle % 360;
-                if (angle < 0) angle += 360;
-                const frameIdx = Math.round(angle / 360 * 32) % turret.turretSprites.length;
-                ctx.drawImage(turret.turretSprites[frameIdx], tx - 16, ty - 16);
+            if (this.turretSprites.length >= 32) {
+                const frameIdx = Math.max(0, Math.min(31, ai.frame));
+                ctx.drawImage(this.turretSprites[frameIdx], tx, ty);
             } else {
-                // Fallback
+                // Fallback circle + barrel
+                const cx = tx + 32, cy = ty + 32;
                 ctx.fillStyle = '#a44';
                 ctx.beginPath();
-                ctx.arc(tx, ty, 8, 0, Math.PI * 2);
+                ctx.arc(cx, cy, 10, 0, Math.PI * 2);
                 ctx.fill();
-
-                const rad = turret.turretAngle * (Math.PI / 180);
+                const rad = ((ai.frame - 8) / 32) * 2 * Math.PI;
                 ctx.strokeStyle = '#f66';
                 ctx.lineWidth = 3;
                 ctx.beginPath();
-                ctx.moveTo(tx, ty);
-                ctx.lineTo(tx + Math.cos(rad) * 14, ty + Math.sin(rad) * 14);
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(cx + Math.cos(rad) * 16, cy + Math.sin(rad) * -16);
                 ctx.stroke();
             }
         }
-    }
-
-    private drawShield(ctx: CanvasRenderingContext2D): void {
-        const shieldAlpha = Math.min(0.25, (this.shields / this.maxShields) * 0.25);
-        const pulse = 0.7 + Math.sin(this.stateTimer * 2) * 0.3;
-
-        ctx.save();
-        ctx.globalAlpha = shieldAlpha * pulse;
-
-        const cx = this.centerNode.x + this.centerNode.width / 2;
-        const cy = this.centerNode.y + this.centerNode.height / 2;
-
-        ctx.strokeStyle = '#0ff';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.ellipse(cx, cy, 280, 200, 0, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.globalAlpha = shieldAlpha * pulse * 0.3;
-        ctx.fillStyle = '#048';
-        ctx.fill();
-
-        ctx.restore();
     }
 }

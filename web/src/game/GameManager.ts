@@ -2009,32 +2009,44 @@ export class GameManager {
         } catch { /* corrupt or missing save data */ }
     }
 
-    // ========== DEBUG: Test shortcuts (F5/F6/F7) ==========
+    // ========== DEBUG: Backtick (`) menu ==========
 
     private debugActive = false;
+    private debugMenuOpen = false;
+    private debugKeyDebounce = 0;
 
     private handleDebugKeys(): void {
-        // F5 = Jump to Frigate encounter (Level 2, frigate spawns immediately)
-        if (this.input.isKeyPressed('F5')) {
+        this.debugKeyDebounce = Math.max(0, this.debugKeyDebounce - 1);
+        if (this.debugKeyDebounce > 0) return;
+
+        // Backtick (`) toggles debug menu
+        if (this.input.isKeyPressed('`')) {
+            this.debugMenuOpen = !this.debugMenuOpen;
+            this.debugKeyDebounce = 15;
+            return;
+        }
+
+        if (!this.debugMenuOpen) return;
+
+        // 1 = Frigate, 2 = Boss (entering), 3 = God mode
+        if (this.input.isKeyPressed('1')) {
             this.debugSpawnFrigate();
-        }
-        // F6 = Jump to Boss fight (Level 3, boss spawns immediately)
-        if (this.input.isKeyPressed('F6')) {
+            this.debugMenuOpen = false;
+            this.debugKeyDebounce = 15;
+        } else if (this.input.isKeyPressed('2')) {
             this.debugSpawnBoss();
-        }
-        // F7 = Toggle god mode (player invincible)
-        if (this.input.isKeyPressed('F7')) {
+            this.debugMenuOpen = false;
+            this.debugKeyDebounce = 15;
+        } else if (this.input.isKeyPressed('3')) {
             this.debugActive = !this.debugActive;
-            if (this.player) {
-                this.player.godMode = this.debugActive;
-            }
+            if (this.player) this.player.godMode = this.debugActive;
+            this.debugKeyDebounce = 15;
         }
     }
 
     private debugSpawnFrigate(): void {
         console.log('[DEBUG] Spawning Frigate encounter');
-        // Set up Level 2 but skip to playing immediately
-        this.level = 1; // Level 2 = index 1
+        this.level = 1;
         if (this.player) {
             this.player.resetForLevel();
         } else {
@@ -2051,7 +2063,6 @@ export class GameManager {
         this.particles.clear();
         this.waveManager.startLevel(1);
 
-        // Immediately spawn a frigate at center of play area
         const ship = new CapitalShip(275, -300);
         ship.loadSprites(this.assets);
         this.capitalShips.push(ship);
@@ -2066,9 +2077,8 @@ export class GameManager {
     }
 
     private debugSpawnBoss(): void {
-        console.log('[DEBUG] Spawning Boss fight');
-        // Set up Level 3 with boss
-        this.level = 2; // Level 3 = index 2
+        console.log('[DEBUG] Spawning Boss fight (skip to entering)');
+        this.level = 2;
         if (this.player) {
             this.player.resetForLevel();
         } else {
@@ -2084,11 +2094,12 @@ export class GameManager {
         this.particles.clear();
         this.waveManager.startLevel(2);
 
-        // Spawn boss immediately
+        // Spawn boss and skip wait — go directly to Entering state
         this.boss = new Boss(this.difficulty);
         this.boss.loadSprites(this.assets);
+        this.boss.state = BossState.Entering;
+        this.boss.musicTriggered = true;
 
-        // Start boss music directly
         this.audio.stopMusic();
         try { this.audio.playMusic('bossTEST', true); this.musicPlaying = 'bossTEST'; } catch { /* skip */ }
         try {
@@ -2104,10 +2115,23 @@ export class GameManager {
         ctx.font = '10px monospace';
         ctx.fillStyle = 'rgba(255,255,255,0.3)';
         ctx.textAlign = 'left';
-        ctx.fillText('F5:Frigate F6:Boss F7:God', 4, 12);
+        ctx.fillText('`:Debug', 4, 12);
         if (this.debugActive) {
             ctx.fillStyle = 'rgba(255,255,0,0.6)';
             ctx.fillText('GOD MODE', 4, 24);
+        }
+        if (this.debugMenuOpen) {
+            ctx.fillStyle = 'rgba(0,0,0,0.85)';
+            ctx.fillRect(2, 28, 170, 60);
+            ctx.fillStyle = '#0f0';
+            ctx.font = '12px monospace';
+            ctx.fillText('1: Spawn Frigate', 8, 44);
+            ctx.fillText('2: Spawn Boss', 8, 58);
+            ctx.fillText('3: Toggle God Mode', 8, 72);
+            if (this.debugActive) {
+                ctx.fillStyle = '#ff0';
+                ctx.fillText('(ON)', 150, 72);
+            }
         }
         ctx.restore();
     }
