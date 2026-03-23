@@ -16,7 +16,24 @@ const SHIELD_BAR_Y = 565;
 const ARMOR_BAR_X = 740;
 const ARMOR_BAR_Y = 565;
 const BAR_W = 45;
-const BAR_MAX_H = 100;
+
+/** Compute bar color using the original C++ formula from GUI.cpp:805-813.
+ *  >= 150: R=(val*-0.015)+4.5, G=1.0, B=0 (green → yellow)
+ *  < 150: R=1.0, G=val*0.0066, B=0 (yellow → red) */
+function getBarColor(value: number): string {
+    let r: number, g: number;
+    if (value >= 150) {
+        r = Math.max(0, Math.min(1, (value * -0.015) + 4.5));
+        g = 1.0;
+    } else if (value > 0) {
+        r = 1.0;
+        g = Math.max(0, Math.min(1, value * 0.0066));
+    } else {
+        r = 1.0;
+        g = 0;
+    }
+    return `rgb(${Math.round(r * 255)},${Math.round(g * 255)},0)`;
+}
 
 export class HUD {
     private consoleSprite: HTMLImageElement | null = null;
@@ -46,86 +63,112 @@ export class HUD {
             ctx.strokeRect(CONSOLE_X, 0, CONSOLE_W, PLAY_AREA_H);
         }
 
-        // Score
-        ctx.font = '12px monospace';
-        ctx.fillStyle = '#0f0';
-        ctx.fillText('SCORE', 660, 20);
-        ctx.fillStyle = '#fff';
-        ctx.fillText(score.toString().padStart(8, '0'), 660, 34);
-
-        // Level
-        ctx.fillStyle = '#0f0';
-        ctx.fillText(`LEVEL ${level + 1}`, 660, 56);
-
-        // Timer (M:SS, red if < 10s)
-        const remaining = Math.max(0, timeRemaining);
-        const mins = Math.floor(remaining / 60);
-        const secs = Math.floor(remaining % 60);
-        ctx.fillStyle = remaining < 10 ? '#f00' : '#ff0';
-        ctx.fillText(`${mins}:${secs.toString().padStart(2, '0')}`, 740, 56);
-
-        // Rank
-        const rank = this.getRank(kills);
-        ctx.fillStyle = '#aaa';
-        ctx.fillText(rank, 660, 78);
-
         if (!player) return;
 
-        // Weapon status indicators (small colored squares)
-        const weaponLabels = ['BLS', 'LT', 'RT', 'LM', 'RM'];
-        const weaponColors = ['#0f0', '#0ff', '#0ff', '#ff0', '#ff0'];
-        for (let i = 0; i < Math.min(5, player.weapons.length); i++) {
-            const wy = 100 + i * 18;
-            const enabled = player.weapons[i].enabled;
-            ctx.fillStyle = enabled ? weaponColors[i] : '#600';
-            ctx.fillRect(660, wy - 8, 8, 8);
-            ctx.fillStyle = enabled ? '#fff' : '#666';
-            ctx.font = '10px monospace';
-            ctx.fillText(weaponLabels[i], 672, wy);
+        // Rank — centered at (725, 0) per original
+        const rank = this.getRank(kills);
+        ctx.font = '11px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#0f0';
+        ctx.fillText(rank, 725, 12);
+        ctx.textAlign = 'left';
+
+        // Power cell bars (4×4px green) — approximate positions from Console.h
+        ctx.fillStyle = '#0f0';
+        // Blaster rate/power at (719, 52) and (729, 52)
+        this.drawCellBars(ctx, 719, 52, player.powerPlant.getBlasterRateCells());
+        this.drawCellBars(ctx, 729, 52, player.powerPlant.getBlasterPowerCells());
+        // Left turret at (668, 80) and (678, 80)
+        this.drawCellBars(ctx, 668, 80, player.powerPlant.getLeftTurretRateCells());
+        this.drawCellBars(ctx, 678, 80, player.powerPlant.getLeftTurretPowerCells());
+        // Right turret at (768, 80) and (778, 80)
+        this.drawCellBars(ctx, 768, 80, player.powerPlant.getRightTurretRateCells());
+        this.drawCellBars(ctx, 778, 80, player.powerPlant.getRightTurretPowerCells());
+        // Left missile at (698, 83) and (708, 83)
+        this.drawCellBars(ctx, 698, 83, player.powerPlant.getLeftMissileRateCells());
+        this.drawCellBars(ctx, 708, 83, player.powerPlant.getLeftMissilePowerCells());
+        // Right missile at (738, 83) and (748, 83)
+        this.drawCellBars(ctx, 738, 83, player.powerPlant.getRightMissileRateCells());
+        this.drawCellBars(ctx, 748, 83, player.powerPlant.getRightMissilePowerCells());
+        // Ship shield/engine at (668, 122) and (678, 122)
+        this.drawCellBars(ctx, 668, 122, player.powerPlant.getShieldCells());
+        this.drawCellBars(ctx, 678, 122, player.powerPlant.getEngineCells());
+
+        // Kills — at (660, 130), count right-aligned at (790, 130)
+        ctx.font = '11px monospace';
+        ctx.fillStyle = '#0f0';
+        ctx.fillText('Kills', 660, 140);
+        ctx.textAlign = 'right';
+        ctx.fillText(kills.toString(), 790, 140);
+        ctx.textAlign = 'left';
+
+        // Power settings — active = bright green, inactive = dimmed
+        const setting = player.powerPlant.currentSetting;
+        const settingLabels = ["speed setting 'Q'", "power setting 'W'", "armor setting 'E'"];
+        const settingY = [195, 215, 235];
+        ctx.font = '10px monospace';
+        for (let i = 0; i < 3; i++) {
+            ctx.fillStyle = setting === i ? '#0f0' : '#484';
+            ctx.fillText(settingLabels[i], 660, settingY[i]);
         }
 
-        // Power setting
-        ctx.font = '12px monospace';
-        ctx.fillStyle = '#ff0';
-        ctx.fillText(`PWR SET: ${player.powerPlant.currentSetting + 1}`, 660, 200);
+        // RU's — at (660, 280)
+        ctx.font = '11px monospace';
+        ctx.fillStyle = '#0f0';
+        ctx.fillText("RU's", 660, 270);
+        ctx.fillText(player.powerPlant.resourceUnits.toString(), 700, 270);
+
+        // Shield/Armor labels at y=335
+        ctx.font = '10px monospace';
+        ctx.fillStyle = '#0f0';
+        ctx.textAlign = 'center';
+        ctx.fillText('Shields', 688, 340);
+        ctx.fillText('Armor', 760, 340);
+        ctx.textAlign = 'left';
 
         // Speed ship animation area
         if (this.speedShipSprite) {
             ctx.drawImage(this.speedShipSprite, 680, 400);
         }
 
-        // Shield bar (grows upward from y=565)
-        this.drawBar(ctx, SHIELD_BAR_X, SHIELD_BAR_Y, BAR_W, player.shields, player.maxShields, '#00f', 'SHD');
+        // Shield bar (grows upward from y=565) — dynamic color
+        this.drawHealthBar(ctx, SHIELD_BAR_X, SHIELD_BAR_Y, BAR_W, player.shields, player.maxShields);
 
-        // Armor bar (grows upward from y=565)
-        this.drawBar(ctx, ARMOR_BAR_X, ARMOR_BAR_Y, BAR_W, player.armor, player.maxArmor, '#f00', 'ARM');
+        // Armor bar (grows upward from y=565) — dynamic color
+        this.drawHealthBar(ctx, ARMOR_BAR_X, ARMOR_BAR_Y, BAR_W, player.armor, player.maxArmor);
     }
 
-    private drawBar(
+    /** Draw health bar with dynamic green→yellow→red color from original C++ formula. */
+    private drawHealthBar(
         ctx: CanvasRenderingContext2D,
         x: number, y: number, w: number,
         value: number, max: number,
-        color: string, label: string,
     ): void {
-        const ratio = max > 0 ? Math.min(1, value / max) : 0;
-        const fillH = Math.floor(BAR_MAX_H * ratio);
+        // Bar height: value * 0.666 per original (300 HP → 200px)
+        const maxBarH = Math.floor(max * 0.666);
+        const fillH = Math.floor(value * 0.666);
 
         // Background
         ctx.fillStyle = '#222';
-        ctx.fillRect(x, y - BAR_MAX_H, w, BAR_MAX_H);
+        ctx.fillRect(x, y - maxBarH, w, maxBarH);
 
-        // Fill (grows upward from bottom)
-        ctx.fillStyle = color;
-        ctx.fillRect(x, y - fillH, w, fillH);
+        // Fill (grows upward from bottom) with dynamic color
+        if (fillH > 0) {
+            ctx.fillStyle = getBarColor(value);
+            ctx.fillRect(x, y - fillH, w, fillH);
+        }
 
         // Border
         ctx.strokeStyle = '#555';
-        ctx.strokeRect(x, y - BAR_MAX_H, w, BAR_MAX_H);
+        ctx.strokeRect(x, y - maxBarH, w, maxBarH);
+    }
 
-        // Label below bar
-        ctx.fillStyle = '#aaa';
-        ctx.font = '10px monospace';
-        ctx.fillText(label, x, y + 12);
+    /** Draw power cell bars — small 4×4px green blocks stacked upward. */
+    private drawCellBars(ctx: CanvasRenderingContext2D, x: number, y: number, cells: number): void {
+        ctx.fillStyle = '#0f0';
+        for (let i = 0; i < cells; i++) {
+            ctx.fillRect(x, y - (i * 6 + 2), 4, 4);
+        }
     }
 
     private getRank(kills: number): string {

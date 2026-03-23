@@ -167,11 +167,44 @@ export class Player {
 
     draw(ctx: CanvasRenderingContext2D): void {
         if (!this.alive) return;
+
+        // Shield bubble — blue translucent oval, alpha based on shield level
+        // Original: GL textured quad, color (0.3, 0.6, 0.9), alpha = shields/300, size 129×89
+        if (this.shields > 0) {
+            const shieldAlpha = Math.min(1, this.shields / this.maxShields) * 0.4;
+            ctx.save();
+            ctx.globalAlpha = shieldAlpha;
+            ctx.fillStyle = 'rgba(77, 153, 230, 0.6)';
+            ctx.beginPath();
+            ctx.ellipse(
+                this.x + 38, this.y - 24 + 44.5,
+                64.5, 44.5,
+                0, 0, Math.PI * 2,
+            );
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.restore();
+        }
+
         if (this.sprite) {
             this.sprite.drawAt(ctx, this.x, this.y);
         } else {
             ctx.fillStyle = '#0f0';
             ctx.fillRect(this.x, this.y, 48, 48);
         }
+    }
+
+    /** Emit engine flame particles. Call from GameManager each frame. */
+    emitEngineFlame(particles: import('../engine').ParticleSystem): void {
+        if (!this.alive) return;
+        const gVal = Math.random() * 0.4;
+        particles.emit(this.x + 38, this.y + 47, 1, {
+            color: { r: 1.0, g: gVal, b: gVal },
+            speed: 15 + Math.random() * 10,
+            life: 0.05 + Math.random() * 0.1,
+            fade: 8,
+            direction: Math.PI * 0.97,
+            spread: 0.3,
+        });
     }
 }

@@ -58,6 +58,7 @@ export class GameManager {
     private engineSound: SoundInstance | null = null;
     private smallExpFrames: HTMLImageElement[] = [];
     private bigExpFrames: HTMLImageElement[] = [];
+    private levelAnimFrames: HTMLImageElement[][] = []; // per-level animation frames
 
     constructor(canvasId: string) {
         this.canvas = new GameCanvas(canvasId);
@@ -113,11 +114,36 @@ export class GameManager {
         this.smallExpFrames = Explosion.loadFrames(this.assets, 'small');
         this.bigExpFrames = Explosion.loadFrames(this.assets, 'big');
 
+        // Cache level intro animation frames
+        this.loadLevelAnimFrames();
+
         // Load HUD and starfield sprites
         this.hud.loadSprites(this.assets);
         this.starField.loadSprites(this.assets);
 
         this.state = GameState.StartScreen;
+    }
+
+    /** Load pre-rendered level intro animation frames (level_anim_1–8 etc.) */
+    private loadLevelAnimFrames(): void {
+        // Level 1: level_anim_1 through level_anim_8
+        const l1: HTMLImageElement[] = [];
+        for (let i = 1; i <= 8; i++) {
+            try { l1.push(this.assets.getImage(`level_anim_${i}`)); } catch { break; }
+        }
+        // Level 2: level_anim_1 through level_anim_7 + level_anim_2_start
+        const l2: HTMLImageElement[] = [];
+        for (let i = 1; i <= 7; i++) {
+            try { l2.push(this.assets.getImage(`level_anim_${i}`)); } catch { break; }
+        }
+        try { l2.push(this.assets.getImage('level_anim_2_start')); } catch { /* skip */ }
+        // Level 3: level_anim_1 through level_anim_7 + level_anim_3_start
+        const l3: HTMLImageElement[] = [];
+        for (let i = 1; i <= 7; i++) {
+            try { l3.push(this.assets.getImage(`level_anim_${i}`)); } catch { break; }
+        }
+        try { l3.push(this.assets.getImage('level_anim_3_start')); } catch { /* skip */ }
+        this.levelAnimFrames = [l1, l2, l3];
     }
 
     update(dt: number): void {
@@ -263,6 +289,7 @@ export class GameManager {
 
     private renderReadyRoom(): void {
         const ctx = this.canvas.ctx;
+        // Background: room_GUI (NOT room_screen overlay — that's only for Options_GUI)
         const bg = this.assets.tryGetImage('room');
         if (bg) {
             ctx.drawImage(bg, 0, 0, 800, 600);
@@ -271,49 +298,72 @@ export class GameManager {
             ctx.fillRect(0, 0, 800, 600);
         }
 
-        const overlay = this.assets.tryGetImage('room_screen');
-        if (overlay) {
-            ctx.drawImage(overlay, 0, 0);
-        }
-
         const mouse = this.input.getMousePos();
         const mx = mouse.x;
         const my = mouse.y;
 
-        ctx.font = '16px monospace';
-        ctx.textAlign = 'center';
-
-        // Left zone highlight
+        // Determine hover zone
         const inLeft = mx >= 10 && mx <= 218 && my >= 260 && my <= 380;
-        ctx.fillStyle = inLeft ? '#0f0' : '#aaa';
-        ctx.fillText('Ship Customization', 114, 320);
-
-        // Center zone highlight
         const inCenter = mx >= 200 && mx <= 400 && my >= 185 && my <= 218;
-        ctx.fillStyle = inCenter ? '#0f0' : '#aaa';
-        ctx.fillText('Briefing & Options', 300, 205);
-
-        // Right zone highlight
         const inRight = mx >= 601 && mx <= 800 && my >= 0 && my <= 540;
-        ctx.fillStyle = inRight ? '#0f0' : '#aaa';
-        ctx.fillText('Launch', 700, 270);
 
-        // Contextual message
+        // Zone hover labels (appear on hover)
         ctx.font = '14px monospace';
-        ctx.fillStyle = '#ff0';
-        if (this.level === 0 && this.levelBriefed < 1) {
-            ctx.fillText('Read the briefing before your first mission', 400, 500);
-        } else if (this.level === 0) {
-            ctx.fillText('You are cleared for launch, pilot', 400, 500);
-        } else {
-            ctx.fillText(`Next mission: Level ${this.level + 1}`, 400, 500);
+        ctx.textAlign = 'center';
+        if (inLeft) {
+            ctx.fillStyle = '#0f0';
+            ctx.fillText('Ship Customization', 114, 340);
+        }
+        if (inCenter) {
+            ctx.fillStyle = '#0f0';
+            ctx.fillText('Briefing Area and Options', 300, 206);
+        }
+        if (inRight) {
+            ctx.fillStyle = '#0f0';
+            ctx.fillText('Launch', 600, 270);
         }
 
-        // Difficulty display
-        const diffNames = ['EASY', 'NORMAL', 'HARD', 'NIGHTMARE'];
-        ctx.fillStyle = '#888';
-        ctx.font = '12px monospace';
-        ctx.fillText(`Difficulty: ${diffNames[this.difficulty]} (press 1-4)`, 400, 560);
+        // Notification labels
+        if (this.levelBriefed <= this.level) {
+            ctx.font = '12px monospace';
+            ctx.fillStyle = '#0f0';
+            ctx.fillText('New Level Briefing Available!', 300, 206 - (inCenter ? 16 : 0));
+        }
+
+        // Bottom tooltip bar — black background
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 550, 800, 50);
+
+        // Dynamic tooltip text
+        ctx.font = '14px monospace';
+        ctx.fillStyle = '#0f0';
+        ctx.textAlign = 'center';
+
+        let tooltip = 'Click on a screen or the door opening';
+
+        if (inLeft) {
+            tooltip = 'Click here to customize your ship.';
+        } else if (inCenter) {
+            tooltip = 'Click here to See Briefings, Save, Load, or Quit';
+        } else if (inRight) {
+            if (this.level === 0 && this.levelBriefed < 1) {
+                tooltip = 'Recon has new info see the level briefing.';
+            } else if (this.level === 0) {
+                tooltip = 'Launch into the Outer Earth Sector';
+            } else if (this.level === 1 && this.levelBriefed < 2) {
+                tooltip = 'Recon has new info see the level briefing.';
+            } else if (this.level === 1) {
+                tooltip = 'Penetrate the Outer Defense Matrix';
+            } else if (this.level === 2 && this.levelBriefed < 3) {
+                tooltip = 'Recon has new info see the level briefing.';
+            } else if (this.level === 2) {
+                tooltip = 'Destroy the Nexus Core';
+            } else {
+                tooltip = 'You Have Completed the Mission!';
+            }
+        }
+
+        ctx.fillText(tooltip, 400, 580);
         ctx.textAlign = 'left';
     }
 
@@ -362,6 +412,7 @@ export class GameManager {
         // Update player
         if (this.player && this.player.alive) {
             this.player.update(dt, this.input, this.now);
+            this.player.emitEngineFlame(this.particles);
             const playerProj = this.player.tryFire(this.input, this.now, this.assets);
             this.projectiles.push(...playerProj);
         }
@@ -675,18 +726,29 @@ export class GameManager {
         this.hud.draw(ctx, this.player, this.score, this.level,
             timeRemaining, this.player?.kills ?? 0);
 
-        // Level start text overlay
-        if (this.stateTimer < 4) {
-            ctx.save();
-            ctx.textAlign = 'center';
-            ctx.font = '28px monospace';
-            ctx.fillStyle = '#0f0';
-            const alpha = this.stateTimer < 0.6 ? 0 : Math.min(1, (this.stateTimer - 0.6) / 0.5);
-            ctx.globalAlpha = alpha;
-            ctx.fillText(`LEVEL ${this.level + 1}`, PLAY_AREA_W / 2, 280);
-            ctx.globalAlpha = 1;
-            ctx.textAlign = 'left';
-            ctx.restore();
+        // Level start animation overlay — sprite frames at 100ms each, from 600ms to 4000ms
+        if (this.stateTimer < 4 && this.stateTimer > 0.6) {
+            const frames = this.levelAnimFrames[this.level] ?? [];
+            if (frames.length > 0) {
+                const elapsed = this.stateTimer - 0.6;
+                const frameIndex = Math.min(Math.floor(elapsed / 0.1), frames.length - 1);
+                const frame = frames[frameIndex];
+                if (frame) {
+                    ctx.drawImage(frame, 253, 200);
+                }
+            } else {
+                // Fallback: text-based level title
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.font = '28px monospace';
+                ctx.fillStyle = '#0f0';
+                const alpha = Math.min(1, (this.stateTimer - 0.6) / 0.5);
+                ctx.globalAlpha = alpha;
+                ctx.fillText(`LEVEL ${this.level + 1}`, PLAY_AREA_W / 2, 280);
+                ctx.globalAlpha = 1;
+                ctx.textAlign = 'left';
+                ctx.restore();
+            }
         }
 
         // Level end text overlay (last 5 seconds)

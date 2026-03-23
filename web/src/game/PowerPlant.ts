@@ -40,6 +40,7 @@ export class PowerPlant {
     readonly maxPowerPerCell = 5;
     settings: PowerSetting[] = [];
     currentSetting = 0;
+    resourceUnits = 10;
 
     constructor() {
         // Initialize 3 customizable power settings
@@ -104,4 +105,18 @@ export class PowerPlant {
         const total = Math.min(s.shipPowerCell1 + s.shipPowerCell2, this.maxPowerPerCell);
         return POWER_MULTIPLIERS[total] ?? 1.0;
     }
+
+    // Cell count getters for HUD power bar display
+    getBlasterRateCells(): number { return this.getSetting().blasterCell1; }
+    getBlasterPowerCells(): number { return this.getSetting().blasterCell2; }
+    getLeftTurretRateCells(): number { return this.getSetting().leftTurretCell1; }
+    getLeftTurretPowerCells(): number { return this.getSetting().leftTurretCell2; }
+    getRightTurretRateCells(): number { return this.getSetting().rightTurretCell1; }
+    getRightTurretPowerCells(): number { return this.getSetting().rightTurretCell2; }
+    getLeftMissileRateCells(): number { return this.getSetting().leftMissileCell1; }
+    getLeftMissilePowerCells(): number { return this.getSetting().leftMissileCell2; }
+    getRightMissileRateCells(): number { return this.getSetting().rightMissileCell1; }
+    getRightMissilePowerCells(): number { return this.getSetting().rightMissileCell2; }
+    getShieldCells(): number { return this.getSetting().shipPowerCell1; }
+    getEngineCells(): number { return this.getSetting().shipPowerCell2; }
 }
