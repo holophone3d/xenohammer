@@ -278,6 +278,12 @@ export class Boss {
     // Track initial turret AI tick
     private turretAIInitialized = false;
 
+    // C++ GL_Handler pulsing alpha values
+    private warningAlpha = 1.0;
+    private warningAlphaUp = false;
+    private bossAlpha = 0.3;
+    private bossAlphaUp = true;
+
     constructor(difficulty = 1) {
         this.difficulty = difficulty;
         this.hpOffset = difficulty === 0 ? -200 : difficulty === 2 ? 200 : difficulty === 3 ? 1000 : 0;
@@ -472,6 +478,26 @@ export class Boss {
             if (!this.outerOrbs[i].destroyed) {
                 this.outerOrbSprites[i].update(dt * 1000);
             }
+        }
+
+        // Update pulsing alpha values (C++ GL_Handler per-frame update)
+        // warningAlpha: slow decrease 0.01/frame, fast increase 0.1/frame (0.3–1.0)
+        // bossAlpha: symmetric 0.01/frame both ways (0.1–0.6)
+        // Normalize to ~60fps equivalent: multiply by dt*60
+        const frameFactor = dt * 60;
+        if (!this.warningAlphaUp) {
+            this.warningAlpha -= 0.01 * frameFactor;
+            if (this.warningAlpha < 0.3) this.warningAlphaUp = true;
+        } else {
+            this.warningAlpha += 0.1 * frameFactor;
+            if (this.warningAlpha > 1.0) { this.warningAlpha = 1.0; this.warningAlphaUp = false; }
+        }
+        if (!this.bossAlphaUp) {
+            this.bossAlpha -= 0.01 * frameFactor;
+            if (this.bossAlpha < 0.1) this.bossAlphaUp = true;
+        } else {
+            this.bossAlpha += 0.01 * frameFactor;
+            if (this.bossAlpha > 0.6) { this.bossAlpha = 0.6; this.bossAlphaUp = false; }
         }
 
         this.updateComponentPositions();
@@ -985,6 +1011,9 @@ export class Boss {
         // Center node
         this.drawComp(ctx, this.centerNode, '#889');
 
+        // Energy beam effects (glowing orbs, connector beams, glowy bars)
+        this.drawEnergyEffects(ctx);
+
         // Center orb
         if (!this.centerOrb.destroyed) {
             const ox = this.centerOrb.x;
@@ -1080,6 +1109,203 @@ export class Boss {
         ctx.beginPath();
         ctx.arc(cx, cy, radius, 0, Math.PI * 2);
         ctx.fill();
+    }
+
+    /**
+     * C++ GL_Handler energy effects: glowing orbs, connector beams, shield glow,
+     * connector points, glowy bars, and U-arm red lights. All use alpha-blended
+     * additive-style rendering with pulsing warningAlpha and bossAlpha values.
+     */
+    private drawEnergyEffects(ctx: CanvasRenderingContext2D): void {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter'; // additive blending like OpenGL
+
+        const bx = this.x;
+        const by = this.y;
+
+        // --- Boss shield glow (C++: purple, orbCount/4 alpha, 130×115 at center+80) ---
+        if (this.orbCount > 0 && !this.bossShield.destroyed) {
+            const shieldAlpha = this.orbCount / 4;
+            this.drawGlow(ctx, bx + 80, by + 80, 130, 115, 0.4, 0.15, 1.0, shieldAlpha * 0.5);
+        }
+
+        // --- Central red glowing orb (C++: 90×90 at center+80, bossAlpha) ---
+        this.drawGlow(ctx, bx + 80, by + 80, 90, 90, 1.0, 0.0, 0.0, this.bossAlpha);
+
+        // --- 4 outer node glowing orbs (C++: red 90×90, bossAlpha, only when orb visible) ---
+        for (let i = 0; i < 4; i++) {
+            if (this.outerOrbs[i].destroyed) continue;
+            const nx = bx + NODE_OFFSETS[i].x + 64;
+            const ny = by + NODE_OFFSETS[i].y + 64;
+            this.drawGlow(ctx, nx, ny, 90, 90, 1.0, 0.0, 0.0, this.bossAlpha);
+        }
+
+        // --- Center connector points (C++: white 30×30, warningAlpha) ---
+        // Center point 1 (between nodes 0-1): visible if either orb 0 or 1 alive
+        const cp1x = bx + 12, cp1y = by + 148;
+        if (!this.outerOrbs[0].destroyed || !this.outerOrbs[1].destroyed) {
+            this.drawGlow(ctx, cp1x, cp1y, 30, 30, 1.0, 1.0, 1.0, this.warningAlpha);
+        }
+        // Center point 2 (between nodes 2-3): visible if either orb 2 or 3 alive
+        const cp2x = bx + 148, cp2y = by + 148;
+        if (!this.outerOrbs[2].destroyed || !this.outerOrbs[3].destroyed) {
+            this.drawGlow(ctx, cp2x, cp2y, 30, 30, 1.0, 1.0, 1.0, this.warningAlpha);
+        }
+
+        // --- Connector beams (C++: purple 0.4/0.15/1.0, warningAlpha*0.5, bar.bmp texture) ---
+        const beamAlpha = this.warningAlpha * 0.5;
+        // Node1 → center point 1
+        if (!this.outerOrbs[0].destroyed) {
+            const n1x = bx + NODE_OFFSETS[0].x + 128;
+            const n1y = by + NODE_OFFSETS[0].y + 64 - 10;
+            this.drawBeam(ctx, n1x, n1y, cp1x, cp1y - 16, 30, 0.4, 0.15, 1.0, beamAlpha);
+        }
+        // Node2 → center point 1
+        if (!this.outerOrbs[1].destroyed) {
+            const n2x = bx + NODE_OFFSETS[1].x + 64;
+            const n2y = by + NODE_OFFSETS[1].y;
+            this.drawBeam(ctx, n2x, n2y, cp1x, cp1y, 20, 0.4, 0.15, 1.0, beamAlpha);
+        }
+        // Node3 → center point 2
+        if (!this.outerOrbs[2].destroyed) {
+            const n3x = bx + NODE_OFFSETS[2].x + 64;
+            const n3y = by + NODE_OFFSETS[2].y;
+            this.drawBeam(ctx, n3x, n3y, cp2x, cp2y, 20, 0.4, 0.15, 1.0, beamAlpha);
+        }
+        // Node4 → center point 2
+        if (!this.outerOrbs[3].destroyed) {
+            const n4x = bx + NODE_OFFSETS[3].x;
+            const n4y = by + NODE_OFFSETS[3].y + 64 - 10;
+            this.drawBeam(ctx, n4x, n4y, cp2x, cp2y - 16, 30, 0.4, 0.15, 1.0, beamAlpha);
+        }
+
+        // --- 4 outer node connector points (C++: white 30×30, warningAlpha) ---
+        if (!this.outerOrbs[0].destroyed) {
+            this.drawGlow(ctx, bx + NODE_OFFSETS[0].x + 128, by + NODE_OFFSETS[0].y + 64, 30, 30, 1.0, 1.0, 1.0, this.warningAlpha);
+        }
+        if (!this.outerOrbs[1].destroyed) {
+            this.drawGlow(ctx, bx + NODE_OFFSETS[1].x + 64, by + NODE_OFFSETS[1].y, 30, 30, 1.0, 1.0, 1.0, this.warningAlpha);
+        }
+        if (!this.outerOrbs[2].destroyed) {
+            this.drawGlow(ctx, bx + NODE_OFFSETS[2].x + 64, by + NODE_OFFSETS[2].y, 30, 30, 1.0, 1.0, 1.0, this.warningAlpha);
+        }
+        if (!this.outerOrbs[3].destroyed) {
+            this.drawGlow(ctx, bx + NODE_OFFSETS[3].x, by + NODE_OFFSETS[3].y + 64, 30, 30, 1.0, 1.0, 1.0, this.warningAlpha);
+        }
+
+        // --- 3 glowy bars (C++: blue 0/0/1, bossAlpha, between node pairs) ---
+        // Left bar: Node1→Node2 (only when both orbs alive)
+        if (!this.outerOrbs[0].destroyed && !this.outerOrbs[1].destroyed) {
+            const lx1 = bx + NODE_OFFSETS[0].x + 104;
+            const ly1 = by + NODE_OFFSETS[0].y + 104 + 16;
+            const lx2 = bx + NODE_OFFSETS[1].x + 26;
+            const ly2 = by + NODE_OFFSETS[1].y + 26 - 16;
+            this.drawBeam(ctx, lx1, ly1, lx2, ly2, 30, 0.0, 0.0, 1.0, this.bossAlpha);
+        }
+        // Right bar: Node3→Node4 (mirrors left)
+        if (!this.outerOrbs[2].destroyed && !this.outerOrbs[3].destroyed) {
+            const rx1 = bx + NODE_OFFSETS[3].x + 26;
+            const ry1 = by + NODE_OFFSETS[3].y + 104 + 16;
+            const rx2 = bx + NODE_OFFSETS[2].x + 104;
+            const ry2 = by + NODE_OFFSETS[2].y + 26 - 16;
+            this.drawBeam(ctx, rx1, ry1, rx2, ry2, 30, 0.0, 0.0, 1.0, this.bossAlpha);
+        }
+        // Center bar: Node2→Node3 (horizontal)
+        if (!this.outerOrbs[1].destroyed && !this.outerOrbs[2].destroyed) {
+            const cx = bx + NODE_OFFSETS[1].x + 148;
+            const cy = by + NODE_OFFSETS[1].y + 65;
+            this.drawGlow(ctx, cx, cy, 50, 25, 0.0, 0.0, 1.0, this.bossAlpha);
+        }
+
+        // --- U-arm red lights (C++: red 20×20, bossAlpha, only when all orbs destroyed) ---
+        if (this.orbCount <= 0) {
+            for (const u of this.uComponents) {
+                this.drawGlow(ctx, u.x + 96, u.y + 281, 20, 20, 1.0, 0.0, 0.0, this.bossAlpha);
+                this.drawGlow(ctx, u.x + 43, u.y + 281, 20, 20, 1.0, 0.0, 0.0, this.bossAlpha);
+            }
+        }
+
+        ctx.restore();
+    }
+
+    /** Draw a radial glow at a point (replicates OpenGL textured quad with radial falloff) */
+    private drawGlow(
+        ctx: CanvasRenderingContext2D,
+        cx: number, cy: number, rx: number, ry: number,
+        r: number, g: number, b: number, a: number,
+    ): void {
+        if (a <= 0) return;
+        ctx.save();
+        // Scale to ellipse if rx != ry
+        ctx.translate(cx, cy);
+        ctx.scale(rx / Math.max(rx, ry), ry / Math.max(rx, ry));
+        const radius = Math.max(rx, ry);
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
+        const color = `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)}`;
+        gradient.addColorStop(0, `${color},${a})`);
+        gradient.addColorStop(0.4, `${color},${a * 0.6})`);
+        gradient.addColorStop(1, `${color},0)`);
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    /** Draw an energy beam between two points (replicates OpenGL bar.bmp triangle strip) */
+    private drawBeam(
+        ctx: CanvasRenderingContext2D,
+        x1: number, y1: number, x2: number, y2: number,
+        width: number, r: number, g: number, b: number, a: number,
+    ): void {
+        if (a <= 0) return;
+        const dx = x2 - x1, dy = y2 - y1;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len < 1) return;
+        // Perpendicular unit vector
+        const px = -dy / len * width;
+        const py = dx / len * width;
+
+        const color = `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)}`;
+
+        // Draw beam as gradient-filled quad
+        ctx.save();
+        ctx.globalAlpha = a;
+        // Core bright beam
+        ctx.beginPath();
+        ctx.moveTo(x1 + px * 0.3, y1 + py * 0.3);
+        ctx.lineTo(x2 + px * 0.3, y2 + py * 0.3);
+        ctx.lineTo(x2 - px * 0.3, y2 - py * 0.3);
+        ctx.lineTo(x1 - px * 0.3, y1 - py * 0.3);
+        ctx.closePath();
+        ctx.fillStyle = `${color},${0.8})`;
+        ctx.fill();
+
+        // Outer glow
+        ctx.beginPath();
+        ctx.moveTo(x1 + px, y1 + py);
+        ctx.lineTo(x2 + px, y2 + py);
+        ctx.lineTo(x2 - px, y2 - py);
+        ctx.lineTo(x1 - px, y1 - py);
+        ctx.closePath();
+        ctx.fillStyle = `${color},${0.3})`;
+        ctx.fill();
+
+        // Endpoint glows
+        const glowR = width * 0.8;
+        const glow = ctx.createRadialGradient(x1, y1, 0, x1, y1, glowR);
+        glow.addColorStop(0, `${color},${0.6})`);
+        glow.addColorStop(1, `${color},0)`);
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(x1, y1, glowR, 0, Math.PI * 2); ctx.fill();
+
+        const glow2 = ctx.createRadialGradient(x2, y2, 0, x2, y2, glowR);
+        glow2.addColorStop(0, `${color},${0.6})`);
+        glow2.addColorStop(1, `${color},0)`);
+        ctx.fillStyle = glow2;
+        ctx.beginPath(); ctx.arc(x2, y2, glowR, 0, Math.PI * 2); ctx.fill();
+
+        ctx.restore();
     }
 
     private drawTurretSet(ctx: CanvasRenderingContext2D, turrets: BossTurretAI[]): void {
