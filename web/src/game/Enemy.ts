@@ -1,5 +1,10 @@
 /**
  * Enemy ship — base class with variant factories for LightFighter, FighterB, Gunship.
+ *
+ * Stats per SPEC.md §6:
+ *   LightFighter: 10 armor, 0 shields, speed 10, 32 frames, fire 400ms, 100pts
+ *   FighterB:     30 armor, 0 shields, speed 12, 32 frames, fire 1000ms, 250pts
+ *   Gunship:     100 armor, 0 shields, max speed 9, 17 frames, fire 600ms, 500pts
  */
 
 import { Sprite, AssetLoader } from '../engine';
@@ -24,8 +29,21 @@ export class Enemy {
     ai: AIBehavior;
     alive = true;
     wantsFire = false;
+    /** Heading angle in radians (used by AI to set direction) */
+    angle = 0;
     turretAngle = 0;
-    private animTimer = 0;
+
+    /** Default dimensions if sprite not loaded */
+    private defaultWidth: number;
+    private defaultHeight: number;
+
+    get width(): number {
+        return this.sprite ? this.sprite.width : this.defaultWidth;
+    }
+
+    get height(): number {
+        return this.sprite ? this.sprite.height : this.defaultHeight;
+    }
 
     constructor(
         x: number,
@@ -33,6 +51,8 @@ export class Enemy {
         config: ShipConfig,
         type: EnemyType,
         ai: AIBehavior,
+        defaultWidth = 32,
+        defaultHeight = 32,
     ) {
         this.x = x;
         this.y = y;
@@ -41,6 +61,8 @@ export class Enemy {
         this.armor = config.armor;
         this.shields = config.shields;
         this.ai = ai;
+        this.defaultWidth = defaultWidth;
+        this.defaultHeight = defaultHeight;
 
         // Create weapons from config offsets
         for (const offset of config.weaponOffsets) {
@@ -50,46 +72,60 @@ export class Enemy {
     }
 
     getRect(): Rect {
-        const w = this.sprite ? this.sprite.width : 32;
-        const h = this.sprite ? this.sprite.height : 32;
-        return { x: this.x, y: this.y, w, h };
+        return { x: this.x, y: this.y, w: this.width, h: this.height };
     }
 
     update(dt: number, playerX: number, playerY: number): void {
         if (!this.alive) return;
 
+        // Delegate movement/state to AI
         this.ai.update(this, playerX, playerY, dt);
 
+        // Apply velocity (px/tick values, dt in seconds → multiply by 60 for ticks)
         this.x += this.vx * dt * 60;
         this.y += this.vy * dt * 60;
 
-        // Animate sprite frame based on movement direction
-        this.animTimer += dt * 1000;
-        if (this.sprite && this.animTimer > 100) {
-            this.animTimer = 0;
-            this.updateSpriteFrame();
-        }
+        // Update sprite frame based on heading angle
+        this.updateSpriteFrame();
     }
 
     private updateSpriteFrame(): void {
         if (!this.sprite || this.sprite.frames.length <= 1) return;
 
-        // Pick frame based on heading angle (32 or 17 directional frames)
-        const angle = Math.atan2(this.vy, this.vx);
-        const normalizedAngle = ((angle + Math.PI * 2) % (Math.PI * 2)) / (Math.PI * 2);
-        const frameIndex = Math.floor(normalizedAngle * this.config.frameCount) % this.config.frameCount;
-        this.sprite.currentFrame = frameIndex;
+        if (this.config.frameCount === 32) {
+            // 32 directional frames: frame 0 = up (angle = -π/2), clockwise
+            // Convert from math angle (right=0) to sprite angle (up=0, clockwise)
+            const spriteAngle = this.angle + Math.PI / 2;
+            const normalized = ((spriteAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+            this.sprite.currentFrame = Math.floor(normalized / (2 * Math.PI) * 32) % 32;
+        } else if (this.config.frameCount === 17) {
+            // 17-frame sprite: frame 8 = straight down, <8 = banked left, >8 = banked right
+            // Map horizontal velocity to bank frame
+            const maxSpeed = this.config.speed || 9;
+            const bankRatio = Math.max(-1, Math.min(1, this.vx / maxSpeed));
+            this.sprite.currentFrame = Math.round(8 + bankRatio * 8);
+            this.sprite.currentFrame = Math.max(0, Math.min(16, this.sprite.currentFrame));
+        }
     }
 
-    /** Attempt to fire all weapons, returning spawned projectiles. */
+    /** Attempt to fire weapons, returning spawned projectiles. */
     tryFire(now: number, assets: AssetLoader | null): Projectile[] {
         if (!this.wantsFire || !this.alive) return [];
 
         const projectiles: Projectile[] = [];
-        for (const weapon of this.weapons) {
-            const proj = weapon.fire(this.x, this.y, now, 'enemy', 1.0, assets);
-            if (proj) {
-                projectiles.push(proj);
+
+        // Gunships alternate dual cannons
+        if (this.type === 'gunship' && this.ai instanceof GunshipAI) {
+            const cannonIdx = this.ai.getNextCannon();
+            const weapon = this.weapons[cannonIdx];
+            if (weapon) {
+                const proj = weapon.fire(this.x, this.y, now, assets);
+                if (proj) projectiles.push(proj);
+            }
+        } else {
+            for (const weapon of this.weapons) {
+                const proj = weapon.fire(this.x, this.y, now, assets);
+                if (proj) projectiles.push(proj);
             }
         }
         return projectiles;
@@ -108,7 +144,7 @@ export class Enemy {
         }
     }
 
-    /** Load sprite frames from assets */
+    /** Load sprite frames from assets using config.spritePrefix + zero-padded frame numbers */
     loadSprite(assets: AssetLoader): void {
         try {
             const frames: HTMLImageElement[] = [];
@@ -118,7 +154,7 @@ export class Enemy {
             }
             this.sprite = new Sprite(frames, 100);
         } catch {
-            // Sprite frames not available
+            // Sprite frames not available — fallback to colored rect
         }
     }
 
@@ -128,22 +164,25 @@ export class Enemy {
             this.sprite.drawAt(ctx, this.x, this.y);
         } else {
             ctx.fillStyle = '#f44';
-            ctx.fillRect(this.x, this.y, 32, 32);
+            ctx.fillRect(this.x, this.y, this.width, this.height);
         }
     }
 
     // --- Factory methods ---
 
+    /** Light Fighter: 10 armor, speed 10, 32 frames, enemyBlaster, ~32px */
     static createLightFighter(x: number, y: number): Enemy {
-        return new Enemy(x, y, LIGHT_FIGHTER, 'lightfighter', new LightFighterAI());
+        return new Enemy(x, y, LIGHT_FIGHTER, 'lightfighter', new LightFighterAI(), 32, 32);
     }
 
+    /** Heavy Fighter: 30 armor, speed 12, 32 frames, enemyBlaster, ~32px */
     static createFighterB(x: number, y: number): Enemy {
-        return new Enemy(x, y, FIGHTER_B, 'fighterb', new FighterBAI());
+        return new Enemy(x, y, FIGHTER_B, 'fighterb', new FighterBAI(), 32, 32);
     }
 
+    /** Gunship: 100 armor, max speed 9, 17 frames, dual enemyCannons, ~64px */
     static createGunship(x: number, y: number): Enemy {
-        return new Enemy(x, y, GUNSHIP, 'gunship', new GunshipAI());
+        return new Enemy(x, y, GUNSHIP, 'gunship', new GunshipAI(), 64, 64);
     }
 
     static createByType(type: EnemyType, x: number, y: number): Enemy {

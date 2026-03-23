@@ -74,6 +74,21 @@ export class Sprite {
         ctx.drawImage(this.frames[this.currentFrame], x, y);
     }
 
+    /** Set current frame directly (for directional sprites like player/enemies). */
+    setFrame(frame: number): void {
+        this.currentFrame = Math.max(0, Math.min(frame, this.frames.length - 1));
+    }
+
+    /** Draw current frame rotated around its center at (x,y). */
+    drawRotated(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number): void {
+        const img = this.frames[this.currentFrame];
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.drawImage(img, -this.width / 2, -this.height / 2);
+        ctx.restore();
+    }
+
     /** Create an independent copy for instancing from a template. */
     clone(): Sprite {
         const s = new Sprite(this.frames, this.animSpeed);

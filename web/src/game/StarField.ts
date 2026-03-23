@@ -1,18 +1,18 @@
 /**
- * Parallax starfield background — port of TStarField from C++ source.
- * Multiple depth layers of stars scrolling downward.
+ * Parallax starfield background — Section 12 of SPEC.md.
+ * 600 stars at varying depths (z: 1–300) scrolling downward with parallax.
+ * Includes Earth (z=200) and Moon (z=400) celestial bodies.
  */
 
-import { GameCanvas } from '../engine';
+import { AssetLoader } from '../engine';
 import { PLAY_AREA_W, PLAY_AREA_H } from './Collision';
 
 interface Star {
     x: number;
     y: number;
-    z: number;       // depth (1-300)
+    z: number;
     size: number;
     color: string;
-    active: boolean;
 }
 
 const MAX_STARS = 600;
@@ -22,26 +22,38 @@ const DEFAULT_SPEED = 30;
 export class StarField {
     private stars: Star[] = [];
     speed = DEFAULT_SPEED;
+    private elapsed = 0;
 
-    constructor() {
+    private earthSprite: HTMLImageElement | null = null;
+    private moonSprite: HTMLImageElement | null = null;
+    private earthY = 300;
+    private moonY = 300;
+
+    constructor(assets?: AssetLoader) {
         for (let i = 0; i < MAX_STARS; i++) {
             this.stars.push(this.createStar(true));
         }
+        if (assets) this.loadSprites(assets);
+    }
+
+    loadSprites(assets: AssetLoader): void {
+        try { this.earthSprite = assets.getImage('earth'); } catch { /* not available */ }
+        try { this.moonSprite = assets.getImage('moon'); } catch { /* not available */ }
     }
 
     private createStar(randomY: boolean): Star {
         const z = Math.random() * STAR_DISTANCE + 1;
         const brightness = Math.floor(255 * (1 - z / STAR_DISTANCE));
         const b = Math.max(40, brightness);
-        // Vary between white, blue-white, and warm tints
+
         const tint = Math.random();
         let r: number, g: number, blue: number;
         if (tint < 0.6) {
-            r = b; g = b; blue = b;               // white
+            r = b; g = b; blue = b;                                       // white
         } else if (tint < 0.8) {
-            r = b * 0.7; g = b * 0.8; blue = b;   // blue-ish
+            r = Math.floor(b * 0.7); g = Math.floor(b * 0.8); blue = b;   // blue-tint
         } else {
-            r = b; g = b * 0.9; blue = b * 0.6;   // warm
+            r = b; g = Math.floor(b * 0.9); blue = Math.floor(b * 0.6);   // warm-tint
         }
 
         return {
@@ -49,44 +61,58 @@ export class StarField {
             y: randomY ? Math.random() * PLAY_AREA_H : -2,
             z,
             size: z < 100 ? 2 : 1,
-            color: `rgb(${Math.floor(r)},${Math.floor(g)},${Math.floor(blue)})`,
-            active: Math.random() < 0.2 || randomY,
+            color: `rgb(${r},${g},${blue})`,
         };
     }
 
     update(dt: number): void {
-        for (const star of this.stars) {
-            if (!star.active) {
-                // Chance to activate each frame
-                if (Math.random() < 0.2 * dt) {
-                    star.active = true;
-                }
-                continue;
-            }
+        this.elapsed += dt;
 
-            // Closer stars (lower z) move faster — parallax
+        for (const star of this.stars) {
             const layerSpeed = this.speed * (STAR_DISTANCE / (star.z + 1));
             star.y += layerSpeed * dt;
 
             if (star.y > PLAY_AREA_H) {
-                // Recycle at top
                 const fresh = this.createStar(false);
                 star.x = fresh.x;
                 star.y = fresh.y;
                 star.z = fresh.z;
                 star.size = fresh.size;
                 star.color = fresh.color;
-                star.active = true;
             }
+        }
+
+        // Scroll celestial bodies after 300ms
+        if (this.elapsed >= 0.3) {
+            const earthSpeed = this.speed * (STAR_DISTANCE / (200 + 1));
+            this.earthY += earthSpeed * dt;
+
+            const moonSpeed = this.speed * (STAR_DISTANCE / (400 + 1));
+            this.moonY += moonSpeed * dt;
         }
     }
 
-    draw(canvas: GameCanvas): void {
-        const ctx = canvas.ctx;
+    draw(ctx: CanvasRenderingContext2D): void {
         for (const star of this.stars) {
-            if (!star.active) continue;
             ctx.fillStyle = star.color;
             ctx.fillRect(star.x | 0, star.y | 0, star.size, star.size);
+        }
+
+        if (this.elapsed >= 0.3) {
+            if (this.earthSprite) {
+                ctx.drawImage(
+                    this.earthSprite,
+                    PLAY_AREA_W / 2 - this.earthSprite.width / 2,
+                    this.earthY | 0,
+                );
+            }
+            if (this.moonSprite) {
+                ctx.drawImage(
+                    this.moonSprite,
+                    PLAY_AREA_W / 2 + 100,
+                    this.moonY | 0,
+                );
+            }
         }
     }
 

@@ -19,7 +19,7 @@ export const PLAYER_SHIP: ShipConfig = {
     shields: 300,
     speed: 7,
     frameCount: 17,
-    spritePrefix: 'player',
+    spritePrefix: 'PlayerSprite',
     weaponOffsets: [
         { x: 22, y: -12 },   // nose blaster
         { x: -1, y: -5 },    // left turret
@@ -41,7 +41,7 @@ export const LIGHT_FIGHTER: ShipConfig = {
     shields: 0,
     speed: 10,
     frameCount: 32,
-    spritePrefix: 'lightfighter',
+    spritePrefix: 'LightF',
     weaponOffsets: [{ x: 16, y: 16 }],
     fireRate: 400,
     powerUpDropChance: 0.05,
@@ -53,7 +53,7 @@ export const FIGHTER_B: ShipConfig = {
     shields: 0,
     speed: 12,
     frameCount: 32,
-    spritePrefix: 'fighterb',
+    spritePrefix: 'FighterB',
     weaponOffsets: [{ x: 16, y: 16 }],
     fireRate: 1000,
     powerUpDropChance: 0.10,
@@ -65,7 +65,7 @@ export const GUNSHIP: ShipConfig = {
     shields: 0,
     speed: 9,
     frameCount: 17,
-    spritePrefix: 'gunship',
+    spritePrefix: 'Gunship',
     weaponOffsets: [
         { x: 11, y: 51 },
         { x: 85, y: 51 },
@@ -106,7 +106,7 @@ export const WEAPONS = {
         damage: 6,
         fireRate: 100,
         projectileSpeed: 27,
-        spritePrefix: 'blaster',
+        spritePrefix: 'blaster_',
         frameCount: 5,
     } as WeaponConfig,
 
@@ -114,7 +114,7 @@ export const WEAPONS = {
         damage: 4,
         fireRate: 250,
         projectileSpeed: 29,
-        spritePrefix: 'turret',
+        spritePrefix: 'turret_',
         frameCount: 5,
     } as WeaponConfig,
 
@@ -122,7 +122,7 @@ export const WEAPONS = {
         damage: 10,
         fireRate: 1000,
         projectileSpeed: 17,
-        spritePrefix: 'missile',
+        spritePrefix: 'torp_',
         frameCount: 5,
         homing: true,
         homingTrackDist: 64,
@@ -134,7 +134,7 @@ export const WEAPONS = {
         damage: 15,
         fireRate: 100,
         projectileSpeed: 20,
-        spritePrefix: 'enemyblast',
+        spritePrefix: 'enemy_',
         frameCount: 8,
     } as WeaponConfig,
 
@@ -142,9 +142,19 @@ export const WEAPONS = {
         damage: 20,
         fireRate: 250,
         projectileSpeed: 21,
-        spritePrefix: 'enemycannon',
+        spritePrefix: 'enemy_',
         frameCount: 8,
     } as WeaponConfig,
+};
+
+export const SHIELD_REGEN_INTERVAL = 150; // ms
+export const SHIELD_REGEN_DELAY = 2000; // ms after last damage
+
+export const DIFFICULTY_ARMOR_BONUS: Record<number, number> = {
+    0: -200,  // Easy
+    1: 0,     // Normal
+    2: 200,   // Hard
+    3: 1000,  // Nightmare
 };
 
 /** Turret speeds by angle (0-360 in 45° steps) */

@@ -1,6 +1,9 @@
 /**
  * AI behaviors ported from the C++ source.
- * Each AI updates an enemy's velocity and firing state per frame.
+ * Each AI updates an enemy's velocity and firing state per tick.
+ *
+ * Movement values are in px/tick where 1 tick = 1/60s (fixed timestep).
+ * dt is passed in seconds; multiply by 60 to get ticks.
  */
 
 import type { Enemy } from './Enemy';
@@ -41,75 +44,91 @@ export interface AIBehavior {
 }
 
 // --- Light Fighter AI ---
+// 5 states: ENTERING → TARGETING → FLYBY → SCATTER → RUNAWAY
+// Speed 10 px/tick, turn rate ~0.1 rad/tick, fire during FLYBY within 200px
 
 export class LightFighterAI implements AIBehavior {
     state = LFAIState.EnteringScreen;
     private stateTimer = 0;
+    private angle = Math.PI / 2; // facing down initially
+    private scatterAngle = 0;
+
+    private static readonly TURN_RATE = 0.1; // rad/tick
+    private static readonly FIRE_RANGE = 200;
+    private static readonly FACING_THRESHOLD = 15 * (Math.PI / 180); // ~15°
+    private static readonly SCATTER_DURATION = 1.0; // seconds
 
     update(enemy: Enemy, playerX: number, playerY: number, dt: number): void {
         this.stateTimer += dt;
+        const speed = enemy.config.speed; // 10 px/tick
+        const ticks = dt * 60;
         const dx = playerX - enemy.x;
         const dy = playerY - enemy.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
+        const targetAngle = Math.atan2(dy, dx);
+
+        enemy.wantsFire = false;
 
         switch (this.state) {
             case LFAIState.EnteringScreen:
                 // Fly downward onto screen
-                enemy.vy = enemy.config.speed;
+                this.angle = Math.PI / 2;
                 enemy.vx = 0;
-                if (enemy.y > 50) {
+                enemy.vy = speed;
+                if (enemy.y > 100 + Math.random() * 100) {
                     this.state = LFAIState.Targeting;
                     this.stateTimer = 0;
                 }
                 break;
 
-            case LFAIState.Targeting:
-                // Approach player
-                if (dist > 0) {
-                    enemy.vx = (dx / dist) * enemy.config.speed;
-                    enemy.vy = (dy / dist) * enemy.config.speed;
-                }
-                enemy.wantsFire = dist < 300;
+            case LFAIState.Targeting: {
+                // Turn toward player
+                this.turnToward(targetAngle, ticks);
+                enemy.vx = Math.cos(this.angle) * speed;
+                enemy.vy = Math.sin(this.angle) * speed;
 
-                if (dist < 80) {
-                    this.state = LFAIState.Scatter;
-                    this.stateTimer = 0;
-                } else if (this.stateTimer > 4) {
+                // Transition to FLYBY when facing player
+                const angleDiff = Math.abs(this.normalizeAngle(targetAngle - this.angle));
+                if (angleDiff < LightFighterAI.FACING_THRESHOLD) {
                     this.state = LFAIState.FlyBy;
                     this.stateTimer = 0;
                 }
                 break;
+            }
 
             case LFAIState.FlyBy:
-                // Fly past player, then retarget
-                enemy.vy = enemy.config.speed * 1.2;
-                enemy.vx = dx > 0 ? enemy.config.speed * 0.5 : -enemy.config.speed * 0.5;
-                enemy.wantsFire = Math.abs(dx) < 50;
+                // Fly past player, firing weapons when in range
+                enemy.vx = Math.cos(this.angle) * speed;
+                enemy.vy = Math.sin(this.angle) * speed;
+                enemy.wantsFire = dist < LightFighterAI.FIRE_RANGE;
 
-                if (this.stateTimer > 2) {
-                    this.state = LFAIState.Targeting;
+                // Transition to SCATTER when past player
+                if (enemy.y > playerY + 50) {
+                    this.state = LFAIState.Scatter;
                     this.stateTimer = 0;
+                    // Random scatter direction (break away)
+                    this.scatterAngle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI;
                 }
                 break;
 
             case LFAIState.Scatter:
-                // Evade when too close
-                if (dist > 0) {
-                    enemy.vx = -(dx / dist) * enemy.config.speed * 1.5;
-                    enemy.vy = -(dy / dist) * enemy.config.speed * 1.5;
-                }
+                // Break away with random vector
+                this.angle = this.scatterAngle;
+                enemy.vx = Math.cos(this.angle) * speed;
+                enemy.vy = Math.sin(this.angle) * speed;
                 enemy.wantsFire = false;
 
-                if (this.stateTimer > 1.5) {
-                    this.state = LFAIState.Targeting;
+                if (this.stateTimer > LightFighterAI.SCATTER_DURATION) {
+                    this.state = LFAIState.RunAway;
                     this.stateTimer = 0;
                 }
                 break;
 
             case LFAIState.RunAway:
-                // Flee off screen
-                enemy.vy = -enemy.config.speed * 1.5;
+                // Exit screen upward
+                this.angle = -Math.PI / 2;
                 enemy.vx = 0;
+                enemy.vy = -speed;
                 enemy.wantsFire = false;
                 if (enemy.y < -64) {
                     enemy.alive = false;
@@ -120,26 +139,45 @@ export class LightFighterAI implements AIBehavior {
                 this.state = LFAIState.EnteringScreen;
         }
 
-        // Run away if badly damaged
-        if (enemy.armor < enemy.config.armor * 0.2 && this.state !== LFAIState.RunAway) {
-            this.state = LFAIState.RunAway;
+        enemy.angle = this.angle;
+    }
+
+    private turnToward(target: number, ticks: number): void {
+        let diff = this.normalizeAngle(target - this.angle);
+        const maxTurn = LightFighterAI.TURN_RATE * ticks;
+        if (Math.abs(diff) > maxTurn) {
+            diff = diff > 0 ? maxTurn : -maxTurn;
         }
+        this.angle = this.normalizeAngle(this.angle + diff);
+    }
+
+    private normalizeAngle(a: number): number {
+        while (a > Math.PI) a -= 2 * Math.PI;
+        while (a < -Math.PI) a += 2 * Math.PI;
+        return a;
     }
 }
 
-// --- Fighter B AI (more aggressive, tighter pursuit) ---
+// --- Fighter B AI (horizontal sweeps, 2 passes then runaway) ---
+// 4 states: ENTERING → RIGHT ↔ LEFT → RUNAWAY
+// Speed 12 px/tick horizontally, slight downward drift
 
 export class FighterBAI implements AIBehavior {
     state = FBAIState.EnteringScreen;
     private stateTimer = 0;
+    private passes = 0;
+    private readonly maxPasses = 2;
 
-    update(enemy: Enemy, playerX: number, playerY: number, dt: number): void {
+    update(enemy: Enemy, playerX: number, _playerY: number, dt: number): void {
         this.stateTimer += dt;
+        const speed = enemy.config.speed; // 12 px/tick
         const dx = playerX - enemy.x;
+
+        enemy.wantsFire = false;
 
         switch (this.state) {
             case FBAIState.EnteringScreen:
-                enemy.vy = enemy.config.speed;
+                enemy.vy = speed;
                 enemy.vx = 0;
                 if (enemy.y > 60) {
                     this.state = dx > 0 ? FBAIState.Right : FBAIState.Left;
@@ -148,29 +186,44 @@ export class FighterBAI implements AIBehavior {
                 break;
 
             case FBAIState.Right:
-                enemy.vx = enemy.config.speed;
-                enemy.vy = enemy.config.speed * 0.3;
-                enemy.wantsFire = Math.abs(enemy.x - playerX) < 60;
-                if (enemy.x > PLAY_AREA_W - 50 || this.stateTimer > 3) {
-                    this.state = FBAIState.Left;
+                enemy.vx = speed;
+                enemy.vy = speed * 0.15;
+                enemy.wantsFire = true;
+                enemy.angle = 0; // facing right
+
+                if (enemy.x > PLAY_AREA_W - 50) {
+                    this.passes++;
+                    if (this.passes >= this.maxPasses) {
+                        this.state = FBAIState.RunAway;
+                    } else {
+                        this.state = FBAIState.Left;
+                    }
                     this.stateTimer = 0;
                 }
                 break;
 
             case FBAIState.Left:
-                enemy.vx = -enemy.config.speed;
-                enemy.vy = enemy.config.speed * 0.3;
-                enemy.wantsFire = Math.abs(enemy.x - playerX) < 60;
-                if (enemy.x < 50 || this.stateTimer > 3) {
-                    this.state = FBAIState.Right;
+                enemy.vx = -speed;
+                enemy.vy = speed * 0.15;
+                enemy.wantsFire = true;
+                enemy.angle = Math.PI; // facing left
+
+                if (enemy.x < 50) {
+                    this.passes++;
+                    if (this.passes >= this.maxPasses) {
+                        this.state = FBAIState.RunAway;
+                    } else {
+                        this.state = FBAIState.Right;
+                    }
                     this.stateTimer = 0;
                 }
                 break;
 
             case FBAIState.RunAway:
-                enemy.vy = -enemy.config.speed * 1.5;
+                enemy.vy = -speed * 1.5;
                 enemy.vx = 0;
                 enemy.wantsFire = false;
+                enemy.angle = -Math.PI / 2;
                 if (enemy.y < -64) {
                     enemy.alive = false;
                 }
@@ -180,13 +233,23 @@ export class FighterBAI implements AIBehavior {
                 this.state = FBAIState.EnteringScreen;
         }
 
-        if (enemy.y > PLAY_AREA_H - 30) {
+        // Force runaway if off bottom of screen
+        if (enemy.y > PLAY_AREA_H - 30 && this.state !== FBAIState.RunAway) {
             this.state = FBAIState.RunAway;
+        }
+
+        // Update angle from velocity for non-explicit states
+        if (this.state === FBAIState.EnteringScreen) {
+            enemy.angle = Math.PI / 2;
         }
     }
 }
 
-// --- Gunship AI (slower, sustained fire, multiple passes) ---
+// --- Gunship AI (drag-based physics, burst fire, 3 passes) ---
+// 4 states: ENTERING → FLYBY_RIGHT ↔ FLYBY_LEFT → RUNAWAY
+// Drag 0.9/tick, accel 1.571 px/tick², max speed 9 px/tick
+// Burst: fire for 600ms, pause for 2400ms (3000ms cycle)
+// Fire rate during burst: 600ms between shots, dual cannons alternate
 
 export class GunshipAI implements AIBehavior {
     state = GSAIState.EnteringScreen;
@@ -194,15 +257,34 @@ export class GunshipAI implements AIBehavior {
     private passes = 0;
     private burstTimer = 0;
     private readonly maxPasses = 3;
+    private nextCannon = 0; // alternates 0/1 for dual cannons
+
+    private static readonly DRAG = 0.9;
+    private static readonly ACCEL = 1.571; // px/tick²
+    private static readonly MAX_SPEED = 9;
+    private static readonly BURST_FIRE_WINDOW = 600; // ms
+    private static readonly BURST_CYCLE = 3000; // ms
 
     update(enemy: Enemy, playerX: number, _playerY: number, dt: number): void {
         this.stateTimer += dt;
         this.burstTimer += dt * 1000;
+        if (this.burstTimer >= GunshipAI.BURST_CYCLE) {
+            this.burstTimer -= GunshipAI.BURST_CYCLE;
+        }
+
+        const ticks = dt * 60;
+        const drag = Math.pow(GunshipAI.DRAG, ticks);
+
+        enemy.wantsFire = false;
 
         switch (this.state) {
             case GSAIState.EnteringScreen:
-                enemy.vy = enemy.config.speed * 0.5;
-                enemy.vx = 0;
+                // Enter from top, accelerate downward
+                enemy.vy += GunshipAI.ACCEL * ticks * 0.5;
+                enemy.vx *= drag;
+                enemy.vy *= drag;
+                this.clampSpeed(enemy);
+
                 if (enemy.y > 80) {
                     this.state = playerX > enemy.x ? GSAIState.FlyByRight : GSAIState.FlyByLeft;
                     this.stateTimer = 0;
@@ -210,11 +292,17 @@ export class GunshipAI implements AIBehavior {
                 break;
 
             case GSAIState.FlyByRight:
-                enemy.vx = enemy.config.speed * 0.7;
-                enemy.vy = enemy.config.speed * 0.2;
-                enemy.wantsFire = this.burstTimer > 3000;
-                if (this.burstTimer > 3600) this.burstTimer = 0;
-                if (enemy.x > PLAY_AREA_W - 60 || this.stateTimer > 5) {
+                // Accelerate right with slight downward drift
+                enemy.vx += GunshipAI.ACCEL * ticks;
+                enemy.vy += GunshipAI.ACCEL * ticks * 0.2;
+                enemy.vx *= drag;
+                enemy.vy *= drag;
+                this.clampSpeed(enemy);
+
+                // Burst fire logic
+                enemy.wantsFire = this.burstTimer < GunshipAI.BURST_FIRE_WINDOW;
+
+                if (enemy.x > PLAY_AREA_W - 60) {
                     this.passes++;
                     this.state = this.passes >= this.maxPasses
                         ? GSAIState.RunAwayRight
@@ -224,11 +312,17 @@ export class GunshipAI implements AIBehavior {
                 break;
 
             case GSAIState.FlyByLeft:
-                enemy.vx = -enemy.config.speed * 0.7;
-                enemy.vy = enemy.config.speed * 0.2;
-                enemy.wantsFire = this.burstTimer > 3000;
-                if (this.burstTimer > 3600) this.burstTimer = 0;
-                if (enemy.x < 60 || this.stateTimer > 5) {
+                // Accelerate left with slight downward drift
+                enemy.vx -= GunshipAI.ACCEL * ticks;
+                enemy.vy += GunshipAI.ACCEL * ticks * 0.2;
+                enemy.vx *= drag;
+                enemy.vy *= drag;
+                this.clampSpeed(enemy);
+
+                // Burst fire logic
+                enemy.wantsFire = this.burstTimer < GunshipAI.BURST_FIRE_WINDOW;
+
+                if (enemy.x < 60) {
                     this.passes++;
                     this.state = this.passes >= this.maxPasses
                         ? GSAIState.RunAwayLeft
@@ -238,51 +332,90 @@ export class GunshipAI implements AIBehavior {
                 break;
 
             case GSAIState.RunAwayLeft:
-                enemy.vx = -enemy.config.speed;
-                enemy.vy = -enemy.config.speed * 0.5;
+                enemy.vx -= GunshipAI.ACCEL * ticks;
+                enemy.vy -= GunshipAI.ACCEL * ticks * 0.5;
+                enemy.vx *= drag;
+                enemy.vy *= drag;
                 enemy.wantsFire = false;
-                if (enemy.x < -64) enemy.alive = false;
+                if (enemy.x < -96) enemy.alive = false;
                 break;
 
             case GSAIState.RunAwayRight:
-                enemy.vx = enemy.config.speed;
-                enemy.vy = -enemy.config.speed * 0.5;
+                enemy.vx += GunshipAI.ACCEL * ticks;
+                enemy.vy -= GunshipAI.ACCEL * ticks * 0.5;
+                enemy.vx *= drag;
+                enemy.vy *= drag;
                 enemy.wantsFire = false;
-                if (enemy.x > PLAY_AREA_W + 64) enemy.alive = false;
+                if (enemy.x > PLAY_AREA_W + 96) enemy.alive = false;
                 break;
 
             default:
                 this.state = GSAIState.EnteringScreen;
         }
+
+        // Angle derived from velocity for 17-frame sprite
+        enemy.angle = Math.atan2(enemy.vy, enemy.vx);
+    }
+
+    /** Get which cannon index should fire next, then alternate */
+    getNextCannon(): number {
+        const idx = this.nextCannon;
+        this.nextCannon = (this.nextCannon + 1) % 2;
+        return idx;
+    }
+
+    private clampSpeed(enemy: Enemy): void {
+        const spd = Math.sqrt(enemy.vx * enemy.vx + enemy.vy * enemy.vy);
+        if (spd > GunshipAI.MAX_SPEED) {
+            const scale = GunshipAI.MAX_SPEED / spd;
+            enemy.vx *= scale;
+            enemy.vy *= scale;
+        }
     }
 }
 
-// --- Turret AI (track player angle, fire when aligned) ---
+// --- Turret AI (track player angle, two modes: SWEEPING and RANDOM) ---
+
+export type TurretMode = 'sweeping' | 'random';
 
 export class TurretAI implements AIBehavior {
     private fireTimer = 0;
     fireRate: number;
+    mode: TurretMode;
+    private sweepSpeed: number; // deg/s for sweeping mode
+    private sweepAngle = 0;
 
-    constructor(fireRate = 3000) {
-        this.fireRate = fireRate;
+    constructor(mode: TurretMode = 'random', param = 2000) {
+        this.mode = mode;
+        if (mode === 'sweeping') {
+            this.sweepSpeed = param; // degrees per second
+            this.fireRate = 500;
+        } else {
+            this.sweepSpeed = 0;
+            this.fireRate = param; // ms between shots
+        }
     }
 
     update(enemy: Enemy, playerX: number, playerY: number, dt: number): void {
         this.fireTimer += dt * 1000;
+        enemy.wantsFire = false;
 
         const dx = playerX - enemy.x;
         const dy = playerY - enemy.y;
-        const angle = Math.atan2(dy, dx) * (180 / Math.PI);
 
-        // Set turret angle
-        enemy.turretAngle = angle;
+        if (this.mode === 'sweeping') {
+            // Rotate at fixed speed, fire periodically
+            this.sweepAngle += this.sweepSpeed * dt;
+            this.sweepAngle %= 360;
+            enemy.turretAngle = this.sweepAngle;
+        } else {
+            // Track player angle
+            enemy.turretAngle = Math.atan2(dy, dx) * (180 / Math.PI);
+        }
 
-        // Fire when timer exceeds rate
         if (this.fireTimer >= this.fireRate) {
             enemy.wantsFire = true;
             this.fireTimer = 0;
-        } else {
-            enemy.wantsFire = false;
         }
     }
 }

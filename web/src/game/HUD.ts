@@ -1,113 +1,104 @@
 /**
  * HUD / Console overlay — right side panel (150px) + status bars.
- * Matches console_positions from game-constants.json.
+ * Section 13 of SPEC.md.
  */
 
-import { GameCanvas } from '../engine';
 import type { Player } from './Player';
 import { PLAY_AREA_W, PLAY_AREA_H } from './Collision';
 import { RANKINGS } from '../data/ships';
+import { AssetLoader } from '../engine';
 
-const CONSOLE_X = PLAY_AREA_W;                // 650
+const CONSOLE_X = PLAY_AREA_W;          // 650
 const CONSOLE_W = 150;
-const SCREEN_W = CONSOLE_X + CONSOLE_W;       // 800
 
-// Bar positions (relative to screen, from game-constants.json)
-const ARMOR_X = 740;
-const ARMOR_Y = 565;
-const SHIELDS_X = 667;
-const SHIELDS_Y = 565;
+const SHIELD_BAR_X = 667;
+const SHIELD_BAR_Y = 565;
+const ARMOR_BAR_X = 740;
+const ARMOR_BAR_Y = 565;
 const BAR_W = 45;
+const BAR_MAX_H = 100;
 
 export class HUD {
+    private consoleSprite: HTMLImageElement | null = null;
+    private speedShipSprite: HTMLImageElement | null = null;
+
+    loadSprites(assets: AssetLoader): void {
+        try { this.consoleSprite = assets.getImage('console'); } catch { /* not available */ }
+        try { this.speedShipSprite = assets.getImage('speed_ship'); } catch { /* not available */ }
+    }
+
     draw(
-        canvas: GameCanvas,
+        ctx: CanvasRenderingContext2D,
         player: Player | null,
         score: number,
         level: number,
-        levelTimer: number,
-        levelDuration: number,
+        timeRemaining: number,
+        kills: number,
     ): void {
-        const ctx = canvas.ctx;
-
         // Console background
-        ctx.fillStyle = '#111';
-        ctx.fillRect(CONSOLE_X, 0, CONSOLE_W, PLAY_AREA_H);
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(CONSOLE_X, 0, CONSOLE_W, PLAY_AREA_H);
+        if (this.consoleSprite) {
+            ctx.drawImage(this.consoleSprite, CONSOLE_X, 0);
+        } else {
+            ctx.fillStyle = '#111';
+            ctx.fillRect(CONSOLE_X, 0, CONSOLE_W, PLAY_AREA_H);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(CONSOLE_X, 0, CONSOLE_W, PLAY_AREA_H);
+        }
 
-        // --- Score ---
+        // Score
         ctx.font = '12px monospace';
         ctx.fillStyle = '#0f0';
-        ctx.fillText('SCORE', CONSOLE_X + 10, 20);
+        ctx.fillText('SCORE', 660, 20);
         ctx.fillStyle = '#fff';
-        ctx.fillText(score.toString().padStart(8, '0'), CONSOLE_X + 10, 34);
+        ctx.fillText(score.toString().padStart(8, '0'), 660, 34);
 
-        // --- Level ---
+        // Level
         ctx.fillStyle = '#0f0';
-        ctx.fillText(`LEVEL ${level + 1}`, CONSOLE_X + 10, 56);
+        ctx.fillText(`LEVEL ${level + 1}`, 660, 56);
 
-        // --- Timer ---
-        const remaining = Math.max(0, levelDuration - levelTimer);
+        // Timer (M:SS, red if < 10s)
+        const remaining = Math.max(0, timeRemaining);
         const mins = Math.floor(remaining / 60);
         const secs = Math.floor(remaining % 60);
         ctx.fillStyle = remaining < 10 ? '#f00' : '#ff0';
-        ctx.fillText(`${mins}:${secs.toString().padStart(2, '0')}`, CONSOLE_X + 90, 56);
+        ctx.fillText(`${mins}:${secs.toString().padStart(2, '0')}`, 740, 56);
+
+        // Rank
+        const rank = this.getRank(kills);
+        ctx.fillStyle = '#aaa';
+        ctx.fillText(rank, 660, 78);
 
         if (!player) return;
 
-        // --- Rank ---
-        const rank = this.getRank(player.kills);
-        ctx.fillStyle = '#aaa';
-        ctx.fillText(rank, CONSOLE_X + 10, 78);
-
-        // --- Armor Bar ---
-        this.drawBar(ctx, ARMOR_X, ARMOR_Y, BAR_W, player.armor, player.maxArmor, '#f00', 'ARM');
-
-        // --- Shield Bar ---
-        this.drawBar(ctx, SHIELDS_X, SHIELDS_Y, BAR_W, player.shields, player.maxShields, '#00f', 'SHD');
-
-        // --- Weapon Status Indicators ---
-        const weaponNames = ['BLS', 'LT', 'RT', 'LM', 'RM'];
-        const setting = player.powerPlant.getSetting();
-        const cellValues = [
-            setting.blasterCell1 + setting.blasterCell2,
-            setting.leftTurretCell1 + setting.leftTurretCell2,
-            setting.rightTurretCell1 + setting.rightTurretCell2,
-            setting.leftMissileCell1 + setting.leftMissileCell2,
-            setting.rightMissileCell1 + setting.rightMissileCell2,
-        ];
-
-        for (let i = 0; i < 5; i++) {
+        // Weapon status indicators (small colored squares)
+        const weaponLabels = ['BLS', 'LT', 'RT', 'LM', 'RM'];
+        const weaponColors = ['#0f0', '#0ff', '#0ff', '#ff0', '#ff0'];
+        for (let i = 0; i < Math.min(5, player.weapons.length); i++) {
             const wy = 100 + i * 18;
             const enabled = player.weapons[i].enabled;
-            ctx.fillStyle = enabled ? '#0f0' : '#600';
-            ctx.fillText(weaponNames[i], CONSOLE_X + 10, wy);
-            ctx.fillStyle = '#888';
-            ctx.fillText(`P${cellValues[i]}`, CONSOLE_X + 50, wy);
+            ctx.fillStyle = enabled ? weaponColors[i] : '#600';
+            ctx.fillRect(660, wy - 8, 8, 8);
+            ctx.fillStyle = enabled ? '#fff' : '#666';
+            ctx.font = '10px monospace';
+            ctx.fillText(weaponLabels[i], 672, wy);
         }
 
-        // --- Power Setting ---
+        // Power setting
+        ctx.font = '12px monospace';
         ctx.fillStyle = '#ff0';
-        ctx.fillText(`PWR SET: ${player.powerPlant.currentSetting + 1}`, CONSOLE_X + 10, 200);
+        ctx.fillText(`PWR SET: ${player.powerPlant.currentSetting + 1}`, 660, 200);
 
-        // --- Engine/Shield Power ---
-        const shipPower = setting.shipPowerCell1 + setting.shipPowerCell2;
-        ctx.fillStyle = '#0ff';
-        ctx.fillText(`ENG: ${shipPower}`, CONSOLE_X + 10, 220);
-        ctx.fillText(`SHD: ${shipPower}`, CONSOLE_X + 80, 220);
+        // Speed ship animation area
+        if (this.speedShipSprite) {
+            ctx.drawImage(this.speedShipSprite, 680, 400);
+        }
 
-        // --- Kill Count ---
-        ctx.fillStyle = '#aaa';
-        ctx.fillText(`KILLS: ${player.kills}`, CONSOLE_X + 10, 250);
+        // Shield bar (grows upward from y=565)
+        this.drawBar(ctx, SHIELD_BAR_X, SHIELD_BAR_Y, BAR_W, player.shields, player.maxShields, '#00f', 'SHD');
 
-        // --- Separator line above armor/shields ---
-        ctx.strokeStyle = '#333';
-        ctx.beginPath();
-        ctx.moveTo(CONSOLE_X, PLAY_AREA_H - 50);
-        ctx.lineTo(SCREEN_W, PLAY_AREA_H - 50);
-        ctx.stroke();
+        // Armor bar (grows upward from y=565)
+        this.drawBar(ctx, ARMOR_BAR_X, ARMOR_BAR_Y, BAR_W, player.armor, player.maxArmor, '#f00', 'ARM');
     }
 
     private drawBar(
@@ -116,23 +107,25 @@ export class HUD {
         value: number, max: number,
         color: string, label: string,
     ): void {
-        // Label
-        ctx.fillStyle = '#aaa';
-        ctx.font = '10px monospace';
-        ctx.fillText(label, x, y - 4);
+        const ratio = max > 0 ? Math.min(1, value / max) : 0;
+        const fillH = Math.floor(BAR_MAX_H * ratio);
 
         // Background
         ctx.fillStyle = '#222';
-        ctx.fillRect(x, y, w, 8);
+        ctx.fillRect(x, y - BAR_MAX_H, w, BAR_MAX_H);
 
-        // Fill
-        const fillW = max > 0 ? (value / max) * w : 0;
+        // Fill (grows upward from bottom)
         ctx.fillStyle = color;
-        ctx.fillRect(x, y, fillW, 8);
+        ctx.fillRect(x, y - fillH, w, fillH);
 
         // Border
         ctx.strokeStyle = '#555';
-        ctx.strokeRect(x, y, w, 8);
+        ctx.strokeRect(x, y - BAR_MAX_H, w, BAR_MAX_H);
+
+        // Label below bar
+        ctx.fillStyle = '#aaa';
+        ctx.font = '10px monospace';
+        ctx.fillText(label, x, y + 12);
     }
 
     private getRank(kills: number): string {

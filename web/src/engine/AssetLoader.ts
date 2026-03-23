@@ -41,6 +41,16 @@ export class AssetLoader {
         return img;
     }
 
+    /** Check if an image has been loaded. */
+    hasImage(id: string): boolean {
+        return this.images.has(id);
+    }
+
+    /** Get an image without throwing, returns null if not loaded. */
+    tryGetImage(id: string): HTMLImageElement | null {
+        return this.images.get(id) ?? null;
+    }
+
     /** Returns loading progress as a value from 0 to 1. */
     getProgress(): number {
         if (this.totalCount === 0) return 1;
@@ -65,5 +75,21 @@ export class AssetLoader {
             promises.push(this.loadImage(id, url));
         }
         return Promise.all(promises);
+    }
+
+    /**
+     * Load a manifest.json and batch-load all graphics entries.
+     * Manifest format: { "graphics": { "assetId": "path/to/file.png", ... } }
+     */
+    async loadManifest(manifestUrl: string, basePath: string): Promise<void> {
+        const response = await fetch(manifestUrl);
+        const manifest = await response.json();
+        if (manifest.graphics && typeof manifest.graphics === 'object') {
+            const entries: Array<{ id: string; url: string }> = [];
+            for (const [id, file] of Object.entries(manifest.graphics)) {
+                entries.push({ id, url: `${basePath}/${file}` });
+            }
+            await this.loadImages(entries);
+        }
     }
 }

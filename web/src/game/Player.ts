@@ -1,16 +1,17 @@
 /**
  * Player ship — keyboard-controlled movement, 5 weapon slots, power management.
+ * Speeds are in px/frame, applied once per fixed 60 fps tick.
  */
 
 import { Input, Sprite, AssetLoader } from '../engine';
-import { PLAYER_SHIP, PLAYER_START, PLAYER_SPEED_INCREMENT, PLAYER_MAX_ENGINE_POWER } from '../data/ships';
+import {
+    PLAYER_SHIP, PLAYER_START, PLAYER_WEAPON_SLOTS, WEAPONS,
+    POWER_MULTIPLIERS, SHIELD_REGEN_INTERVAL, SHIELD_REGEN_DELAY,
+} from '../data/ships';
 import { Rect, clampToPlayArea } from './Collision';
 import { Weapon } from './Weapon';
 import { Projectile } from './Projectile';
 import { PowerPlant } from './PowerPlant';
-
-const SHIELD_REGEN_RATE = 5; // per second base
-const SHIELD_REGEN_DELAY = 2000; // ms after last hit before regen starts
 
 export class Player {
     x: number;
@@ -27,6 +28,8 @@ export class Player {
     kills = 0;
 
     private lastHitTime = 0;
+    private lastRegenTime = 0;
+    private spriteFrame = 8;
 
     constructor() {
         this.x = PLAYER_START.x;
@@ -36,7 +39,9 @@ export class Player {
         this.shields = PLAYER_SHIP.shields;
         this.maxShields = PLAYER_SHIP.shields;
         this.speed = PLAYER_SHIP.speed;
-        this.weapons = Weapon.createPlayerWeapons();
+        this.weapons = PLAYER_WEAPON_SLOTS.map(
+            slot => new Weapon(slot.type, WEAPONS[slot.type], slot.offsetX, slot.offsetY, slot.defaultAngle),
+        );
         this.powerPlant = new PowerPlant();
     }
 
@@ -49,17 +54,13 @@ export class Player {
     update(dt: number, input: Input, now: number): void {
         if (!this.alive) return;
 
-        // --- Power setting switches ---
+        // Power setting switches
         if (input.isKeyPressed(Input.KEY_Q)) this.powerPlant.selectSetting(0);
         if (input.isKeyPressed(Input.KEY_W)) this.powerPlant.selectSetting(1);
         if (input.isKeyPressed(Input.KEY_E)) this.powerPlant.selectSetting(2);
 
-        // --- Movement ---
-        const engineBonus = Math.min(
-            this.powerPlant.getEngineSpeedBonus(),
-            PLAYER_SPEED_INCREMENT * PLAYER_MAX_ENGINE_POWER,
-        );
-        const currentSpeed = (this.speed + engineBonus) * 60; // pixels per second
+        // Movement — base speed + engine bonus, px/frame
+        const currentSpeed = this.speed + this.powerPlant.getEngineSpeedBonus();
 
         let mx = 0;
         let my = 0;
@@ -75,8 +76,8 @@ export class Player {
             my *= inv;
         }
 
-        this.x += mx * currentSpeed * dt;
-        this.y += my * currentSpeed * dt;
+        this.x += mx * currentSpeed;
+        this.y += my * currentSpeed;
 
         // Clamp to play area
         const w = this.sprite ? this.sprite.width : 48;
@@ -85,27 +86,30 @@ export class Player {
         this.x = clamped.x;
         this.y = clamped.y;
 
-        // --- Shield regeneration ---
-        if (now - this.lastHitTime > SHIELD_REGEN_DELAY && this.shields < this.maxShields) {
-            const regenRate = SHIELD_REGEN_RATE * this.powerPlant.getShieldRegenMultiplier();
-            this.shields = Math.min(this.maxShields, this.shields + regenRate * dt);
+        // Sprite frame: bank left (<8), straight (8), bank right (>8), 1 step per tick
+        if (mx < 0) {
+            if (this.spriteFrame > 0) this.spriteFrame--;
+        } else if (mx > 0) {
+            if (this.spriteFrame < 16) this.spriteFrame++;
+        } else {
+            if (this.spriteFrame < 8) this.spriteFrame++;
+            else if (this.spriteFrame > 8) this.spriteFrame--;
+        }
+        if (this.sprite) {
+            this.sprite.currentFrame = this.spriteFrame;
         }
 
-        // --- Update sprite ---
-        if (this.sprite) {
-            // Pick directional frame based on movement
-            if (mx === 0 && my === 0) {
-                // Center frame
-                this.sprite.currentFrame = 0;
-            } else {
-                const angle = Math.atan2(my, mx);
-                const normalizedAngle = ((angle + Math.PI * 2) % (Math.PI * 2)) / (Math.PI * 2);
-                this.sprite.currentFrame = Math.floor(normalizedAngle * PLAYER_SHIP.frameCount) % PLAYER_SHIP.frameCount;
+        // Shield regeneration — timer-based, every 150 ms, after 2 s damage delay
+        if (now - this.lastHitTime > SHIELD_REGEN_DELAY && this.shields < this.maxShields) {
+            if (now - this.lastRegenTime >= SHIELD_REGEN_INTERVAL) {
+                this.lastRegenTime = now;
+                const regenAmount = this.powerPlant.getShieldRegenMultiplier();
+                this.shields = Math.min(this.maxShields, this.shields + regenAmount);
             }
         }
     }
 
-    /** Fire all weapons if space is held. Returns new projectiles. */
+    /** Fire all weapons if Space is held. Returns new projectiles. */
     tryFire(input: Input, now: number, assets: AssetLoader | null): Projectile[] {
         if (!this.alive || !input.isKeyDown(Input.SPACE)) return [];
 
@@ -120,7 +124,8 @@ export class Player {
 
         for (let i = 0; i < this.weapons.length; i++) {
             const weapon = this.weapons[i];
-            const proj = weapon.fire(this.x, this.y, now, 'player', multipliers[i], assets);
+            weapon.powerMultiplier = multipliers[i];
+            const proj = weapon.fire(this.x, this.y, now, assets);
             if (proj) projectiles.push(proj);
         }
 
@@ -142,15 +147,16 @@ export class Player {
         }
     }
 
-    /** Load sprite frames from assets */
+    /** Load 17 sprite frames (PlayerSprite00–PlayerSprite16) */
     loadSprite(assets: AssetLoader): void {
         try {
             const frames: HTMLImageElement[] = [];
-            for (let i = 0; i < PLAYER_SHIP.frameCount; i++) {
-                const id = `${PLAYER_SHIP.spritePrefix}${i.toString().padStart(2, '0')}`;
+            for (let i = 0; i < 17; i++) {
+                const id = `PlayerSprite${i.toString().padStart(2, '0')}`;
                 frames.push(assets.getImage(id));
             }
             this.sprite = new Sprite(frames, 100);
+            this.sprite.currentFrame = 8;
         } catch {
             // Sprite frames not available
         }

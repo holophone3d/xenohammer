@@ -58,13 +58,34 @@ export class GameCanvas {
         this.ctx.drawImage(image, x, y, w, h);
     }
 
+    /** Draw an image centered at (x,y) rotated by angle in radians. */
+    drawImageRotated(image: HTMLImageElement, x: number, y: number, angle: number): void {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.drawImage(image, -image.width / 2, -image.height / 2);
+        ctx.restore();
+    }
+
     /** Draw text on the canvas. */
     drawText(
         text: string, x: number, y: number,
-        color = '#ffffff', font = '16px monospace'
+        color = '#ffffff', font = '16px monospace',
+        textAlign: CanvasTextAlign = 'left'
     ): void {
         this.ctx.font = font;
         this.ctx.fillStyle = color;
+        this.ctx.textAlign = textAlign;
         this.ctx.fillText(text, x, y);
+        this.ctx.textAlign = 'left';
+    }
+
+    /** Draw text centered at (x,y). */
+    drawTextCentered(
+        text: string, x: number, y: number,
+        color = '#ffffff', font = '16px monospace'
+    ): void {
+        this.drawText(text, x, y, color, font, 'center');
     }
 }

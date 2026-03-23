@@ -1,5 +1,6 @@
 /**
  * Audio manager: Web Audio API for sound effects, HTML5 Audio for music.
+ * Supports multiple named music tracks and tracking of active sound instances.
  */
 
 export interface SoundInstance {
@@ -11,7 +12,8 @@ export interface SoundInstance {
 export class AudioManager {
     private audioCtx: AudioContext | null = null;
     private sounds: Map<string, AudioBuffer> = new Map();
-    private music: HTMLAudioElement | null = null;
+    private musicTracks: Map<string, HTMLAudioElement> = new Map();
+    private activeSounds: SoundInstance[] = [];
     private musicVolume = 0.5;
     private sfxVolume = 0.7;
 
@@ -59,9 +61,7 @@ export class AudioManager {
         source.start(0);
 
         let playing = true;
-        source.onended = () => { playing = false; };
-
-        return {
+        const instance: SoundInstance = {
             stop() {
                 if (playing) {
                     source.stop();
@@ -75,39 +75,66 @@ export class AudioManager {
                 gainNode.gain.value = Math.max(0, Math.min(1, vol));
             }
         };
+
+        source.onended = () => { playing = false; };
+        this.activeSounds.push(instance);
+
+        return instance;
     }
 
-    /** Load a music track (streamed via HTML5 Audio). */
-    async loadMusic(url: string): Promise<void> {
+    /** Load a named music track (streamed via HTML5 Audio). */
+    async loadMusic(id: string, url: string): Promise<void> {
         return new Promise((resolve, reject) => {
             const audio = new Audio();
             audio.src = url;
             audio.volume = this.musicVolume;
             audio.addEventListener('canplaythrough', () => resolve(), { once: true });
             audio.addEventListener('error', () => reject(new Error(`Failed to load music: ${url}`)), { once: true });
-            this.music = audio;
+            this.musicTracks.set(id, audio);
         });
     }
 
-    playMusic(loop = true): void {
-        if (!this.music) return;
-        this.music.loop = loop;
-        this.music.volume = this.musicVolume;
-        this.music.play().catch(() => {
+    /** Play a named music track. */
+    playMusic(id: string, loop = true, volume?: number): void {
+        const track = this.musicTracks.get(id);
+        if (!track) return;
+        track.loop = loop;
+        track.volume = volume !== undefined ? Math.max(0, Math.min(1, volume)) : this.musicVolume;
+        track.play().catch(() => {
             // Autoplay blocked — will start on first user interaction
         });
     }
 
-    stopMusic(): void {
-        if (!this.music) return;
-        this.music.pause();
-        this.music.currentTime = 0;
+    /** Stop a specific music track, or all tracks if no id provided. */
+    stopMusic(id?: string): void {
+        if (id !== undefined) {
+            const track = this.musicTracks.get(id);
+            if (track) {
+                track.pause();
+                track.currentTime = 0;
+            }
+        } else {
+            for (const track of this.musicTracks.values()) {
+                track.pause();
+                track.currentTime = 0;
+            }
+        }
+    }
+
+    /** Stop all active sound effect instances. */
+    stopAllSounds(): void {
+        for (const instance of this.activeSounds) {
+            if (instance.isPlaying()) {
+                instance.stop();
+            }
+        }
+        this.activeSounds = [];
     }
 
     setMusicVolume(vol: number): void {
         this.musicVolume = Math.max(0, Math.min(1, vol));
-        if (this.music) {
-            this.music.volume = this.musicVolume;
+        for (const track of this.musicTracks.values()) {
+            track.volume = this.musicVolume;
         }
     }
 
