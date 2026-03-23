@@ -27,12 +27,17 @@ export class StarField {
 
     private earthSprite: HTMLImageElement | null = null;
     private moonSprite: HTMLImageElement | null = null;
-    // Earth starts at y=150 so it's already in the lower portion (not at top of screen)
-    // Moon starts at y=0, positioned to the right of center
+    // Earth at x=0 (650px wide, fills play area), Moon on the RIGHT side
+    // Both start mid-screen (~y=150) and scroll downward
     private earthY = 150;
-    private moonY = 0;
-    private moonX = 350;
+    private moonY = 150;
+    private moonX = 350;  // right side of play area
     private bodiesStopped = false;
+
+    // Scroll speeds tuned so Moon exits bottom (~y=600) near end of 95s level
+    // Earth scrolls faster (closer, z=150), Moon slower (further, z=200)
+    private static readonly EARTH_SCREEN_SPEED = 22;
+    private static readonly MOON_SCREEN_SPEED = 10;
 
     constructor(assets?: AssetLoader) {
         for (let i = 0; i < MAX_STARS; i++) {
@@ -89,11 +94,8 @@ export class StarField {
 
         // Scroll celestial bodies after 300ms delay; stop when Moon passes screen bottom
         if (this.elapsed >= 0.3 && !this.bodiesStopped) {
-            const earthSpeed = this.speed * (STAR_DISTANCE / (150 + 1));
-            this.earthY += earthSpeed * dt;
-
-            const moonSpeed = this.speed * (STAR_DISTANCE / (200 + 1));
-            this.moonY += moonSpeed * dt;
+            this.earthY += StarField.EARTH_SCREEN_SPEED * dt;
+            this.moonY += StarField.MOON_SCREEN_SPEED * dt;
 
             // C++: scrolling stops when Moon y > 600
             if (this.moonY > 600) {
@@ -109,18 +111,19 @@ export class StarField {
         }
 
         if (nearEarth) {
-            if (this.earthSprite) {
-                ctx.drawImage(
-                    this.earthSprite,
-                    0,
-                    this.earthY | 0,
-                );
-            }
+            // C++ renders Moon first, then Earth on top (Earth is closer: z=150 vs Moon z=200)
             if (this.moonSprite) {
                 ctx.drawImage(
                     this.moonSprite,
                     this.moonX,
                     this.moonY | 0,
+                );
+            }
+            if (this.earthSprite) {
+                ctx.drawImage(
+                    this.earthSprite,
+                    0,
+                    this.earthY | 0,
                 );
             }
         }

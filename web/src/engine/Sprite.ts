@@ -77,6 +77,10 @@ export class Sprite {
     /** Set current frame directly (for directional sprites like player/enemies). */
     setFrame(frame: number): void {
         this.currentFrame = Math.max(0, Math.min(frame, this.frames.length - 1));
+        // Update dimensions to match current frame (important for power-level projectile sprites)
+        const img = this.frames[this.currentFrame];
+        this.width = img.naturalWidth || img.width;
+        this.height = img.naturalHeight || img.height;
     }
 
     /** Draw current frame rotated around its center at (x,y). */

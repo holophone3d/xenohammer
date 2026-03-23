@@ -149,6 +149,9 @@ export class GameManager {
         this.player = new Player();
         this.player.loadSprite(this.assets);
 
+        // Restore persisted settings (power cells, research, kills, RU)
+        this.loadSettings();
+
         this.state = GameState.StartScreen;
     }
 
@@ -734,6 +737,8 @@ export class GameManager {
 
     private applyPowerUp(pu: PowerUp): void {
         if (!this.player) return;
+        // C++ always increments powerUpCount (resource units) for every pickup
+        this.player.powerPlant.resourceUnits++;
         const armorRestore = pu.getArmorRestore();
         if (armorRestore > 0) {
             this.player.armor = Math.min(this.player.maxArmor, this.player.armor + armorRestore);
@@ -898,19 +903,16 @@ export class GameManager {
 
     private renderGameOver(): void {
         const ctx = this.canvas.ctx;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, 800, 600);
         const img = this.assets.tryGetImage('game_over');
         if (img) {
-            ctx.drawImage(img, 0, 0, 800, 600);
+            ctx.drawImage(img, 272, 268);
         } else {
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, 800, 600);
             ctx.textAlign = 'center';
-            ctx.fillStyle = '#f00';
-            ctx.font = '32px XenoFont, monospace';
-            ctx.fillText('GAME OVER', 400, 280);
-            ctx.fillStyle = '#fff';
-            ctx.font = '16px XenoFont, monospace';
-            ctx.fillText(`Final Score: ${this.score}`, 400, 330);
+            ctx.fillStyle = '#0f0';
+            ctx.font = '24px XenoFont, monospace';
+            ctx.fillText('GAME OVER', 400, 290);
             ctx.textAlign = 'left';
         }
     }
@@ -1424,8 +1426,9 @@ export class GameManager {
         if (!this.input.isMousePressed()) return;
         if (!this.player) return;
 
-        // System zone click
-        if (newHover >= 0) {
+        // System zone click — only switch selection if clicking a DIFFERENT zone.
+        // If same zone is already selected, fall through to arrow/buy button checks.
+        if (newHover >= 0 && newHover !== this.custSelectedSystem) {
             try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
             this.custSelectedSystem = newHover;
             return;
@@ -1457,6 +1460,7 @@ export class GameManager {
             try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
             this.player.shields = 300;
             this.player.armor = 300;
+            this.saveSettings();
             this.state = GameState.ReadyRoom;
             return;
         }
@@ -1915,5 +1919,51 @@ export class GameManager {
             ctx.fillStyle = `rgb(${Math.floor(r * 255)},${Math.floor(g * 255)},0)`;
             ctx.fillRect(740, 545 - barHeight, 45, barHeight);
         }
+    }
+
+    // ========== Settings Persistence (localStorage) ==========
+
+    private static readonly SAVE_KEY = 'xenohammer_save';
+
+    private saveSettings(): void {
+        if (!this.player) return;
+        const data = {
+            settings: this.player.powerPlant.settings,
+            currentSetting: this.player.powerPlant.currentSetting,
+            resourceUnits: this.player.powerPlant.resourceUnits,
+            kills: this.player.kills,
+            turretAngleAvailable: this.turretAngleAvailable,
+            isHomingResearched: this.isHomingResearched,
+        };
+        try {
+            localStorage.setItem(GameManager.SAVE_KEY, JSON.stringify(data));
+        } catch { /* storage full or unavailable */ }
+    }
+
+    private loadSettings(): void {
+        if (!this.player) return;
+        try {
+            const raw = localStorage.getItem(GameManager.SAVE_KEY);
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            if (data.settings && Array.isArray(data.settings) && data.settings.length === 3) {
+                this.player.powerPlant.settings = data.settings;
+            }
+            if (typeof data.currentSetting === 'number') {
+                this.player.powerPlant.currentSetting = data.currentSetting;
+            }
+            if (typeof data.resourceUnits === 'number') {
+                this.player.powerPlant.resourceUnits = data.resourceUnits;
+            }
+            if (typeof data.kills === 'number') {
+                this.player.kills = data.kills;
+            }
+            if (typeof data.turretAngleAvailable === 'boolean') {
+                this.turretAngleAvailable = data.turretAngleAvailable;
+            }
+            if (typeof data.isHomingResearched === 'boolean') {
+                this.isHomingResearched = data.isHomingResearched;
+            }
+        } catch { /* corrupt or missing save data */ }
     }
 }

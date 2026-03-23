@@ -133,17 +133,27 @@ export class Player {
         if (!this.alive || !input.isKeyDown(Input.SPACE)) return [];
 
         const projectiles: Projectile[] = [];
-        const multipliers = [
-            this.powerPlant.getBlasterMultiplier(),
-            this.powerPlant.getLeftTurretMultiplier(),
-            this.powerPlant.getRightTurretMultiplier(),
-            this.powerPlant.getLeftMissileMultiplier(),
-            this.powerPlant.getRightMissileMultiplier(),
+        const s = this.powerPlant.getSetting();
+
+        // C++: damage multiplier = get_power_MUX(WEAPON_POWER) based on cell2
+        // C++: sprite frame = power_cell_2 - 1
+        const cell2Values = [
+            s.blasterCell2,
+            s.leftTurretCell2,
+            s.rightTurretCell2,
+            s.leftMissileCell2,
+            s.rightMissileCell2,
         ];
+
+        // Apply turret angles from customization settings
+        this.weapons[1].angle = s.leftTurretAngle;
+        this.weapons[2].angle = s.rightTurretAngle;
 
         for (let i = 0; i < this.weapons.length; i++) {
             const weapon = this.weapons[i];
-            weapon.powerMultiplier = multipliers[i];
+            const c2 = cell2Values[i];
+            weapon.powerCell2 = c2;
+            weapon.powerMultiplier = c2;  // damage scales with cell2 directly
             const proj = weapon.fire(this.x, this.y, now, assets);
             if (proj) projectiles.push(proj);
         }

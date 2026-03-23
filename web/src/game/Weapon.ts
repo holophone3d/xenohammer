@@ -17,6 +17,7 @@ export class Weapon {
     angle: number;
     defaultAngle: number;
     powerMultiplier = 1;
+    powerCell2 = 1;  // raw cell2 value for sprite frame selection (frame = cell2 - 1)
     spritePrefix: string;
     spriteFrames: number;
     offsetX: number;
@@ -118,10 +119,11 @@ export class Weapon {
             }
         }
 
-        // Set sprite frame based on power level (frame = power_cell_2 - 1)
-        // Frames represent power levels, NOT animation
+        // Set sprite frame based on power cell 2 (frame = cell2 - 1)
+        // Each frame is a progressively larger/more powerful projectile sprite
         if (sprite) {
-            sprite.setFrame(this.powerMultiplier - 1);
+            const frameIdx = Math.max(0, Math.min(this.powerCell2 - 1, this.spriteFrames - 1));
+            sprite.setFrame(frameIdx);
             sprite.loop = false;
         }
 
