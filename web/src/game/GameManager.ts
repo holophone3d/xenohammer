@@ -98,18 +98,16 @@ export class GameManager {
             try { await this.audio.loadSound(id, `/assets/${path}`); } catch { /* skip */ }
         }
 
-        // Load music tracks
+        // Load music tracks (original only uses Level2.ogg + bossTEST.ogg)
         const musicFiles = [
-            ['start', 'sounds/start.wav'],
             ['Level2', 'sounds/Level2.ogg'],
-            ['SMC', 'sounds/SMC.wav'],
-            ['BossNear1', 'sounds/BossNear1.wav'],
-            ['SMD', 'sounds/SMD.ogg'],
             ['bossTEST', 'sounds/bossTEST.ogg'],
         ];
         for (const [id, path] of musicFiles) {
             try { await this.audio.loadMusic(id, `/assets/${path}`); } catch { /* skip */ }
         }
+        // BossNear1 is a sound effect, not music
+        try { await this.audio.loadSound('BossNear1', '/assets/sounds/BossNear1.wav'); } catch { /* skip */ }
 
         // Cache explosion frames
         this.smallExpFrames = Explosion.loadFrames(this.assets, 'small');
@@ -342,18 +340,15 @@ export class GameManager {
             this.boss.loadSprites(this.assets);
         }
 
-        // Start level music
+        // Start level music — original uses Level2.ogg for ALL levels
         this.audio.stopMusic();
-        if (levelIndex === 0) {
-            try { this.audio.playMusic('start', true); this.musicPlaying = 'start'; } catch { /* skip */ }
-        } else if (levelIndex === 1) {
-            try { this.audio.playMusic('Level2', true); this.musicPlaying = 'Level2'; } catch { /* skip */ }
-        } else {
-            try { this.audio.playMusic('SMC', true); this.musicPlaying = 'SMC'; } catch { /* skip */ }
-        }
+        try { this.audio.playMusic('Level2', true); this.musicPlaying = 'Level2'; } catch { /* skip */ }
 
-        // Start engine sound
-        try { this.engineSound = this.audio.playSound('ShipEngine', true); } catch { this.engineSound = null; }
+        // Start engine sound at low volume (original used ~10%)
+        try {
+            this.engineSound = this.audio.playSound('ShipEngine', true);
+            this.engineSound.setVolume(0.1);
+        } catch { this.engineSound = null; }
 
         this.state = GameState.Playing;
     }
@@ -405,6 +400,9 @@ export class GameManager {
             if (this.boss.shouldTriggerMusic() && !this.boss.musicTriggered) {
                 this.boss.musicTriggered = true;
                 try { this.audio.playSound('BossNear1'); } catch { /* skip */ }
+                // Switch to boss music (original: stops Level2, plays bossTEST)
+                this.audio.stopMusic();
+                try { this.audio.playMusic('bossTEST', true); this.musicPlaying = 'bossTEST'; } catch { /* skip */ }
             }
 
             const bossProj = this.boss.getProjectiles();

@@ -4,6 +4,7 @@
  */
 
 import { Sprite } from '../engine';
+import { VELOCITY_DIVISOR } from '../data/ships';
 import { Rect, isOutOfBounds } from './Collision';
 
 export type ProjectileOwner = 'player' | 'enemy';
@@ -65,12 +66,13 @@ export class Projectile {
             }
         }
 
-        // Move (px/frame, applied once per tick)
-        this.x += this.vx;
-        this.y += this.vy;
+        // Move (time-scaled: velocity × dt_ms / 32, matching original ClanLib show())
+        const moveScale = dt * 1000 / VELOCITY_DIVISOR;
+        this.x += this.vx * moveScale;
+        this.y += this.vy * moveScale;
 
         // Track distance for homing activation
-        this.distanceTraveled += Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        this.distanceTraveled += Math.sqrt(this.vx * this.vx + this.vy * this.vy) * moveScale;
 
         // Animate sprite
         if (this.sprite) {

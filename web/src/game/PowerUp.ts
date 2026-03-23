@@ -5,6 +5,7 @@
  */
 
 import { AssetLoader } from '../engine';
+import { VELOCITY_DIVISOR } from '../data/ships';
 import { Rect, PLAY_AREA_H } from './Collision';
 
 export type PowerUpType = 'armor' | 'shield' | 'weapon';
@@ -41,8 +42,8 @@ export class PowerUp {
     update(dt: number): void {
         if (!this.active) return;
 
-        // Gentle downward drift (2 px/tick at 60 fps)
-        this.y += DRIFT_SPEED * dt * 60;
+        // Gentle downward drift (time-scaled like all game objects)
+        this.y += DRIFT_SPEED * dt * 1000 / VELOCITY_DIVISOR;
 
         // Slight horizontal bob (sin wave)
         this.bobTimer += dt * BOB_FREQUENCY;

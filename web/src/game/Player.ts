@@ -7,6 +7,7 @@ import { Input, Sprite, AssetLoader } from '../engine';
 import {
     PLAYER_SHIP, PLAYER_START, PLAYER_WEAPON_SLOTS, WEAPONS,
     POWER_MULTIPLIERS, SHIELD_REGEN_INTERVAL, SHIELD_REGEN_DELAY,
+    VELOCITY_DIVISOR,
 } from '../data/ships';
 import { Rect, clampToPlayArea } from './Collision';
 import { Weapon } from './Weapon';
@@ -76,8 +77,9 @@ export class Player {
             my *= inv;
         }
 
-        this.x += mx * currentSpeed;
-        this.y += my * currentSpeed;
+        const moveScale = dt * 1000 / VELOCITY_DIVISOR;
+        this.x += mx * currentSpeed * moveScale;
+        this.y += my * currentSpeed * moveScale;
 
         // Clamp to play area
         const w = this.sprite ? this.sprite.width : 48;
@@ -86,10 +88,11 @@ export class Player {
         this.x = clamped.x;
         this.y = clamped.y;
 
-        // Sprite frame: bank left (<8), straight (8), bank right (>8), 1 step per tick
-        if (mx < 0) {
+        // Sprite frame: moving right → frame decreases (toward 0), left → increases (toward 16)
+        // Matches original C++ PlayerShip.cpp: hori_axis>0 → curr_frame--, hori_axis<0 → curr_frame++
+        if (mx > 0) {
             if (this.spriteFrame > 0) this.spriteFrame--;
-        } else if (mx > 0) {
+        } else if (mx < 0) {
             if (this.spriteFrame < 16) this.spriteFrame++;
         } else {
             if (this.spriteFrame < 8) this.spriteFrame++;

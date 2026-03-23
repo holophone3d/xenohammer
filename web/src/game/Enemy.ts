@@ -8,7 +8,7 @@
  */
 
 import { Sprite, AssetLoader } from '../engine';
-import { ShipConfig, LIGHT_FIGHTER, FIGHTER_B, GUNSHIP } from '../data/ships';
+import { ShipConfig, LIGHT_FIGHTER, FIGHTER_B, GUNSHIP, VELOCITY_DIVISOR } from '../data/ships';
 import type { EnemyType } from '../data/levels';
 import { Rect } from './Collision';
 import { Weapon } from './Weapon';
@@ -81,9 +81,10 @@ export class Enemy {
         // Delegate movement/state to AI
         this.ai.update(this, playerX, playerY, dt);
 
-        // Apply velocity (px/tick values, dt in seconds → multiply by 60 for ticks)
-        this.x += this.vx * dt * 60;
-        this.y += this.vy * dt * 60;
+        // Apply velocity (time-scaled: velocity × dt_ms / 32, matching original ClanLib show())
+        const moveScale = dt * 1000 / VELOCITY_DIVISOR;
+        this.x += this.vx * moveScale;
+        this.y += this.vy * moveScale;
 
         // Update sprite frame based on heading angle
         this.updateSpriteFrame();
@@ -93,17 +94,18 @@ export class Enemy {
         if (!this.sprite || this.sprite.frames.length <= 1) return;
 
         if (this.config.frameCount === 32) {
-            // 32 directional frames: frame 0 = up (angle = -π/2), clockwise
-            // Convert from math angle (right=0) to sprite angle (up=0, clockwise)
-            const spriteAngle = this.angle + Math.PI / 2;
-            const normalized = ((spriteAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-            this.sprite.currentFrame = Math.floor(normalized / (2 * Math.PI) * 32) % 32;
+            // 32 directional frames: frame 0=RIGHT, 8=UP, 16=LEFT, 24=DOWN
+            // this.angle is screen-coords atan2(dy,dx): 0=right, π/2=down, -π/2=up
+            // Negate to convert to math convention, then map to [0,31]
+            const raw = Math.round(-this.angle * 16 / Math.PI);
+            this.sprite.currentFrame = ((raw % 32) + 32) % 32;
         } else if (this.config.frameCount === 17) {
-            // 17-frame sprite: frame 8 = straight down, <8 = banked left, >8 = banked right
-            // Map horizontal velocity to bank frame
+            // 17-frame gunship: frame 8=straight, frame 0=banked right, frame 16=banked left
+            // Matches original GunshipAI: RIGHT accel → frame--, LEFT accel → frame++
             const maxSpeed = this.config.speed || 9;
             const bankRatio = Math.max(-1, Math.min(1, this.vx / maxSpeed));
-            this.sprite.currentFrame = Math.round(8 + bankRatio * 8);
+            // Negative vx (going left) → higher frame (left bank)
+            this.sprite.currentFrame = Math.round(8 - bankRatio * 8);
             this.sprite.currentFrame = Math.max(0, Math.min(16, this.sprite.currentFrame));
         }
     }
@@ -113,6 +115,11 @@ export class Enemy {
         if (!this.wantsFire || !this.alive) return [];
 
         const projectiles: Projectile[] = [];
+
+        // Pass ship velocity to enemy weapons (enemyBlast uses 2× ship vel)
+        for (const weapon of this.weapons) {
+            weapon.setEnemyVelocity(this.vx, this.vy);
+        }
 
         // Gunships alternate dual cannons
         if (this.type === 'gunship' && this.ai instanceof GunshipAI) {

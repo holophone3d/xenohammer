@@ -16,9 +16,24 @@ export class AudioManager {
     private activeSounds: SoundInstance[] = [];
     private musicVolume = 0.5;
     private sfxVolume = 0.7;
+    private _userInteracted = false;
+    private _pendingResumes: (() => void)[] = [];
 
     constructor() {
-        // AudioContext is created lazily to comply with autoplay policies
+        // Listen for first user interaction to unlock audio
+        const unlock = () => {
+            this._userInteracted = true;
+            if (this.audioCtx && this.audioCtx.state === 'suspended') {
+                this.audioCtx.resume();
+            }
+            // Resume any pending music
+            for (const fn of this._pendingResumes) fn();
+            this._pendingResumes = [];
+            document.removeEventListener('click', unlock);
+            document.removeEventListener('keydown', unlock);
+        };
+        document.addEventListener('click', unlock, { once: false });
+        document.addEventListener('keydown', unlock, { once: false });
     }
 
     private ensureContext(): AudioContext {
@@ -33,11 +48,16 @@ export class AudioManager {
 
     /** Load a sound effect into memory for low-latency playback. */
     async loadSound(id: string, url: string): Promise<void> {
-        const ctx = this.ensureContext();
-        const response = await fetch(url);
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-        this.sounds.set(id, audioBuffer);
+        try {
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            // Defer AudioContext creation — store raw buffer, decode on first play
+            const ctx = this.ensureContext();
+            const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+            this.sounds.set(id, audioBuffer);
+        } catch {
+            // Sound loading failed — skip silently
+        }
     }
 
     /** Play a loaded sound effect. Returns a handle to stop it. */
@@ -82,16 +102,15 @@ export class AudioManager {
         return instance;
     }
 
-    /** Load a named music track (streamed via HTML5 Audio). */
+    /** Load a named music track (streamed via HTML5 Audio). Non-blocking — track loads lazily. */
     async loadMusic(id: string, url: string): Promise<void> {
-        return new Promise((resolve, reject) => {
-            const audio = new Audio();
-            audio.src = url;
-            audio.volume = this.musicVolume;
-            audio.addEventListener('canplaythrough', () => resolve(), { once: true });
-            audio.addEventListener('error', () => reject(new Error(`Failed to load music: ${url}`)), { once: true });
-            this.musicTracks.set(id, audio);
-        });
+        const audio = new Audio();
+        audio.preload = 'auto';
+        audio.src = url;
+        audio.volume = this.musicVolume;
+        this.musicTracks.set(id, audio);
+        // Don't await canplaythrough — browser may block loading before user interaction.
+        // The track will load when play() is called after user gesture.
     }
 
     /** Play a named music track. */
@@ -100,9 +119,16 @@ export class AudioManager {
         if (!track) return;
         track.loop = loop;
         track.volume = volume !== undefined ? Math.max(0, Math.min(1, volume)) : this.musicVolume;
-        track.play().catch(() => {
-            // Autoplay blocked — will start on first user interaction
-        });
+        const doPlay = () => {
+            // Ensure track will load then play
+            track.load();
+            track.play().catch(() => { /* autoplay blocked */ });
+        };
+        if (this._userInteracted) {
+            doPlay();
+        } else {
+            this._pendingResumes.push(doPlay);
+        }
     }
 
     /** Stop a specific music track, or all tracks if no id provided. */

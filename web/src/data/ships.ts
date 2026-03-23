@@ -147,6 +147,13 @@ export const WEAPONS = {
     } as WeaponConfig,
 };
 
+/**
+ * Original ClanLib movement scale factor.
+ * In GameObject_Sprite::show(): actual_delta = (velocity * dt_ms) / VELOCITY_DIVISOR
+ * At 60fps (dt_ms=16.67): effective multiplier ≈ 0.52
+ */
+export const VELOCITY_DIVISOR = 32;
+
 export const SHIELD_REGEN_INTERVAL = 150; // ms
 export const SHIELD_REGEN_DELAY = 2000; // ms after last damage
 
@@ -157,10 +164,16 @@ export const DIFFICULTY_ARMOR_BONUS: Record<number, number> = {
     3: 1000,  // Nightmare
 };
 
-/** Turret speeds by angle (0-360 in 45° steps) */
-export const TURRET_SPEEDS: Record<number, number> = {
-    0: 29, 45: 20, 90: 29, 135: 20,
-    180: 29, 225: 20, 270: 29, 315: 20,
+/** Turret velocity lookup table — exact dx/dy from original Projectile.cpp */
+export const TURRET_VELOCITY_TABLE: Record<number, { dx: number; dy: number }> = {
+    0:   { dx:  29, dy:   0 },   // RIGHT
+    45:  { dx:  20, dy: -21 },   // UP-RIGHT
+    90:  { dx:   0, dy: -29 },   // UP
+    135: { dx: -20, dy: -21 },   // UP-LEFT
+    180: { dx: -29, dy:   0 },   // LEFT
+    225: { dx: -20, dy:  21 },   // DOWN-LEFT
+    270: { dx:   0, dy:  29 },   // DOWN
+    315: { dx:  20, dy:  21 },   // DOWN-RIGHT
 };
 
 /** Power cell multipliers for weapon damage/rate */

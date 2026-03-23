@@ -17,21 +17,45 @@
 
 ---
 
-## 2. CRITICAL: Timing Model
+## 2. CRITICAL: Timing & Movement Model
 
-The original game runs movement as **pixels-per-frame with NO fixed timestep**. The game loop runs as fast as the CPU allows.
+The original game uses **time-scaled movement** via `GameObject_Sprite::show()`. All game objects (player, enemies, projectiles, explosions, power-ups) move through the same unified system.
 
-- All movement speeds in the original source are in **pixels/frame**, not pixels/second
-- The original ran at roughly **30–60 fps** on year-2000 hardware (~Pentium III)
+### Movement Formula (from `GameObject_Sprite::show()`)
+
+```
+actual_pixels = (velocity × time_delta_ms) / VELOCITY_DIVISOR
+```
+
+Where:
+- **velocity** = the `dx`/`dy` values set by AI, weapons, or input (the "raw" values listed in this spec)
+- **time_delta_ms** = milliseconds since the last frame (`CL_System::get_time()` delta)
+- **VELOCITY_DIVISOR** = **32** (hardcoded `XSCALE = YSCALE = 32` in `GameObject.cpp`)
+
+### Effective Speeds at Common Frame Rates
+
+| Frame Rate | time_delta_ms | Scale Factor | Example: speed 7 → actual px/frame |
+|-----------|--------------|-------------|-------------------------------------|
+| 30 fps | 33.3 ms | 1.04× | 7.3 px/frame |
+| 60 fps | 16.67 ms | 0.52× | 3.65 px/frame |
+| 120 fps | 8.33 ms | 0.26× | 1.82 px/frame |
+
+At 60 fps, raw velocity values are effectively **halved** (multiplied by ~0.52).
+
+### Implementation for Modern Targets
+
+Use a **fixed 60 fps logic timestep** (16.67ms) with the VELOCITY_DIVISOR scaling:
+
+```typescript
+// Movement per tick (dt in seconds):
+const moveScale = dt * 1000 / 32;  // = 16.67/32 ≈ 0.52 at 60fps
+this.x += this.vx * moveScale;
+this.y += this.vy * moveScale;
+```
+
 - Fire rates and delays are in **milliseconds** (timer-based, independent of frame rate)
-- Movement, however, is purely per-frame with no delta-time correction
-
-**Modern implementations MUST** either:
-1. Use a **fixed timestep** (recommended: 60 fps logic tick = 16.67ms), or
-2. Convert all speeds to **time-based** using delta time
-
-**Conversion:** To get px/second from px/frame values below, multiply by 60.  
-Example: base speed 7 px/frame → 420 px/second at 60 fps.
+- All velocity values in this spec are **raw values** before VELOCITY_DIVISOR scaling
+- The only exception is `spaceObject` which uses `YSCALE=600` for extremely slow vertical drift (not used in gameplay)
 
 ---
 
@@ -165,9 +189,12 @@ Three sub-options:
 ### Sprite
 - 17 frames: `PlayerSprite00` through `PlayerSprite16`
 - Frame 8 = flying straight (center)
-- Frames < 8 = banking left
-- Frames > 8 = banking right
-- Frame selection based on movement direction angle
+- Frame 0 = fully banked RIGHT (ship leans right when moving right)
+- Frame 16 = fully banked LEFT (ship leans left when moving left)
+- Banking logic (from `PlayerShip.cpp`):
+  - Moving RIGHT (`hori_axis > 0.2`): `curr_frame--` (toward frame 0)
+  - Moving LEFT (`hori_axis < -0.2`): `curr_frame++` (toward frame 16)
+  - No horizontal input: frame drifts back toward 8 (center)
 
 ### Movement
 - **Base speed:** 7 px/frame
@@ -210,17 +237,26 @@ Three sub-options:
 | Sprite Frames | 5 (`blaster_1`–`5`) | 5 (`turret_1`–`5`) | 5 (`torp_1`–`5`) |
 | Special | — | Rotatable angle | Homing after 50px travel (if researched) |
 
-**Turret Projectile Speeds by Angle:**
+**Turret Velocity Lookup Table** (discrete 8-angle table from `Projectile.cpp`, NOT trigonometry):
 
-| Angle | Speed (px/frame) |
-|-------|----------------:|
-| 0° / 90° / 180° / 270° | 29 |
-| 45° / 135° / 225° / 315° | 20 |
+| Angle | dx | dy | Direction |
+|------:|---:|---:|-----------|
+| 0° | +29 | 0 | RIGHT |
+| 45° | +20 | −21 | UP-RIGHT |
+| 90° | 0 | −29 | UP |
+| 135° | −20 | −21 | UP-LEFT |
+| 180° | −29 | 0 | LEFT |
+| 225° | −20 | +21 | DOWN-LEFT |
+| 270° | 0 | +29 | DOWN |
+| 315° | +20 | +21 | DOWN-RIGHT |
 
-**Missile Homing:**
-- Tracking distance: 64px (starts homing when within this range of target)
-- Minimum distance: 16px
-- Homing speed: 20 px/frame when tracking
+Angles snap to the nearest 45° before lookup. Default turret angles: Left=135° (fires up-left), Right=45° (fires up-right).
+
+**Missile Homing** (from `Projectile::update()`):
+- Flies straight up (dy=−17) for the first **50 pixels** of travel distance
+- Then homes toward its target at speed **20 raw units**
+- Tracking stops (permanently) when missile enters a **64px bounding box** around the target
+- Once tracking stops, the missile retains its last heading and flies straight
 - Requires homing research (15 RU) to activate
 
 ### Enemy Weapons
@@ -767,17 +803,26 @@ Background: `console` sprite
 
 ## 14. Sound Map
 
+### Music Tracks
+
+The original game has only **TWO music tracks** (from `Sound.cpp`):
+
+| Variable | File | Usage | Loop |
+|----------|------|-------|:----:|
+| `sfx_backgroundMusic` | `Level2.ogg` | **ALL levels** (1, 2, and 3) | Yes |
+| `sfx_bossBackgroundMusic` | `bossTEST.ogg` | Boss fight (replaces level music when boss triggers) | Yes |
+
+> **Note:** Files `start.wav`, `SMC.wav`, `SMD.ogg`, `SMM.wav` exist in the assets but are NOT referenced in the original `Sound.cpp` as music. `start.wav` is a 13KB sound effect, not a music track.
+
+### Sound Effects
+
 | Event | Sound File | Loop | Notes |
 |-------|-----------|:----:|-------|
 | Start screen ambient | `Space` | Yes | Plays on start screen |
 | Menu item hover | `MenuChange` | No | UI navigation |
 | Menu item select | `MenuSelect` | No | UI confirm |
-| Level 1 music | `start` | Yes | Plays during Level 1 |
-| Level 2 music | `Level2` (.ogg) | Yes | Plays during Level 2 |
-| Level 3 music | `SMC` | Yes | Plays during Level 3 |
-| Boss approaching | `BossNear1` | No | Triggers at 96s into Level 3 |
-| Boss music | `SMD` (.ogg) | Yes | Plays when boss enters screen |
-| Ship engine | `ShipEngine` | Yes | During gameplay |
+| Boss approaching | `BossNear1` | No | Sound effect at 96s into Level 3 |
+| Ship engine | `ShipEngine` | Yes | During gameplay, volume ~0.1 |
 | Player blaster fire | `PlayerGun1` | No | Nose blaster |
 | Player turret fire | `PlayerGun2` | No | Turret shots |
 | Player missile fire | `newFire` | No | Missile launch |
@@ -787,8 +832,7 @@ Background: `console` sprite
 | Small explosion | `ExploMini1` | No | Fighter destruction |
 | Power-up collected | `CoinCollected` | No | Pickup |
 | Warcraft-style fire | `WarCraftFire` | No | Special weapon variant |
-| Boss test track | `bossTEST` (.ogg) | Yes | Alternate boss music |
-| Intro/start sound | `01- start_wav` | No | Game launch |
+| Intro/start sound | `01- start_wav` | No | Short SFX, NOT music |
 
 ---
 

@@ -4,7 +4,7 @@
  */
 
 import { Sprite, AssetLoader } from '../engine';
-import { WeaponConfig, WEAPONS, TURRET_SPEEDS } from '../data/ships';
+import { WeaponConfig, WEAPONS, TURRET_VELOCITY_TABLE } from '../data/ships';
 import { Projectile, ProjectileOwner } from './Projectile';
 
 export type WeaponType = 'blaster' | 'turret' | 'missile' | 'enemyBlast' | 'enemyCannon';
@@ -30,6 +30,10 @@ export class Weapon {
     private homingTrackDist = 64;
     private homingMinDist = 16;
     private homingSpeed = 20;
+
+    // Enemy velocity passthrough (for enemyBlast)
+    private _enemyVx = 0;
+    private _enemyVy = 0;
 
     constructor(
         type: WeaponType,
@@ -75,21 +79,27 @@ export class Weapon {
         let vy: number;
 
         if (this.type === 'turret') {
-            // Turret: angle-dependent speed and direction
-            const snapAngle = Math.round(this.angle / 45) * 45 % 360;
-            const speed = TURRET_SPEEDS[snapAngle] ?? this.projectileSpeed;
-            const rad = this.angle * (Math.PI / 180);
-            vx = Math.sin(rad) * speed;
-            vy = -Math.cos(rad) * speed;
+            // Turret: discrete 8-angle velocity table from original Projectile.cpp
+            const snapAngle = ((Math.round(this.angle / 45) * 45) % 360 + 360) % 360;
+            const entry = TURRET_VELOCITY_TABLE[snapAngle];
+            if (entry) {
+                vx = entry.dx;
+                vy = entry.dy;
+            } else {
+                vx = 0;
+                vy = -29;
+            }
         } else if (this.type === 'blaster' || this.type === 'missile') {
-            // Blaster / Missile: straight up
             vx = 0;
             vy = -this.projectileSpeed;
+        } else if (this.type === 'enemyCannon') {
+            // Gunship cannon: fixed straight down per original
+            vx = 0;
+            vy = 21;
         } else {
-            // Enemy weapons: use angle (180° = straight down)
-            const rad = this.angle * (Math.PI / 180);
-            vx = Math.sin(rad) * this.projectileSpeed;
-            vy = -Math.cos(rad) * this.projectileSpeed;
+            // enemyBlast: velocity set by caller via setEnemyVelocity()
+            vx = this._enemyVx * 2;
+            vy = this._enemyVy * 2;
         }
 
         // Build sprite if assets available
@@ -98,7 +108,8 @@ export class Weapon {
             try {
                 const frames: HTMLImageElement[] = [];
                 for (let i = 0; i < this.spriteFrames; i++) {
-                    const id = `${this.spritePrefix}${i.toString().padStart(2, '0')}`;
+                    // Weapon sprites are 1-indexed, no padding: blaster_1, turret_1, torp_1, enemy_1
+                    const id = `${this.spritePrefix}${i + 1}`;
                     frames.push(assets.getImage(id));
                 }
                 sprite = new Sprite(frames, 100);
@@ -118,6 +129,12 @@ export class Weapon {
         }
 
         return proj;
+    }
+
+    /** Set enemy ship velocity for enemyBlast projectiles (2× ship vel). */
+    setEnemyVelocity(vx: number, vy: number): void {
+        this._enemyVx = vx;
+        this._enemyVy = vy;
     }
 
     /** Rotate turret angle by delta degrees */
@@ -141,6 +158,6 @@ export class Weapon {
 
     static createEnemyWeapon(weaponType: 'enemyBlast' | 'enemyCannon', offsetX: number, offsetY: number): Weapon {
         const config = weaponType === 'enemyCannon' ? WEAPONS.enemyCannon : WEAPONS.enemyBlast;
-        return new Weapon(weaponType, config, offsetX, offsetY, 180, 'enemy');
+        return new Weapon(weaponType, config, offsetX, offsetY, 0, 'enemy');
     }
 }
