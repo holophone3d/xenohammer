@@ -5,9 +5,9 @@
 #if !defined(AFX_GUNSHIPAI_H__3ABB0F60_D0A3_407F_995A_B6C51EAE2D62__INCLUDED_)
 #define AFX_GUNSHIPAI_H__3ABB0F60_D0A3_407F_995A_B6C51EAE2D62__INCLUDED_
 
-#if _MSC_VER > 1000
+#ifdef _MSC_VER
 #pragma once
-#endif // _MSC_VER > 1000
+#endif // _MSC_VER
 
 
 // screen size

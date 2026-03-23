@@ -5,9 +5,9 @@
 #include "Ship.h"
 #include "weapon.h"
 #include "explosionGenerator.h"
-#include <iostream.h>  // I/O 
-#include <fstream.h>   // file I/O
-#include <iomanip.h>   // format manipulation
+#include <iostream>    // I/O 
+#include <fstream>     // file I/O
+#include <iomanip>     // format manipulation
 
 
 // settings for the ship powerplant
@@ -72,7 +72,6 @@ public:
 	enemyKills = 0;
 	powerUpCount = 10;
 
-	ranking =  (char *)malloc( sizeof(char) * 10);
 	ranking = "Test Pilot";
 
 	// offsets are no longer constant due to variable size of projectiles
@@ -341,7 +340,7 @@ public:
 	shipPowerSetting setting_2;
 	shipPowerSetting setting_3;
 
-	char *ranking;
+	const char *ranking;
 
 };
 

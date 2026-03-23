@@ -36,7 +36,7 @@ GameManager::GameManager(){}
 GameManager::~GameManager(){}
 
 
-char *GameManager::get_title()
+const char *GameManager::get_title()
 {
 	return "Codename: XenoHammer";
 }
@@ -1687,7 +1687,7 @@ void GameManager::collision_update()
 	
 	
 	//CAPITAL SHIPS COLLIDING WITH PLAYER SHIP
-	for (itCapShips = capShips.begin();
+	for (std::list<CapitalShip *>::iterator itCapShips = capShips.begin();
 	itCapShips != capShips.end();
 	itCapShips++)
 		
@@ -1705,7 +1705,7 @@ void GameManager::collision_update()
 	
 	
 	//ENEMY FIGHTERS COLLIDING WITH PLAYER 
-	for (itCapShips = capShips.begin();
+	for (std::list<CapitalShip *>::iterator itCapShips = capShips.begin();
 	itCapShips != capShips.end();
 	itCapShips++)
 		
@@ -1724,7 +1724,7 @@ void GameManager::collision_update()
 	
 	
 	//ENEMY FIGHTERS COLLIDING WITH PLAYER 
-	for (itEnemyShips = lightFighters.begin();
+	for (std::list<EnemyShip *>::iterator itEnemyShips = lightFighters.begin();
 	itEnemyShips != lightFighters.end();
 	itEnemyShips++)
 		

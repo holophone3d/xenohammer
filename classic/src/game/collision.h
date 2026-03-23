@@ -1,3 +1,4 @@
+#pragma once
 #include "stdinclude.h"
 
 class CollisionDetection

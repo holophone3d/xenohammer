@@ -46,7 +46,7 @@ void GL_Handler::createTriangleStrip(int x, int y, int x1, int y1, int offset_x,
 }
 
 
-AUX_RGBImageRec *GL_Handler::LoadBMP(char *Filename)				// Loads A Bitmap Image
+AUX_RGBImageRec *GL_Handler::LoadBMP(const char *Filename)				// Loads A Bitmap Image
 {
 	FILE *File=NULL;								// File Handle
 	if (!Filename)									// Make Sure A Filename Was Given

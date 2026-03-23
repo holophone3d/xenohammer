@@ -1,3 +1,4 @@
+#pragma once
 #define TESTPILOT 0
 #define AIRMAN 20
 #define SERGEANT 42
