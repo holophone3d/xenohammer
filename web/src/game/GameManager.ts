@@ -533,15 +533,37 @@ export class GameManager {
             ship.update(dt, playerX, playerY, this.now);
             const shipProj = ship.getProjectiles();
             this.projectiles.push(...shipProj);
+
+            // Engine flames (C++: make_CapShipEngine at x+40, y, intensity 1.0)
+            this.particles.emit(ship.x + 40, ship.y, 2, {
+                color: { r: 1, g: Math.random() * 0.7, b: Math.random() * 0.2 },
+                speed: 8, life: 0.1, fade: 3, direction: Math.PI / 2, spread: 0.3,
+            });
+
+            // Capital ship death: spawn 8 explosions, add score
+            if (ship.justDied) {
+                ship.justDied = false;
+                this.score += ENEMY_SCORES['frigate'] ?? 2000;
+                if (this.player) this.player.kills++;
+                try { this.audio.playSound('ExploMini1'); } catch { /* skip */ }
+
+                for (const pt of ship.getExplosionPoints()) {
+                    this.gameExplosions.push(new Explosion(pt.x, pt.y, 'big', this.bigExpFrames));
+                    this.particles.emit(pt.x, pt.y, 20, {
+                        color: { r: 1, g: 0.6, b: 0.1 }, speed: 100, life: 0.8, fade: 1.5,
+                    });
+                }
+            }
         }
+        // Clean up dead capital ships
+        this.capitalShips = this.capitalShips.filter(s => s.isAlive());
 
         // Update boss
         if (this.boss && this.boss.alive) {
             const levelTimeMs = this.stateTimer * 1000;
             this.boss.update(dt, playerX, playerY, this.now, levelTimeMs);
 
-            if (this.boss.shouldTriggerMusic() && !this.boss.musicTriggered) {
-                this.boss.musicTriggered = true;
+            if (this.boss.shouldTriggerMusic()) {
                 try { this.audio.playSound('BossNear1'); } catch { /* skip */ }
                 // Switch to boss music (original: stops Level2, plays bossTEST)
                 this.audio.stopMusic();
