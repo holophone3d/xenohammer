@@ -165,6 +165,9 @@ interface BossTurretAI {
     destroyed: boolean;
     offsetX: number;         // offset from boss origin
     offsetY: number;
+    armor: number;           // C++: starts at 600+Hp
+    maxArmor: number;
+    comp: BossComponent;     // collision component for this turret
 }
 
 function makeComp(
@@ -180,12 +183,15 @@ function makeComp(
 
 function makeTurretAI(
     type: TurretAIType, fireRate: number, offX: number, offY: number,
+    armor: number,
 ): BossTurretAI {
+    const comp = makeComp('Turret', offX, offY, armor, 64, 64, true);
     return {
         frame: 0, type, fireRate,
         lastTurnMs: 0, lastFireMs: 0,
         sweepState: 0, turnTarget: 0,
         destroyed: false, offsetX: offX, offsetY: offY,
+        armor, maxArmor: armor, comp,
     };
 }
 
@@ -319,16 +325,17 @@ export class Boss {
         // Boss shield: 256×256, 50000 HP
         this.bossShield = makeComp('BossShield', -48, -48, 50000, 256, 256, true);
 
-        // 8 outer turret AIs
+        // 8 outer turret AIs (C++: armor=600+Hp)
+        const turretArmor = 600 + hp;
         this.outerTurretAIs = OUTER_TURRET_AI.map((cfg, i) =>
             makeTurretAI(cfg.type, cfg.fireRate,
                 PLATFORM_DEFS[i].offsetX + TURRET_OFFSET,
-                PLATFORM_DEFS[i].offsetY + TURRET_OFFSET));
+                PLATFORM_DEFS[i].offsetY + TURRET_OFFSET, turretArmor));
 
         // 6 U-turret AIs
         this.uTurretAIs = U_TURRET_AI.map((cfg, i) =>
             makeTurretAI(cfg.type, cfg.fireRate,
-                U_TURRET_OFFSETS[i].x, U_TURRET_OFFSETS[i].y));
+                U_TURRET_OFFSETS[i].x, U_TURRET_OFFSETS[i].y, turretArmor));
 
         this.deathExplosion = new ChainExplosion();
     }
@@ -740,6 +747,18 @@ export class Boss {
         }
         this.bossShield.x = this.x + this.bossShield.offsetX;
         this.bossShield.y = this.y + this.bossShield.offsetY;
+
+        // Update turret component positions for collision
+        for (const ai of this.outerTurretAIs) {
+            ai.comp.x = this.x + ai.offsetX;
+            ai.comp.y = this.y + ai.offsetY;
+            ai.comp.destroyed = ai.destroyed;
+        }
+        for (const ai of this.uTurretAIs) {
+            ai.comp.x = this.x + ai.offsetX;
+            ai.comp.y = this.y + ai.offsetY;
+            ai.comp.destroyed = ai.destroyed;
+        }
     }
 
     private updateShieldState(): void {
@@ -818,6 +837,14 @@ export class Boss {
         if (comp.armor <= 0) {
             comp.armor = 0;
             comp.destroyed = true;
+
+            // Sync turret component destruction back to AI
+            for (const ai of this.outerTurretAIs) {
+                if (ai.comp === comp) { ai.destroyed = true; break; }
+            }
+            for (const ai of this.uTurretAIs) {
+                if (ai.comp === comp) { ai.destroyed = true; break; }
+            }
         }
     }
 
@@ -832,9 +859,19 @@ export class Boss {
         for (const orb of this.outerOrbs) {
             if (!orb.destroyed && orb.damageable) candidates.push(orb);
         }
+        // Outer turrets (damageable)
+        for (const ai of this.outerTurretAIs) {
+            if (!ai.destroyed && !ai.comp.destroyed) candidates.push(ai.comp);
+        }
         // Connectors
         for (const conn of this.connectors) {
             if (!conn.destroyed && conn.damageable) candidates.push(conn);
+        }
+        // U-turrets (only in Final state)
+        if (this.state === BossState.Final) {
+            for (const ai of this.uTurretAIs) {
+                if (!ai.destroyed && !ai.comp.destroyed) candidates.push(ai.comp);
+            }
         }
         // Boss shield
         if (!this.bossShield.destroyed && this.bossShield.damageable) candidates.push(this.bossShield);
@@ -892,9 +929,14 @@ export class Boss {
         addComp(this.centerOrb);
         addComp(this.centerNode);
         for (const orb of this.outerOrbs) addComp(orb);
+        for (const ai of this.outerTurretAIs) addComp(ai.comp);
         for (const node of this.outerNodes) addComp(node);
         for (const plat of this.platforms) addComp(plat);
         for (const conn of this.connectors) addComp(conn);
+        // U-turrets only collidable in Final state
+        if (this.state === BossState.Final) {
+            for (const ai of this.uTurretAIs) addComp(ai.comp);
+        }
         addComp(this.bossShield);
 
         return results;
@@ -1042,9 +1084,16 @@ export class Boss {
 
     private drawTurretSet(ctx: CanvasRenderingContext2D, turrets: BossTurretAI[]): void {
         for (const ai of turrets) {
-            if (ai.destroyed) continue;
             const tx = this.x + ai.offsetX;
             const ty = this.y + ai.offsetY;
+
+            if (ai.destroyed) {
+                // C++: destroyed turrets show frame 32 (destroyed sprite)
+                if (this.turretSprites.length > 32) {
+                    ctx.drawImage(this.turretSprites[32], tx, ty);
+                }
+                continue;
+            }
 
             if (this.turretSprites.length >= 32) {
                 const frameIdx = Math.max(0, Math.min(31, ai.frame));
