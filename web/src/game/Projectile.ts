@@ -16,6 +16,7 @@ export class Projectile {
     vy: number;
     damage: number;
     owner: ProjectileOwner;
+    weaponType: 'blaster' | 'turret' | 'missile' | 'enemyBlast' | 'enemyCannon';
     alive = true;
     width: number;
     height: number;
@@ -33,6 +34,7 @@ export class Projectile {
         damage: number,
         owner: ProjectileOwner,
         sprite: Sprite | null = null,
+        weaponType: 'blaster' | 'turret' | 'missile' | 'enemyBlast' | 'enemyCannon' = 'blaster',
     ) {
         this.x = x;
         this.y = y;
@@ -40,6 +42,7 @@ export class Projectile {
         this.vy = vy;
         this.damage = damage;
         this.owner = owner;
+        this.weaponType = weaponType;
         this.sprite = sprite;
         this.width = sprite ? sprite.width : 4;
         this.height = sprite ? sprite.height : 4;
@@ -89,9 +92,41 @@ export class Projectile {
         if (!this.alive) return;
 
         if (this.sprite) {
+            // Additive glow behind sprite — color by weapon type
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            const glowSize = this.width * 1.5;
+            let glowColor: string;
+            switch (this.weaponType) {
+                case 'blaster':    glowColor = 'rgba(0,255,51,0.25)'; break;   // green
+                case 'turret':     glowColor = 'rgba(0,255,128,0.25)'; break;  // cyan-green
+                case 'missile':    glowColor = 'rgba(0,0,255,0.3)'; break;     // blue
+                case 'enemyBlast': glowColor = 'rgba(255,80,0,0.25)'; break;   // orange-red
+                case 'enemyCannon': glowColor = 'rgba(255,0,0,0.25)'; break;   // red
+                default:           glowColor = 'rgba(0,255,51,0.25)'; break;
+            }
+            const cx = this.x + this.width / 2;
+            const cy = this.y + this.height / 2;
+            const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowSize);
+            grad.addColorStop(0, glowColor);
+            grad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(cx - glowSize, cy - glowSize, glowSize * 2, glowSize * 2);
+            ctx.restore();
+
             this.sprite.drawAt(ctx, this.x, this.y);
         } else {
-            ctx.fillStyle = this.owner === 'player' ? '#0f0' : '#f00';
+            // Fallback: colored rect with weapon-type color
+            let color: string;
+            switch (this.weaponType) {
+                case 'blaster':    color = '#00ff33'; break;
+                case 'turret':     color = '#00ff80'; break;
+                case 'missile':    color = '#0000ff'; break;
+                case 'enemyBlast': color = '#ff5500'; break;
+                case 'enemyCannon': color = '#ff0000'; break;
+                default:           color = this.owner === 'player' ? '#0f0' : '#f00';
+            }
+            ctx.fillStyle = color;
             ctx.fillRect(this.x, this.y, this.width, this.height);
         }
     }

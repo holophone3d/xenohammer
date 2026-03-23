@@ -129,8 +129,11 @@ export class ParticleSystem {
         }
     }
 
-    /** Render all active particles as 2×2 filled rectangles. */
+    /** Render all active particles with additive blending glow. */
     draw(ctx: CanvasRenderingContext2D): void {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+
         for (let i = 0; i < this.maxParticles; i++) {
             const p = this.particles[i];
             if (!p.active) continue;
@@ -139,9 +142,22 @@ export class ParticleSystem {
             const r = Math.round(p.r * 255);
             const g = Math.round(p.g * 255);
             const b = Math.round(p.b * 255);
+
+            // Core dot (3×3)
             ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
-            ctx.fillRect(p.x | 0, p.y | 0, 2, 2);
+            ctx.fillRect((p.x | 0) - 1, (p.y | 0) - 1, 3, 3);
+
+            // Soft glow halo
+            if (alpha > 0.2) {
+                const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 8);
+                grad.addColorStop(0, `rgba(${r},${g},${b},${alpha * 0.4})`);
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = grad;
+                ctx.fillRect(p.x - 8, p.y - 8, 16, 16);
+            }
         }
+
+        ctx.restore();
     }
 
     /** Deactivate all particles. */

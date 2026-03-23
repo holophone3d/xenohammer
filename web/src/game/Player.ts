@@ -46,6 +46,22 @@ export class Player {
         this.powerPlant = new PowerPlant();
     }
 
+    /** Reset combat state for a new level, preserving PowerPlant upgrades */
+    resetForLevel(): void {
+        this.x = PLAYER_START.x;
+        this.y = PLAYER_START.y;
+        this.armor = this.maxArmor;
+        this.shields = this.maxShields;
+        this.alive = true;
+        this.lastHitTime = 0;
+        this.lastRegenTime = 0;
+        this.spriteFrame = 8;
+        // Reset weapon fire timers
+        for (const w of this.weapons) {
+            w.lastFired = 0;
+        }
+    }
+
     getRect(): Rect {
         const w = this.sprite ? this.sprite.width : 48;
         const h = this.sprite ? this.sprite.height : 48;
@@ -168,29 +184,48 @@ export class Player {
     draw(ctx: CanvasRenderingContext2D): void {
         if (!this.alive) return;
 
-        // Shield bubble — blue translucent oval, alpha based on shield level
-        // Original: GL textured quad, color (0.3, 0.6, 0.9), alpha = shields/300, size 129×89
-        if (this.shields > 0) {
-            const shieldAlpha = Math.min(1, this.shields / this.maxShields) * 0.4;
-            ctx.save();
-            ctx.globalAlpha = shieldAlpha;
-            ctx.fillStyle = 'rgba(77, 153, 230, 0.6)';
-            ctx.beginPath();
-            ctx.ellipse(
-                this.x + 38, this.y - 24 + 44.5,
-                64.5, 44.5,
-                0, 0, Math.PI * 2,
-            );
-            ctx.fill();
-            ctx.globalAlpha = 1;
-            ctx.restore();
-        }
-
+        // Draw sprite first, then shield on top (additive-style)
         if (this.sprite) {
             this.sprite.drawAt(ctx, this.x, this.y);
         } else {
             ctx.fillStyle = '#0f0';
             ctx.fillRect(this.x, this.y, 48, 48);
+        }
+
+        // Shield bubble — additive-blended radial gradient mimicking GL_SRC_ALPHA,GL_ONE
+        // Original: Shield.bmp texture with glColor4f(0.3,0.6,0.9, shields/300)
+        if (this.shields > 0) {
+            const cx = this.x + 38;
+            const cy = this.y - 24 + 44.5;
+            const rx = 64.5;
+            const ry = 44.5;
+            const shieldAlpha = Math.min(1, this.shields / this.maxShields);
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter'; // additive blending
+
+            // Radial gradient: bright center fading to transparent edge
+            const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
+            grad.addColorStop(0, `rgba(77,153,230,${0.5 * shieldAlpha})`);
+            grad.addColorStop(0.4, `rgba(77,153,230,${0.35 * shieldAlpha})`);
+            grad.addColorStop(0.7, `rgba(60,130,210,${0.2 * shieldAlpha})`);
+            grad.addColorStop(1, `rgba(40,100,180,0)`);
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Second pass — brighter inner core for glow punch
+            const grad2 = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx * 0.5);
+            grad2.addColorStop(0, `rgba(150,200,255,${0.3 * shieldAlpha})`);
+            grad2.addColorStop(1, 'rgba(77,153,230,0)');
+            ctx.fillStyle = grad2;
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, rx * 0.6, ry * 0.6, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
         }
     }
 

@@ -31,6 +31,7 @@ export enum GameState {
     LevelBriefing,
     ShipSpecs,
     DifficultyScreen,
+    ShipCustomization,
 }
 
 export class GameManager {
@@ -70,6 +71,10 @@ export class GameManager {
     private menuHoverIndex = -1;  // tracks which menu button is hovered
     private optionsSaveTooltip = '';  // tooltip for save/load feedback
     private optionsSaveTooltipTimer = 0;
+    private custSelectedSystem: number = -1; // -1=none, 0=noseBlaster, 1=leftTurret, 2=rightTurret, 3=leftMissile, 4=rightMissile, 5=engine
+    private custHoverSystem: number = -1;
+    private custStatusMsg = '';
+    private custStatusTimer = 0;
 
     constructor(canvasId: string) {
         this.canvas = new GameCanvas(canvasId);
@@ -131,6 +136,10 @@ export class GameManager {
         // Load HUD and starfield sprites
         this.hud.loadSprites(this.assets);
         this.starField.loadSprites(this.assets);
+
+        // Create player early so customization screen can access PowerPlant
+        this.player = new Player();
+        this.player.loadSprite(this.assets);
 
         this.state = GameState.StartScreen;
     }
@@ -200,6 +209,9 @@ export class GameManager {
             case GameState.DifficultyScreen:
                 this.updateDifficultyScreen();
                 break;
+            case GameState.ShipCustomization:
+                this.updateShipCustomization();
+                break;
         }
 
         this.input.endFrame();
@@ -247,6 +259,9 @@ export class GameManager {
                 break;
             case GameState.DifficultyScreen:
                 this.renderDifficultyScreen();
+                break;
+            case GameState.ShipCustomization:
+                this.renderShipCustomization();
                 break;
         }
     }
@@ -314,6 +329,7 @@ export class GameManager {
             // Left zone: Ship Customization
             if (mx >= 10 && mx <= 218 && my >= 260 && my <= 380) {
                 try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.state = GameState.ShipCustomization;
             }
             // Center zone: Briefing & Options
             if (mx >= 200 && mx <= 400 && my >= 185 && my <= 218) {
@@ -418,8 +434,14 @@ export class GameManager {
 
     private startLevel(levelIndex: number): void {
         this.level = levelIndex;
-        this.player = new Player();
-        this.player.loadSprite(this.assets);
+
+        // Reset player combat state but preserve PowerPlant (upgrades/RU persist)
+        if (this.player) {
+            this.player.resetForLevel();
+        } else {
+            this.player = new Player();
+            this.player.loadSprite(this.assets);
+        }
         this.enemies = [];
         this.projectiles = [];
         this.gameExplosions = [];
@@ -1319,5 +1341,337 @@ export class GameManager {
         const diffNames = ['Easy', 'Medium', 'Hard', 'Extremely Hard'];
         const currentName = diffNames[this.difficulty] ?? 'Medium';
         this.drawMenuTooltipBar(ctx, `Current Difficulty: ${currentName}`);
+    }
+
+    // ========== State: ShipCustomization ==========
+
+    private readonly custSystemZones = [
+        { x1: 215, y1: 45,  x2: 290, y2: 110, lx: 250, ly: 63,  name: 'Nose Blaster',       c1: 'blasterCell1'      as const, c2: 'blasterCell2'      as const },
+        { x1: 100, y1: 105, x2: 170, y2: 170, lx: 132, ly: 123, name: 'Left Turret',        c1: 'leftTurretCell1'   as const, c2: 'leftTurretCell2'   as const },
+        { x1: 340, y1: 105, x2: 410, y2: 170, lx: 372, ly: 123, name: 'Right Turret',       c1: 'rightTurretCell1'  as const, c2: 'rightTurretCell2'  as const },
+        { x1: 180, y1: 115, x2: 245, y2: 180, lx: 209, ly: 133, name: 'Left Missile',       c1: 'leftMissileCell1'  as const, c2: 'leftMissileCell2'  as const },
+        { x1: 265, y1: 115, x2: 335, y2: 180, lx: 297, ly: 133, name: 'Right Missile',      c1: 'rightMissileCell1' as const, c2: 'rightMissileCell2' as const },
+        { x1: 220, y1: 195, x2: 290, y2: 265, lx: 249, ly: 213, name: 'Engine/Power Plant', c1: 'shipPowerCell1'    as const, c2: 'shipPowerCell2'    as const },
+    ];
+
+    private updateShipCustomization(): void {
+        if (this.input.isKeyPressed('Escape')) {
+            this.state = GameState.ReadyRoom;
+            return;
+        }
+
+        if (this.custStatusTimer > 0) {
+            this.custStatusTimer--;
+            if (this.custStatusTimer <= 0) {
+                this.custStatusMsg = '';
+            }
+        }
+
+        const mouse = this.input.getMousePos();
+        const mx = mouse.x;
+        const my = mouse.y;
+
+        // Hover detection over system zones
+        let newHover = -1;
+        for (let i = 0; i < this.custSystemZones.length; i++) {
+            const z = this.custSystemZones[i];
+            if (mx >= z.x1 && mx <= z.x2 && my >= z.y1 && my <= z.y2) {
+                newHover = i;
+                break;
+            }
+        }
+        if (newHover !== this.custHoverSystem) {
+            this.custHoverSystem = newHover;
+            if (newHover >= 0) {
+                try { this.audio.playSound('MenuChange'); } catch { /* skip */ }
+            }
+        }
+
+        if (!this.input.isMousePressed()) return;
+        if (!this.player) return;
+        const setting = this.player.powerPlant.getSetting();
+
+        // System zone click
+        if (newHover >= 0) {
+            try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+            this.custSelectedSystem = newHover;
+            return;
+        }
+
+        const sel = this.custSelectedSystem;
+        if (sel < 0 || sel >= this.custSystemZones.length) {
+            // Done button
+            if (mx >= 517 && mx <= 800 && my >= 553 && my <= 600) {
+                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.state = GameState.ReadyRoom;
+            }
+            return;
+        }
+
+        const zone = this.custSystemZones[sel];
+        const maxCell = this.player.powerPlant.maxPowerPerCell;
+
+        // UP arrow (transfer cell2 → cell1)
+        if (mx >= 545 && mx <= 570 && my >= 460 && my <= 485) {
+            try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+            if (setting[zone.c1] < maxCell && setting[zone.c2] > 1) {
+                setting[zone.c1]++;
+                setting[zone.c2]--;
+            }
+            return;
+        }
+
+        // DOWN arrow (transfer cell1 → cell2)
+        if (mx >= 545 && mx <= 570 && my >= 500 && my <= 525) {
+            try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+            if (setting[zone.c2] < maxCell && setting[zone.c1] > 1) {
+                setting[zone.c2]++;
+                setting[zone.c1]--;
+            }
+            return;
+        }
+
+        // Buy Power Pod button
+        if (mx >= 20 && mx <= 250 && my >= 420 && my <= 450) {
+            try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+            if (this.player.powerPlant.resourceUnits < 1) {
+                this.custStatusMsg = 'You Have No More Resource Units!';
+                this.custStatusTimer = 120;
+                return;
+            }
+            if (setting[zone.c1] < maxCell) {
+                setting[zone.c1]++;
+                this.player.powerPlant.resourceUnits--;
+            } else if (setting[zone.c2] < maxCell) {
+                setting[zone.c2]++;
+                this.player.powerPlant.resourceUnits--;
+            } else {
+                this.custStatusMsg = 'Max Number of Power Cells Reached!';
+                this.custStatusTimer = 120;
+            }
+            return;
+        }
+
+        // Done button
+        if (mx >= 517 && mx <= 800 && my >= 553 && my <= 600) {
+            try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+            this.state = GameState.ReadyRoom;
+        }
+    }
+
+    private renderShipCustomization(): void {
+        const ctx = this.canvas.ctx;
+
+        // Background
+        const bg = this.assets.tryGetImage('cust_GUI');
+        if (bg) {
+            ctx.drawImage(bg, 0, 0, 800, 600);
+        } else {
+            ctx.fillStyle = '#0a1a0a';
+            ctx.fillRect(0, 0, 800, 600);
+
+            // Draw ship silhouette in the ship area
+            ctx.save();
+            ctx.strokeStyle = '#1a3a1a';
+            ctx.lineWidth = 1;
+
+            // Ship body outline
+            ctx.beginPath();
+            ctx.moveTo(252, 50);   // nose tip
+            ctx.lineTo(215, 100);  // left shoulder
+            ctx.lineTo(100, 140);  // left wing tip
+            ctx.lineTo(120, 170);  // left wing back
+            ctx.lineTo(200, 155);  // left wing inner
+            ctx.lineTo(220, 265);  // left engine
+            ctx.lineTo(290, 265);  // right engine
+            ctx.lineTo(310, 155);  // right wing inner
+            ctx.lineTo(390, 170);  // right wing back
+            ctx.lineTo(410, 140);  // right wing tip
+            ctx.lineTo(295, 100);  // right shoulder
+            ctx.closePath();
+            ctx.stroke();
+
+            // Divider line between ship area and info area
+            ctx.strokeStyle = '#1a3a1a';
+            ctx.beginPath();
+            ctx.moveTo(510, 0);
+            ctx.lineTo(510, 553);
+            ctx.stroke();
+
+            // Horizontal line above Done button
+            ctx.beginPath();
+            ctx.moveTo(0, 553);
+            ctx.lineTo(800, 553);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // Draw system zone outlines with labels
+        ctx.font = '10px monospace';
+        for (let i = 0; i < this.custSystemZones.length; i++) {
+            const z = this.custSystemZones[i];
+            const isHover = i === this.custHoverSystem;
+            const isSelected = i === this.custSelectedSystem;
+
+            // Zone rectangle
+            if (isSelected) {
+                ctx.strokeStyle = '#0f0';
+                ctx.lineWidth = 2;
+                ctx.fillStyle = 'rgba(0,255,0,0.08)';
+                ctx.fillRect(z.x1, z.y1, z.x2 - z.x1, z.y2 - z.y1);
+            } else if (isHover) {
+                ctx.strokeStyle = 'rgba(0,255,0,0.6)';
+                ctx.lineWidth = 1;
+            } else {
+                ctx.strokeStyle = 'rgba(0,255,0,0.2)';
+                ctx.lineWidth = 1;
+            }
+            ctx.strokeRect(z.x1, z.y1, z.x2 - z.x1, z.y2 - z.y1);
+
+            // Zone label (inside the box)
+            ctx.fillStyle = isSelected ? '#0f0' : 'rgba(0,255,0,0.5)';
+            ctx.textAlign = 'center';
+            ctx.fillText(z.name, (z.x1 + z.x2) / 2, z.y1 + (z.y2 - z.y1) / 2 + 4);
+        }
+        ctx.textAlign = 'left';
+
+        // ===== Right panel info =====
+        const sel = this.custSelectedSystem;
+
+        if (sel >= 0 && sel < this.custSystemZones.length && this.player) {
+            const zone = this.custSystemZones[sel];
+            const setting = this.player.powerPlant.getSetting();
+
+            // System name header
+            ctx.fillStyle = '#0f0';
+            ctx.font = '16px monospace';
+            ctx.fillText('System Selected:', 20, 290);
+            ctx.fillStyle = '#5f5';
+            ctx.fillText(zone.name, 190, 290);
+
+            // Column descriptions
+            ctx.fillStyle = '#0a0';
+            ctx.font = '12px monospace';
+            if (sel <= 4) {
+                ctx.fillText('Left column: Shot Rate', 20, 320);
+                ctx.fillText('Right column: Shot Power', 20, 340);
+            } else {
+                ctx.fillText('Left column: Shield Recharge Rate', 20, 320);
+                ctx.fillText('Right column: Ship Maneuverability', 20, 340);
+            }
+
+            // Power cell visualization (in the right panel area)
+            const cellX1 = 540;
+            const cellX2 = 610;
+            const cellBaseY = 500;
+            const c1 = setting[zone.c1];
+            const c2 = setting[zone.c2];
+
+            // Column headers
+            ctx.fillStyle = '#0a0';
+            ctx.font = '10px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('Rate', cellX1 + 7, cellBaseY + 18);
+            ctx.fillText('Power', cellX2 + 7, cellBaseY + 18);
+            ctx.textAlign = 'left';
+
+            // Draw cell bars
+            this.drawPowerCells(ctx, cellX1, cellBaseY, c1);
+            this.drawPowerCells(ctx, cellX2, cellBaseY, c2);
+
+            // Empty cell outlines (up to max 5)
+            ctx.strokeStyle = 'rgba(0,255,0,0.15)';
+            ctx.lineWidth = 1;
+            for (let i = c1; i < 5; i++) {
+                ctx.strokeRect(cellX1, cellBaseY - (i * 12) - 10, 14, 10);
+            }
+            for (let i = c2; i < 5; i++) {
+                ctx.strokeRect(cellX2, cellBaseY - (i * 12) - 10, 14, 10);
+            }
+
+            // Transfer arrows between columns
+            const arrowX = (cellX1 + cellX2) / 2 + 7;
+            ctx.fillStyle = '#0f0';
+            ctx.font = '16px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('\u25C0', arrowX, 475);  // ◀ transfer right→left
+            ctx.fillText('\u25B6', arrowX, 505);  // ▶ transfer left→right
+            ctx.textAlign = 'left';
+
+            // Multiplier info
+            const total = Math.min(c1 + c2, 5);
+            const mux = this.player.powerPlant.getWeaponMultiplier(c1, c2);
+            ctx.fillStyle = '#0a0';
+            ctx.font = '11px monospace';
+            ctx.fillText(`Total: ${total}/5 cells`, 530, 380);
+            ctx.fillText(`Multiplier: ${mux.toFixed(1)}x`, 530, 400);
+        } else {
+            // No system selected — show instructions
+            ctx.fillStyle = '#0a0';
+            ctx.font = '14px monospace';
+            ctx.fillText('Select a system on the ship', 20, 290);
+            ctx.fillText('to view and modify power', 20, 310);
+            ctx.fillText('distribution.', 20, 330);
+        }
+
+        // Resource Units
+        ctx.fillStyle = '#0f0';
+        ctx.font = '14px monospace';
+        if (this.player) {
+            ctx.fillText(`Resource Units: ${this.player.powerPlant.resourceUnits}`, 20, 400);
+        }
+
+        // Buy Power Pod button (only when system selected)
+        if (sel >= 0) {
+            const buyHover = this.input.getMousePos();
+            const inBuy = buyHover.x >= 20 && buyHover.x <= 250 && buyHover.y >= 420 && buyHover.y <= 450;
+            ctx.fillStyle = inBuy ? 'rgb(70,85,70)' : 'rgb(51,64,51)';
+            ctx.fillRect(20, 420, 230, 30);
+            ctx.fillStyle = '#0f0';
+            ctx.font = '12px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('Buy Power Pod (1 RU)', 135, 440);
+            ctx.textAlign = 'left';
+        }
+
+        // Status message
+        if (this.custStatusMsg) {
+            ctx.fillStyle = '#ff0';
+            ctx.font = '14px monospace';
+            ctx.fillText(this.custStatusMsg, 20, 530);
+        }
+
+        // Settings display (right panel, upper)
+        if (this.player) {
+            ctx.font = '13px monospace';
+            ctx.fillStyle = '#0f0';
+            ctx.fillText('User Settings', 530, 80);
+
+            const settingIdx = this.player.powerPlant.currentSetting;
+            const labels = ['speed setting (Q)', 'power setting (W)', 'armor setting (E)'];
+            for (let i = 0; i < 3; i++) {
+                ctx.fillStyle = settingIdx === i ? '#0f0' : '#333';
+                ctx.fillText(labels[i], 530, 110 + i * 25);
+            }
+        }
+
+        // Done button
+        const dm = this.input.getMousePos();
+        const inDone = dm.x >= 517 && dm.x <= 800 && dm.y >= 553 && dm.y <= 600;
+        ctx.fillStyle = inDone ? 'rgb(70,85,70)' : 'rgb(51,64,51)';
+        ctx.fillRect(517, 553, 283, 47);
+        ctx.fillStyle = '#0f0';
+        ctx.font = '16px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('Done', 658, 582);
+        ctx.textAlign = 'left';
+    }
+
+    private drawPowerCells(ctx: CanvasRenderingContext2D, x: number, baseY: number, count: number): void {
+        ctx.fillStyle = '#0f0';
+        for (let i = 0; i < count; i++) {
+            ctx.fillRect(x, baseY - (i * 12) - 10, 14, 10);
+        }
     }
 }

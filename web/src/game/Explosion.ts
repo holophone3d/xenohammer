@@ -45,18 +45,40 @@ export class Explosion {
     draw(ctx: CanvasRenderingContext2D): void {
         if (this._finished) return;
 
+        // Additive glow behind explosion — original uses glColor4f(5,2,0,0.15) + additive
+        const progress = this.currentFrame / (this.frames.length || FRAME_COUNT);
+        const glowAlpha = 0.15 * (1 - progress);
+        if (glowAlpha > 0.01) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            const glowR = this.fallbackSize * (0.5 + progress * 0.5);
+            const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, glowR);
+            grad.addColorStop(0, `rgba(255,180,0,${glowAlpha * 2})`);
+            grad.addColorStop(0.5, `rgba(255,100,0,${glowAlpha})`);
+            grad.addColorStop(1, 'rgba(255,50,0,0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(this.x - glowR, this.y - glowR, glowR * 2, glowR * 2);
+            ctx.restore();
+        }
+
         if (this.frames.length > 0 && this.currentFrame < this.frames.length) {
             const img = this.frames[this.currentFrame];
             ctx.drawImage(img, this.x - img.width / 2, this.y - img.height / 2);
         } else {
-            // Fallback: expanding orange circle
-            const progress = this.currentFrame / FRAME_COUNT;
+            // Fallback: expanding orange circle with additive glow
             const radius = this.fallbackSize * (0.3 + progress * 0.7);
             const alpha = 1.0 - progress;
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, radius);
+            grad.addColorStop(0, `rgba(255,200,50,${alpha})`);
+            grad.addColorStop(0.4, `rgba(255,130,0,${alpha * 0.7})`);
+            grad.addColorStop(1, `rgba(255,50,0,0)`);
+            ctx.fillStyle = grad;
             ctx.beginPath();
             ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(255, 165, 0, ${alpha})`;
             ctx.fill();
+            ctx.restore();
         }
     }
 
@@ -145,8 +167,10 @@ export class ChainExplosion {
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
+        ctx.save();
         for (const exp of this.explosions) {
             exp.draw(ctx);
         }
+        ctx.restore();
     }
 }

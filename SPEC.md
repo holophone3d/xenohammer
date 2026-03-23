@@ -294,10 +294,14 @@ Bottom text (y=580) shows currently selected difficulty.
 
 ### Shield Bubble Effect (Visual)
 - Rendered as an **OpenGL textured quad** using `Shield.bmp` texture (`texture[1]` in GL_Handler)
+- **Blending:** `GL_SRC_ALPHA, GL_ONE` — **additive blending** (creates a glow, not a semi-transparent overlay)
 - **Color:** Blue `(R=0.3, G=0.6, B=0.9)` with alpha = `shields / 300.0` (fades as shields deplete)
 - **Size:** 129×89 pixel quad (offsets: ±64.5 horizontal, ±44.5 vertical from center)
 - **Position:** Player ship center + offset (x+38, y−24)
-- Uses `GL_TRIANGLE_STRIP` with blending enabled
+- **Web implementation:** Radial gradient with `globalCompositeOperation = 'lighter'` (Canvas equivalent of additive blend)
+  - Outer gradient: blue (77,153,230) fading to transparent at edges
+  - Inner bright core: white-blue (150,200,255) for glow punch
+  - Ship sprite drawn BEFORE shield (shield overlays additively on top)
 - Always visible when shields > 0; fully transparent when shields = 0
 - **Boss shield** uses same texture but purple-blue `(R=0.4, G=0.15, B=1.0)`, alpha = `orbCount / 4.0`
 
@@ -809,6 +813,19 @@ rectsOverlap(a, b) =
 ### Out-of-Bounds Cleanup
 Projectiles destroyed when 64px beyond any play area edge (650×600).
 
+### Projectile Rendering (from GL_Handler.cpp)
+All projectiles use **additive blending** (`GL_SRC_ALPHA, GL_ONE`), creating glowing energy effects.
+
+| Weapon Type | GL Color (R,G,B,A) | Web Color | Size Progression (frames 0–4) |
+|------------|-------------------|-----------|-------------------------------|
+| Energy Blast (blaster) | 0.0, 1.0, 0.2, 0.7 | Bright lime green | 27→28→29→30→35 px |
+| Energy Bullet (turret) | 0.0, 1.0, 0.5, 0.7 | Cyan-green | 27→30→35→40→45 px (+4 Y offset) |
+| Energy Missile | 0.0, 0.0, 1.0, 0.7 | Bright blue | 27→35→40→45→55 px |
+| Enemy (fighter blast) | Red-orange | Orange-red | — |
+| Enemy (gunship cannon) | Red | Red | — |
+
+Web implementation: Each projectile draws a radial gradient glow (1.5× sprite width) behind its sprite frame, using `globalCompositeOperation = 'lighter'`.
+
 ---
 
 ## 11. Particle System
@@ -835,7 +852,9 @@ Projectiles destroyed when 64px beyond any play area edge (650×600).
 - Direction: `baseAngle + (random − 0.5) × spread`
 - Velocity: `vx = sin(angle) × speed`, `vy = −cos(angle) × speed`
 - Gravity (when enabled): `vx += gravityX × dt`, `vy += gravityY × dt`
-- Rendered as 2×2 pixels with alpha = life
+- Rendered as 3×3 core dot with 8px radial gradient glow halo
+- **Additive blending** for all particles (`globalCompositeOperation = 'lighter'`)
+- Glow halo only rendered when alpha > 0.2 for performance
 
 ### Engine Particles
 Created by `GameManager::make_engine(int x, int y, float intensity)`:
@@ -853,6 +872,26 @@ The original uses a more complex gravity-well system:
 - Max gravity lookup table: 2500 entries
 - Universal gravity constant: 6.52
 - Particle properties include mass, gravity flags, vector components
+- Rendered as 33×33 textured quads (texture[0] = Particle.bmp) with additive blending
+
+### Explosion Rendering (from GL_Handler.cpp)
+- **Sprite animation:** 16 frames, 20ms per frame
+- **GL overlay glow:** `glColor4f(5.0, 2.0, 0.0, 0.15)` — **overbright** red-orange with additive blending
+  - Values > 1.0 cause HDR-like cumulative brightness
+  - Creates intense fire-like glow behind sprite frames
+- **Quad size:** 49×49 pixels (±24.5 from center)
+- **Web implementation:** Radial gradient glow behind each sprite frame
+  - Inner: bright orange-yellow, outer: fading red
+  - Uses `globalCompositeOperation = 'lighter'`
+
+### Global Blending Mode
+The original GL renderer uses **additive blending globally**: `glBlendFunc(GL_SRC_ALPHA, GL_ONE)`
+This affects ALL rendered effects:
+- Shield bubbles glow and brighten what's behind them
+- Overlapping projectiles create cumulative brightness
+- Explosions produce intense flash effects
+- Engine particles create warm glow halos
+- Web equivalent: `ctx.globalCompositeOperation = 'lighter'`
 
 ---
 

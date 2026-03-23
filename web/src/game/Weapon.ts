@@ -119,7 +119,7 @@ export class Weapon {
         }
 
         const actualDamage = this.damage * this.powerMultiplier;
-        const proj = new Projectile(spawnX, spawnY, vx, vy, actualDamage, this.owner, sprite);
+        const proj = new Projectile(spawnX, spawnY, vx, vy, actualDamage, this.owner, sprite, this.type);
 
         if (this.homingEnabled) {
             proj.homing = true;
