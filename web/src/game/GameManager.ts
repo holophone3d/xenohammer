@@ -225,6 +225,7 @@ export class GameManager {
                 break;
         }
 
+        this.handleDebugKeys();
         this.input.endFrame();
     }
 
@@ -275,6 +276,9 @@ export class GameManager {
                 this.renderShipCustomization();
                 break;
         }
+
+        // Debug overlay hint (top-left, small)
+        this.renderDebugHint();
     }
 
     // ========== State: Loading ==========
@@ -2003,5 +2007,108 @@ export class GameManager {
                 this.isHomingResearched = data.isHomingResearched;
             }
         } catch { /* corrupt or missing save data */ }
+    }
+
+    // ========== DEBUG: Test shortcuts (F5/F6/F7) ==========
+
+    private debugActive = false;
+
+    private handleDebugKeys(): void {
+        // F5 = Jump to Frigate encounter (Level 2, frigate spawns immediately)
+        if (this.input.isKeyPressed('F5')) {
+            this.debugSpawnFrigate();
+        }
+        // F6 = Jump to Boss fight (Level 3, boss spawns immediately)
+        if (this.input.isKeyPressed('F6')) {
+            this.debugSpawnBoss();
+        }
+        // F7 = Toggle god mode (player invincible)
+        if (this.input.isKeyPressed('F7')) {
+            this.debugActive = !this.debugActive;
+            if (this.player) {
+                this.player.godMode = this.debugActive;
+            }
+        }
+    }
+
+    private debugSpawnFrigate(): void {
+        console.log('[DEBUG] Spawning Frigate encounter');
+        // Set up Level 2 but skip to playing immediately
+        this.level = 1; // Level 2 = index 1
+        if (this.player) {
+            this.player.resetForLevel();
+        } else {
+            this.player = new Player();
+            this.player.loadSprite(this.assets);
+        }
+        this.enemies = [];
+        this.projectiles = [];
+        this.gameExplosions = [];
+        this.gamePowerUps = [];
+        this.capitalShips = [];
+        this.boss = null;
+        this.stateTimer = 0;
+        this.particles.clear();
+        this.waveManager.startLevel(1);
+
+        // Immediately spawn a frigate at center of play area
+        const ship = new CapitalShip(275, -300);
+        ship.loadSprites(this.assets);
+        this.capitalShips.push(ship);
+
+        this.audio.stopMusic();
+        try { this.audio.playMusic('Level2', true); this.musicPlaying = 'Level2'; } catch { /* skip */ }
+        try {
+            this.engineSound = this.audio.playSound('ShipEngine', true);
+            this.engineSound.setVolume(0.1);
+        } catch { this.engineSound = null; }
+        this.state = GameState.Playing;
+    }
+
+    private debugSpawnBoss(): void {
+        console.log('[DEBUG] Spawning Boss fight');
+        // Set up Level 3 with boss
+        this.level = 2; // Level 3 = index 2
+        if (this.player) {
+            this.player.resetForLevel();
+        } else {
+            this.player = new Player();
+            this.player.loadSprite(this.assets);
+        }
+        this.enemies = [];
+        this.projectiles = [];
+        this.gameExplosions = [];
+        this.gamePowerUps = [];
+        this.capitalShips = [];
+        this.stateTimer = 0;
+        this.particles.clear();
+        this.waveManager.startLevel(2);
+
+        // Spawn boss immediately
+        this.boss = new Boss(this.difficulty);
+        this.boss.loadSprites(this.assets);
+
+        // Start boss music directly
+        this.audio.stopMusic();
+        try { this.audio.playMusic('bossTEST', true); this.musicPlaying = 'bossTEST'; } catch { /* skip */ }
+        try {
+            this.engineSound = this.audio.playSound('ShipEngine', true);
+            this.engineSound.setVolume(0.1);
+        } catch { this.engineSound = null; }
+        this.state = GameState.Playing;
+    }
+
+    private renderDebugHint(): void {
+        const ctx = this.canvas.ctx;
+        ctx.save();
+        ctx.font = '10px monospace';
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.textAlign = 'left';
+        ctx.fillText('F5:Frigate F6:Boss F7:God', 4, 12);
+        if (this.debugActive) {
+            ctx.fillStyle = 'rgba(255,255,0,0.6)';
+            ctx.fillText('GOD MODE', 4, 24);
+        }
+        ctx.restore();
     }
 }

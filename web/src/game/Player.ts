@@ -27,6 +27,7 @@ export class Player {
     powerPlant: PowerPlant;
     alive = true;
     kills = 0;
+    godMode = false;
 
     private lastHitTime = 0;
     private lastRegenTime = 0;
@@ -162,6 +163,7 @@ export class Player {
     }
 
     takeDamage(amount: number, now: number): void {
+        if (this.godMode) return;
         this.lastHitTime = now;
 
         if (this.shields > 0) {
