@@ -131,7 +131,8 @@ export class ParticleSystem {
 
     /** Render all active particles with additive blending glow.
      * C++ renders each as a 33×33 textured quad (Particle.bmp)
-     * with glColor4f(r,g,b,life) and additive blending. */
+     * with glColor4f(r,g,b,life) and additive blending.
+     * The texture is a soft circular glow — we approximate with a radial gradient. */
     draw(ctx: CanvasRenderingContext2D): void {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
@@ -145,11 +146,12 @@ export class ParticleSystem {
             const g = Math.round(p.g * 255);
             const b = Math.round(p.b * 255);
 
-            // C++ 33×33 textured quad → radial gradient glow (16px radius)
-            const radius = 16;
+            // C++ 33×33 textured quad but visible glow area is smaller.
+            // Use 8px radius for a subtle engine glow matching the reference.
+            const radius = 8;
             const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius);
             grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
-            grad.addColorStop(0.3, `rgba(${r},${g},${b},${alpha * 0.6})`);
+            grad.addColorStop(0.4, `rgba(${r},${g},${b},${alpha * 0.5})`);
             grad.addColorStop(1, 'rgba(0,0,0,0)');
             ctx.fillStyle = grad;
             ctx.fillRect(p.x - radius, p.y - radius, radius * 2, radius * 2);

@@ -207,7 +207,7 @@ export class Player {
         // Shield.bmp is a ring texture — transparent center, bright white ring edge
         if (this.shields > 0) {
             const cx = this.x + 38;
-            const cy = this.y - 24 + 44.5;
+            const cy = this.y + 24;  // C++: screen_y = get_y() + 24
             const rx = 64.5;
             const ry = 44.5;
             const shieldAlpha = Math.min(1.0, (this.shields / this.maxShields));
@@ -247,24 +247,22 @@ export class Player {
     }
 
     /** Emit engine flame particles. Call from GameManager each frame.
-     * C++: make_engine(x+38, y+47, intensity)
+     * C++: make_engine(x+38, y+47, intensity=0.4)
      * Particle.bmp textured 33×33 quad, additive blending
      * Angle: 175+rand(10)°, Speed: ~0, Color: R=1.0, G/B=rand(0-2)
-     * Fade: 0.003-0.103 per frame → 0.18-6.18 per second */
+     * Fade: 0.003-0.103 per frame → 0.18-6.18 per second
+     * Life starts at intensity (0.4), NOT 1.0 */
     emitEngineFlame(particles: import('../engine').ParticleSystem): void {
         if (!this.alive) return;
-        // C++ emits 1 particle per call; nearly stationary with slow fade
-        const tempVal = Math.min(1.0, Math.random() * 2); // G/B = rand(0-2), clamped for canvas
+        const tempVal = Math.min(1.0, Math.random() * 2);
         const angleDeg = 175 + Math.random() * 10;
         const angleRad = (angleDeg * Math.PI) / 180;
-        // C++ fade: (rand()%100)/1000 + 0.003 = 0.003-0.103 per frame
-        // At 60fps → 0.18-6.18 per second
         const cppFade = (Math.random() * 100) / 1000 + 0.003;
         const fadePerSec = cppFade * 60;
         particles.emit(this.x + 38, this.y + 47, 1, {
             color: { r: 1.0, g: tempVal, b: tempVal },
-            speed: 2 + Math.random() * 3,  // nearly stationary (C++ speed ≈ 0)
-            life: 1.0,
+            speed: 2 + Math.random() * 3,
+            life: 0.4,   // C++ intensity = 0.4f (max alpha)
             fade: fadePerSec,
             direction: angleRad,
             spread: 0,
