@@ -75,6 +75,14 @@ export class GameManager {
     private custHoverSystem: number = -1;
     private custStatusMsg = '';
     private custStatusTimer = 0;
+    // Demo projectiles for live ship preview in customization
+    private custDemoProjectiles: Array<{x:number, y:number, vx:number, vy:number, type:string, alive:boolean}> = [];
+    private custDemoLastFire: Record<string, number> = {};
+    private custSpeedShipX = 580;
+    private custSpeedShipDir = 1;
+    private custShieldDemo = 0;
+    private turretAngleAvailable = false;
+    private isHomingResearched = false;
 
     constructor(canvasId: string) {
         this.canvas = new GameCanvas(canvasId);
@@ -1359,14 +1367,14 @@ export class GameManager {
     }
 
     // ========== State: ShipCustomization ==========
-
+    // Zone click areas and cell references (from C++ what_system() coordinates)
     private readonly custSystemZones = [
-        { x1: 215, y1: 45,  x2: 290, y2: 110, lx: 250, ly: 63,  name: 'Nose Blaster',       c1: 'blasterCell1'      as const, c2: 'blasterCell2'      as const },
-        { x1: 100, y1: 105, x2: 170, y2: 170, lx: 132, ly: 123, name: 'Left Turret',        c1: 'leftTurretCell1'   as const, c2: 'leftTurretCell2'   as const },
-        { x1: 340, y1: 105, x2: 410, y2: 170, lx: 372, ly: 123, name: 'Right Turret',       c1: 'rightTurretCell1'  as const, c2: 'rightTurretCell2'  as const },
+        { x1: 215, y1: 45,  x2: 290, y2: 110, lx: 250, ly: 63,  name: 'Nose Blaster',         c1: 'blasterCell1'      as const, c2: 'blasterCell2'      as const },
+        { x1: 100, y1: 105, x2: 170, y2: 170, lx: 132, ly: 123, name: 'Left Turret',          c1: 'leftTurretCell1'   as const, c2: 'leftTurretCell2'   as const },
+        { x1: 340, y1: 105, x2: 410, y2: 170, lx: 372, ly: 123, name: 'Right Turret',         c1: 'rightTurretCell1'  as const, c2: 'rightTurretCell2'  as const },
         { x1: 180, y1: 115, x2: 245, y2: 180, lx: 209, ly: 133, name: 'Left Photon Torpedo',  c1: 'leftMissileCell1'  as const, c2: 'leftMissileCell2'  as const },
         { x1: 265, y1: 115, x2: 335, y2: 180, lx: 297, ly: 133, name: 'Right Photon Torpedo', c1: 'rightMissileCell1' as const, c2: 'rightMissileCell2' as const },
-        { x1: 220, y1: 195, x2: 290, y2: 265, lx: 249, ly: 213, name: 'Ship Power Plant',     c1: 'shipPowerCell1'    as const, c2: 'shipPowerCell2'    as const },
+        { x1: 220, y1: 195, x2: 290, y2: 265, lx: 249, ly: 213, name: 'Power Plant',          c1: 'shipPowerCell1'    as const, c2: 'shipPowerCell2'    as const },
     ];
 
     private updateShipCustomization(): void {
@@ -1374,25 +1382,32 @@ export class GameManager {
             this.state = GameState.ReadyRoom;
             return;
         }
-
+        // Q/W/E hotkeys for settings
+        if (this.player) {
+            if (this.input.isKeyPressed(Input.KEY_Q)) this.player.powerPlant.selectSetting(0);
+            if (this.input.isKeyPressed(Input.KEY_W)) this.player.powerPlant.selectSetting(1);
+            if (this.input.isKeyPressed(Input.KEY_E)) this.player.powerPlant.selectSetting(2);
+        }
         if (this.custStatusTimer > 0) {
             this.custStatusTimer--;
-            if (this.custStatusTimer <= 0) {
-                this.custStatusMsg = '';
-            }
+            if (this.custStatusTimer <= 0) this.custStatusMsg = '';
         }
+        // Update demo projectiles + engine feedback
+        this.updateCustDemo();
 
         const mouse = this.input.getMousePos();
         const mx = mouse.x;
         const my = mouse.y;
 
-        // Hover detection over system zones
+        // Hover detection over system zones (only in ship diagram area 0-512, 45-301)
         let newHover = -1;
-        for (let i = 0; i < this.custSystemZones.length; i++) {
-            const z = this.custSystemZones[i];
-            if (mx >= z.x1 && mx <= z.x2 && my >= z.y1 && my <= z.y2) {
-                newHover = i;
-                break;
+        if (mx <= 512 && my >= 45 && my <= 301) {
+            for (let i = 0; i < this.custSystemZones.length; i++) {
+                const z = this.custSystemZones[i];
+                if (mx >= z.x1 && mx <= z.x2 && my >= z.y1 && my <= z.y2) {
+                    newHover = i;
+                    break;
+                }
             }
         }
         if (newHover !== this.custHoverSystem) {
@@ -1404,7 +1419,6 @@ export class GameManager {
 
         if (!this.input.isMousePressed()) return;
         if (!this.player) return;
-        const setting = this.player.powerPlant.getSetting();
 
         // System zone click
         if (newHover >= 0) {
@@ -1414,20 +1428,43 @@ export class GameManager {
         }
 
         const sel = this.custSelectedSystem;
-        if (sel < 0 || sel >= this.custSystemZones.length) {
-            // Done button
-            if (mx >= 517 && mx <= 800 && my >= 553 && my <= 600) {
+
+        // Settings click (right panel: x=520-800)
+        if (mx >= 520 && mx <= 800) {
+            if (my >= 80 && my <= 110) {
+                this.player.powerPlant.selectSetting(0);
                 try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
-                this.state = GameState.ReadyRoom;
+                return;
             }
+            if (my >= 111 && my <= 140) {
+                this.player.powerPlant.selectSetting(1);
+                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                return;
+            }
+            if (my >= 141 && my <= 170) {
+                this.player.powerPlant.selectSetting(2);
+                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                return;
+            }
+        }
+
+        // Done button (517-800, 553-600) — reset shields/armor to 300 like C++
+        if (mx >= 517 && mx <= 800 && my >= 553 && my <= 600) {
+            try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+            this.player.shields = 300;
+            this.player.armor = 300;
+            this.state = GameState.ReadyRoom;
             return;
         }
 
+        if (sel < 0 || sel >= this.custSystemZones.length) return;
         const zone = this.custSystemZones[sel];
+        const setting = this.player.powerPlant.getSetting();
         const maxCell = this.player.powerPlant.maxPowerPerCell;
 
-        // UP arrow (transfer cell2 → cell1)
-        if (mx >= 545 && mx <= 570 && my >= 460 && my <= 485) {
+        // Arrow button on ship diagram (gui_button at lx,ly is 10x30)
+        // Top 10px: transfer cell2 → cell1 (increase rate)
+        if (mx >= zone.lx && mx <= zone.lx + 10 && my >= zone.ly && my <= zone.ly + 10) {
             try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
             if (setting[zone.c1] < maxCell && setting[zone.c2] > 1) {
                 setting[zone.c1]++;
@@ -1435,9 +1472,8 @@ export class GameManager {
             }
             return;
         }
-
-        // DOWN arrow (transfer cell1 → cell2)
-        if (mx >= 545 && mx <= 570 && my >= 500 && my <= 525) {
+        // Bottom 10px: transfer cell1 → cell2 (increase power)
+        if (mx >= zone.lx && mx <= zone.lx + 10 && my >= zone.ly + 20 && my <= zone.ly + 30) {
             try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
             if (setting[zone.c2] < maxCell && setting[zone.c1] > 1) {
                 setting[zone.c2]++;
@@ -1446,8 +1482,8 @@ export class GameManager {
             return;
         }
 
-        // Buy Power Pod button — affects ALL 3 settings (matching C++ behavior)
-        if (mx >= 20 && mx <= 250 && my >= 420 && my <= 450) {
+        // Buy Power Pod (300-364, 460-492) — affects ALL 3 settings
+        if (mx >= 300 && mx <= 364 && my >= 460 && my <= 492) {
             try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
             if (this.player.powerPlant.resourceUnits < 1) {
                 this.custStatusMsg = 'You Have No More Resource Units!';
@@ -1455,7 +1491,6 @@ export class GameManager {
                 return;
             }
             let added = false;
-            // Add power cell to ALL 3 settings for the selected system
             for (let s = 0; s < 3; s++) {
                 const st = this.player.powerPlant.settings[s];
                 if (st[zone.c1] < maxCell) {
@@ -1475,229 +1510,406 @@ export class GameManager {
             return;
         }
 
-        // Done button
-        if (mx >= 517 && mx <= 800 && my >= 553 && my <= 600) {
+        // Buy Research (300-364, 400-432)
+        if (mx >= 300 && mx <= 364 && my >= 400 && my <= 432) {
             try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
-            this.state = GameState.ReadyRoom;
+            if (sel === 1 || sel === 2) {
+                // Turret Rotation research (5 RU)
+                if (!this.turretAngleAvailable) {
+                    if (this.player.powerPlant.resourceUnits >= 5) {
+                        this.turretAngleAvailable = true;
+                        this.player.powerPlant.resourceUnits -= 5;
+                    } else {
+                        this.custStatusMsg = "You Don't Have Enough Resource Units!";
+                        this.custStatusTimer = 120;
+                    }
+                }
+            } else if (sel === 3 || sel === 4) {
+                // Homing research (15 RU)
+                if (!this.isHomingResearched) {
+                    if (this.player.powerPlant.resourceUnits >= 15) {
+                        this.isHomingResearched = true;
+                        this.player.powerPlant.resourceUnits -= 15;
+                    } else {
+                        this.custStatusMsg = "You Don't Have Enough Resource Units!";
+                        this.custStatusTimer = 120;
+                    }
+                }
+            }
+            return;
+        }
+
+        // Turret angle selector (450-472, 350-550) — when turret rotation researched
+        if (this.turretAngleAvailable && (sel === 1 || sel === 2)) {
+            if (mx >= 450 && mx <= 472) {
+                const anglesLeft = [90, 135, 180, 225, 270];
+                const anglesRight = [90, 45, 0, 315, 270];
+                const angles = sel === 1 ? anglesLeft : anglesRight;
+                const yPos = [350, 392, 434, 476, 518];
+                for (let i = 0; i < 5; i++) {
+                    if (my >= yPos[i] && my <= yPos[i] + 32) {
+                        try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                        if (sel === 1) {
+                            setting.leftTurretAngle = angles[i];
+                        } else {
+                            setting.rightTurretAngle = angles[i];
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    private updateCustDemo(): void {
+        const now = performance.now();
+        const sel = this.custSelectedSystem;
+        // Determine which weapons fire based on selection
+        const fire = { nose: false, lt: false, rt: false, lm: false, rm: false };
+        if (sel === -1) {
+            fire.nose = fire.lt = fire.rt = fire.lm = fire.rm = true;
+        } else if (sel === 0) fire.nose = true;
+        else if (sel === 1) fire.lt = true;
+        else if (sel === 2) fire.rt = true;
+        else if (sel === 3) fire.lm = true;
+        else if (sel === 4) fire.rm = true;
+        // sel===5 (Engine) → no weapons fire
+
+        const shipX = 621, shipY = 383;
+        const rates: Record<string, number> = { nose: 150, lt: 300, rt: 300, lm: 1200, rm: 1200 };
+
+        // Get turret angles for demo
+        const setting = this.player?.powerPlant.getSetting();
+        const ltAngle = setting?.leftTurretAngle ?? 135;
+        const rtAngle = setting?.rightTurretAngle ?? 45;
+        const ltRad = ltAngle * Math.PI / 180;
+        const rtRad = rtAngle * Math.PI / 180;
+
+        if (fire.nose && now - (this.custDemoLastFire['nose'] ?? 0) > rates.nose) {
+            this.custDemoLastFire['nose'] = now;
+            this.custDemoProjectiles.push({ x: shipX + 22, y: shipY - 12, vx: 0, vy: -14, type: 'blaster', alive: true });
+        }
+        if (fire.lt && now - (this.custDemoLastFire['lt'] ?? 0) > rates.lt) {
+            this.custDemoLastFire['lt'] = now;
+            this.custDemoProjectiles.push({ x: shipX - 1, y: shipY - 5, vx: -Math.sin(ltRad) * 15, vy: -Math.cos(ltRad) * 15, type: 'turret', alive: true });
+        }
+        if (fire.rt && now - (this.custDemoLastFire['rt'] ?? 0) > rates.rt) {
+            this.custDemoLastFire['rt'] = now;
+            this.custDemoProjectiles.push({ x: shipX + 44, y: shipY - 5, vx: -Math.sin(rtRad) * 15, vy: -Math.cos(rtRad) * 15, type: 'turret', alive: true });
+        }
+        if (fire.lm && now - (this.custDemoLastFire['lm'] ?? 0) > rates.lm) {
+            this.custDemoLastFire['lm'] = now;
+            this.custDemoProjectiles.push({ x: shipX + 13, y: shipY, vx: 0, vy: -9, type: 'missile', alive: true });
+        }
+        if (fire.rm && now - (this.custDemoLastFire['rm'] ?? 0) > rates.rm) {
+            this.custDemoLastFire['rm'] = now;
+            this.custDemoProjectiles.push({ x: shipX + 30, y: shipY, vx: 0, vy: -9, type: 'missile', alive: true });
+        }
+
+        // Move projectiles and remove off-screen ones
+        for (const p of this.custDemoProjectiles) {
+            p.x += p.vx;
+            p.y += p.vy;
+            if (p.y < 45 || p.y > 600 || p.x < 510 || p.x > 800) p.alive = false;
+        }
+        this.custDemoProjectiles = this.custDemoProjectiles.filter(p => p.alive);
+        // Cap array size
+        if (this.custDemoProjectiles.length > 50) {
+            this.custDemoProjectiles = this.custDemoProjectiles.slice(-50);
+        }
+
+        // Engine feedback: speed ship bouncing (for Engine or None)
+        if (sel === 5 || sel === -1) {
+            const power = setting?.shipPowerCell2 ?? 1;
+            const speed = 2 * power;
+            this.custSpeedShipX += speed * this.custSpeedShipDir;
+            if (this.custSpeedShipX >= 697) this.custSpeedShipDir = -1;
+            if (this.custSpeedShipX <= 520) this.custSpeedShipDir = 1;
+            this.custShieldDemo += 2;
+            if (this.custShieldDemo >= 300) this.custShieldDemo = 0;
         }
     }
 
     private renderShipCustomization(): void {
         const ctx = this.canvas.ctx;
+        const mouse = this.input.getMousePos();
+        const sel = this.custSelectedSystem;
 
-        // Background — use GUI_ship.png (800×555) which has the ship diagram,
-        // zone labels, weapon preview, and exit button already drawn
-        const bg = this.assets.tryGetImage('GUI_ship');
-        if (bg) {
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, 800, 600);
-            ctx.drawImage(bg, 0, 0);
-        } else {
-            // Fallback: plain dark background
-            ctx.fillStyle = '#0a1a0a';
-            ctx.fillRect(0, 0, 800, 600);
-        }
-
-        // Top bar — "RU's: N" (left), Rank (center), "Kills: N" (right)
-        // Draw over the background's header area
+        // 1. Clear screen
         ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, 800, 28);
+        ctx.fillRect(0, 0, 800, 600);
+
+        // 2. Draw b_unpressed or b_pressed at (0,45) — 800×555 background
+        //    Contains ship diagram (0,45)→(512,301) and exit button (517,553)→(800,600)
+        const inDone = mouse.x >= 517 && mouse.x <= 800 && mouse.y >= 553 && mouse.y <= 600;
+        const bg = this.assets.tryGetImage(inDone ? 'b_pressed' : 'b_unpressed');
+        if (bg) ctx.drawImage(bg, 0, 45);
+
+        // 3. Fill black over non-ship-diagram areas (C++ fill_rect calls)
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, 800, 40);           // top stat bar
+        ctx.fillRect(0, 301, 512, 299);         // bottom-left info panel
+        ctx.fillRect(512, 45, 288, 508);        // right panel
+        ctx.fillRect(512, 553, 5, 47);          // thin divider next to exit button
+
+        // 4. Stats at top (y=35)
         if (this.player) {
-            ctx.font = '16px XenoFont, monospace';
+            ctx.font = '18px XenoFont, monospace';
             ctx.fillStyle = '#0f0';
-            ctx.fillText(`RU's:  ${this.player.powerPlant.resourceUnits}`, 10, 18);
-            ctx.textAlign = 'center';
-            const rank = this.getRank(this.player.kills);
-            ctx.fillText(rank, 400, 18);
-            ctx.textAlign = 'right';
-            ctx.fillText(`Kills:    ${this.player.kills}`, 790, 18);
             ctx.textAlign = 'left';
+            ctx.fillText("RU's:", 5, 35);
+            ctx.fillText(this.player.powerPlant.resourceUnits.toString(), 55, 35);
+            ctx.textAlign = 'center';
+            ctx.fillText(this.getRank(this.player.kills), 400, 35);
+            ctx.textAlign = 'left';
+            ctx.fillText('Kills:', 600, 35);
+            ctx.fillText(this.player.kills.toString(), 675, 35);
         }
 
-        // Draw system zone highlights (the background already has zone labels)
+        // 5. Power cell bars on ship diagram at C_* positions
+        this.drawCustPowerBars(ctx);
+
+        // 6. Zone highlights and gui_button indicator
         for (let i = 0; i < this.custSystemZones.length; i++) {
             const z = this.custSystemZones[i];
             const isHover = i === this.custHoverSystem;
-            const isSelected = i === this.custSelectedSystem;
-
+            const isSelected = i === sel;
             if (isSelected) {
                 ctx.fillStyle = 'rgba(0,255,0,0.12)';
                 ctx.fillRect(z.x1, z.y1, z.x2 - z.x1, z.y2 - z.y1);
                 ctx.strokeStyle = '#0f0';
                 ctx.lineWidth = 2;
                 ctx.strokeRect(z.x1, z.y1, z.x2 - z.x1, z.y2 - z.y1);
+                // gui_button (10×30 arrow indicator) at the selected zone's position
+                const guiBtn = this.assets.tryGetImage('GUI_button');
+                if (guiBtn) ctx.drawImage(guiBtn, z.lx, z.ly);
             } else if (isHover) {
                 ctx.fillStyle = 'rgba(0,255,0,0.06)';
                 ctx.fillRect(z.x1, z.y1, z.x2 - z.x1, z.y2 - z.y1);
-                ctx.strokeStyle = 'rgba(0,255,0,0.6)';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(z.x1, z.y1, z.x2 - z.x1, z.y2 - z.y1);
             }
         }
 
-        // "System Selected:" label
-        const sel = this.custSelectedSystem;
-        ctx.font = '16px XenoFont, monospace';
+        // 7. "System Selected:" and "Select All Systems" text
+        ctx.font = '18px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
+        ctx.textAlign = 'left';
+        ctx.fillText('System Selected:', 10, 285);
         const selectedName = sel >= 0 && sel < this.custSystemZones.length
             ? this.custSystemZones[sel].name : 'All';
-        ctx.fillText(`System Selected: ${selectedName}`, 20, 295);
+        ctx.fillText(selectedName, 160, 285);
+        ctx.textAlign = 'right';
+        ctx.fillText('Select All Systems', 490, 260);
+        ctx.textAlign = 'left';
 
-        // ===== Left panel info (below ship diagram) =====
+        // 8. Bottom-left info panel (0,301 → 512,600)
         if (sel >= 0 && sel < this.custSystemZones.length && this.player) {
-            const zone = this.custSystemZones[sel];
-            const setting = this.player.powerPlant.getSetting();
-
-            // Column descriptions
-            ctx.fillStyle = '#0a0';
-            ctx.font = '14px XenoFont, monospace';
-            if (sel <= 4) {
-                ctx.fillText('Left column: Shot Rate', 20, 320);
-                ctx.fillText('Right column: Shot Power', 20, 340);
-            } else {
-                ctx.fillText('Left column: Shield Recharge Rate', 20, 320);
-                ctx.fillText('Right column: Ship Maneuverability', 20, 340);
-            }
-
-            // Power cell visualization (in the right panel area)
-            const cellX1 = 540;
-            const cellX2 = 610;
-            const cellBaseY = 500;
-            const c1 = setting[zone.c1];
-            const c2 = setting[zone.c2];
-
-            // Column headers
-            ctx.fillStyle = '#0a0';
-            ctx.font = '12px XenoFont, monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('Rate', cellX1 + 7, cellBaseY + 18);
-            ctx.fillText('Power', cellX2 + 7, cellBaseY + 18);
-            ctx.textAlign = 'left';
-
-            // Draw cell bars
-            this.drawPowerCells(ctx, cellX1, cellBaseY, c1);
-            this.drawPowerCells(ctx, cellX2, cellBaseY, c2);
-
-            // Empty cell outlines (up to max 5)
-            ctx.strokeStyle = 'rgba(0,255,0,0.15)';
-            ctx.lineWidth = 1;
-            for (let i = c1; i < 5; i++) {
-                ctx.strokeRect(cellX1, cellBaseY - (i * 12) - 10, 14, 10);
-            }
-            for (let i = c2; i < 5; i++) {
-                ctx.strokeRect(cellX2, cellBaseY - (i * 12) - 10, 14, 10);
-            }
-
-            // Transfer arrows between columns
-            const arrowX = (cellX1 + cellX2) / 2 + 7;
-            ctx.fillStyle = '#0f0';
-            ctx.font = '16px XenoFont, monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('\u25C0', arrowX, 475);  // ◀ transfer right→left
-            ctx.fillText('\u25B6', arrowX, 505);  // ▶ transfer left→right
-            ctx.textAlign = 'left';
-
-            // Multiplier info
-            const total = Math.min(c1 + c2, 5);
-            const mux = this.player.powerPlant.getWeaponMultiplier(c1, c2);
-            ctx.fillStyle = '#0a0';
-            ctx.font = '14px XenoFont, monospace';
-            ctx.fillText(`Total: ${total}/5 cells`, 530, 380);
-            ctx.fillText(`Multiplier: ${mux.toFixed(1)}x`, 530, 400);
+            this.renderCustWeaponInfo(ctx, sel);
         } else {
-            // No system selected — show "Ship Customization" header + instructions
-            ctx.fillStyle = '#0f0';
-            ctx.font = 'bold 20px XenoFont, monospace';
-            ctx.fillText('Ship Customization :', 20, 330);
-
-            ctx.font = '14px XenoFont, monospace';
-            ctx.fillStyle = '#0f0';
-            ctx.fillText('- Click on a system to Buy power for', 30, 360);
-            ctx.fillText('  it or to do research concerning it', 30, 378);
-            ctx.fillText('- You can also modify its internal', 30, 406);
-            ctx.fillText('  power settings', 30, 424);
-            ctx.fillText('  - Weapons(nose blaster, turrets,', 40, 448);
-            ctx.fillText('    and photon torpedoes)', 40, 466);
-            ctx.fillText('    Have Shot Rate vs. Shot Power', 40, 484);
-            ctx.fillText("  - Ship's power plant", 40, 506);
-            ctx.fillText('    Has Maneuverability vs. Shield', 50, 524);
-            ctx.fillText('    Recharge Rate', 50, 542);
+            // No system selected: draw cust_start image at (0,300)
+            const custStart = this.assets.tryGetImage('cust_start');
+            if (custStart) ctx.drawImage(custStart, 0, 300);
         }
 
-        // Buy Power Pod button (only when system selected)
-        if (sel >= 0) {
-            // Resource Units
-            ctx.fillStyle = '#0f0';
-            ctx.font = '14px XenoFont, monospace';
-            if (this.player) {
-                ctx.fillText(`Resource Units: ${this.player.powerPlant.resourceUnits}`, 20, 410);
-            }
+        // 9. Right panel: User Settings (512-800, 45-170)
+        this.renderCustSettings(ctx);
 
-            const buyHover = this.input.getMousePos();
-            const inBuy = buyHover.x >= 20 && buyHover.x <= 250 && buyHover.y >= 420 && buyHover.y <= 450;
-            // Use buy button graphic if available
-            const buyImg = this.assets.tryGetImage('buy');
-            if (buyImg) {
-                ctx.drawImage(buyImg, 20, 420);
-                // Draw cost label next to it
-                ctx.fillStyle = '#0f0';
-                ctx.font = '12px XenoFont, monospace';
-                ctx.fillText('(1 RU)', 90, 440);
-            } else {
-                ctx.fillStyle = inBuy ? 'rgb(70,85,70)' : 'rgb(51,64,51)';
-                ctx.fillRect(20, 420, 230, 30);
-                ctx.fillStyle = '#0f0';
-                ctx.font = '12px XenoFont, monospace';
-                ctx.textAlign = 'center';
-                ctx.fillText('Buy Power Pod (1 RU)', 135, 440);
-                ctx.textAlign = 'left';
-            }
+        // 10. Right panel: Ship demo + engine feedback
+        this.renderCustShipDemo(ctx);
 
-            // Research placeholder (matching original: "n/a")
-            ctx.fillStyle = '#0f0';
-            ctx.font = '14px XenoFont, monospace';
-            ctx.fillText('Research:', 20, 470);
-            ctx.fillStyle = '#9b9b9b';
-            ctx.fillText('n/a', 50, 490);
-            ctx.fillText('cost = 0', 160, 490);
-        }
-
-        // Status message
+        // 11. Status message at bottom (large font, y=590)
         if (this.custStatusMsg) {
-            ctx.fillStyle = '#ff0';
-            ctx.font = '14px XenoFont, monospace';
-            ctx.fillText(this.custStatusMsg, 20, 530);
-        }
-
-        // Settings display (right panel, upper)
-        if (this.player) {
-            ctx.font = '18px XenoFont, monospace';
             ctx.fillStyle = '#0f0';
-            ctx.fillText('User Settings', 530, 60);
-
-            const settingIdx = this.player.powerPlant.currentSetting;
-            const labels = ["speed setting (HOTKEY 'Q')", "power setting (HOTKEY 'W')", "armor setting (HOTKEY 'E')"];
-            for (let i = 0; i < 3; i++) {
-                ctx.fillStyle = settingIdx === i ? '#0f0' : '#9b9b9b';
-                ctx.font = settingIdx === i ? 'bold 16px XenoFont, monospace' : '16px XenoFont, monospace';
-                ctx.fillText(labels[i], 520, 90 + i * 28);
-            }
-        }
-
-        // Done button — the GUI_ship background already has the "Exit Ship Customization" text.
-        // Just handle hover highlight over the button area (517-800, 553-600).
-        const dm = this.input.getMousePos();
-        const inDone = dm.x >= 517 && dm.x <= 800 && dm.y >= 553 && dm.y <= 600;
-        if (inDone) {
-            ctx.fillStyle = 'rgba(0,255,0,0.1)';
-            ctx.fillRect(517, 553, 283, 47);
+            ctx.font = '26px XenoFont, monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText(this.custStatusMsg, 20, 590);
         }
     }
 
-    private drawPowerCells(ctx: CanvasRenderingContext2D, x: number, baseY: number, count: number): void {
+    /** Draw power cell bars on the ship diagram at C_* positions from Console.h */
+    private drawCustPowerBars(ctx: CanvasRenderingContext2D): void {
+        if (!this.player) return;
+        const setting = this.player.powerPlant.getSetting();
+        const W = 14, H = 10; // C_BAR_WIDTH, C_BAR_HEIGHT
+
+        // All bar positions from Console.h customization constants
+        const bars: Array<{x: number, y: number, count: number}> = [
+            { x: 230, y: 102, count: setting.blasterCell1 },       // Blaster Rate
+            { x: 265, y: 102, count: setting.blasterCell2 },       // Blaster Power
+            { x: 111, y: 162, count: setting.leftTurretCell1 },    // L Turret Rate
+            { x: 145, y: 162, count: setting.leftTurretCell2 },    // L Turret Power
+            { x: 352, y: 162, count: setting.rightTurretCell1 },   // R Turret Rate
+            { x: 387, y: 162, count: setting.rightTurretCell2 },   // R Turret Power
+            { x: 188, y: 171, count: setting.leftMissileCell1 },   // L Missile Rate
+            { x: 223, y: 171, count: setting.leftMissileCell2 },   // L Missile Power
+            { x: 276, y: 171, count: setting.rightMissileCell1 },  // R Missile Rate
+            { x: 311, y: 171, count: setting.rightMissileCell2 },  // R Missile Power
+            { x: 230, y: 258, count: setting.shipPowerCell1 },     // Ship Shield
+            { x: 265, y: 258, count: setting.shipPowerCell2 },     // Ship Engine
+        ];
+
         ctx.fillStyle = '#0f0';
-        for (let i = 0; i < count; i++) {
-            ctx.fillRect(x, baseY - (i * 12) - 10, 14, 10);
+        for (const bar of bars) {
+            for (let i = 0; i < bar.count; i++) {
+                // C++ formula: y = Y_POS - ((temp * C_BAR_HEIGHT) + 4), height = C_BAR_HEIGHT
+                const barY = bar.y - ((i * H) + 4) - H;
+                ctx.fillRect(bar.x, barY, W, H);
+            }
+        }
+    }
+
+    /** Render weapon-specific info in bottom-left panel (matching C++ positions exactly) */
+    private renderCustWeaponInfo(ctx: CanvasRenderingContext2D, sel: number): void {
+        if (!this.player) return;
+        ctx.font = '18px XenoFont, monospace';
+        ctx.fillStyle = '#0f0';
+        ctx.textAlign = 'left';
+
+        // Column descriptions at (20, 325) and (20, 350)
+        if (sel <= 4) {
+            ctx.fillText('Left column determines Shot Rate', 20, 325);
+            ctx.fillText('Right column determines Shot Power', 20, 350);
+        } else {
+            ctx.fillText('Left column determines Shield Recharge Rate', 20, 325);
+            ctx.fillText('Right column determines Ship Maneuverability', 20, 350);
+        }
+
+        // Research section
+        ctx.fillText('Research:', 20, 390);
+        const buyBtn = this.assets.tryGetImage('buy');
+
+        if (sel === 0 || sel === 5) {
+            // Nose Blaster / Power Plant: research n/a
+            ctx.fillText('n/a', 50, 420);
+            ctx.fillText('cost = ', 160, 420);
+            ctx.fillText('0', 240, 420);
+            if (buyBtn) ctx.drawImage(buyBtn, 300, 400);
+        } else if (sel === 1 || sel === 2) {
+            // Turrets: Turret Rotation research (5 RU)
+            if (this.turretAngleAvailable) {
+                ctx.fillText('Already Researched', 110, 390);
+                ctx.fillText('cost = ', 160, 420);
+                ctx.fillText('n/a', 240, 420);
+                // Turret angle panel at (450, 350)
+                const panelKey = sel === 1 ? 'turret_pannel_left' : 'turret_pannel_right';
+                const panel = this.assets.tryGetImage(panelKey);
+                if (panel) ctx.drawImage(panel, 450, 350);
+                // Selector highlight at current angle
+                this.renderTurretAngleSelector(ctx, sel);
+            } else {
+                ctx.fillText('Turret Rotation', 110, 390);
+                ctx.fillText('cost = ', 160, 420);
+                ctx.fillText('5', 240, 420);
+                if (buyBtn) ctx.drawImage(buyBtn, 300, 400);
+            }
+        } else if (sel === 3 || sel === 4) {
+            // Missiles: Homing research (15 RU)
+            if (this.isHomingResearched) {
+                ctx.fillText('Already Researched', 110, 390);
+                ctx.fillText('Homing Researched', 240, 420);
+            } else {
+                ctx.fillText('Homing', 110, 390);
+                ctx.fillText('cost = ', 160, 420);
+                ctx.fillText('15', 240, 420);
+                if (buyBtn) ctx.drawImage(buyBtn, 300, 400);
+            }
+        }
+
+        // Power pods section at (20, 450), buy button at (300, 460)
+        ctx.fillText('Power pods:', 20, 450);
+        ctx.fillText('cost = ', 160, 480);
+        ctx.fillText('1', 240, 480);
+        if (buyBtn) ctx.drawImage(buyBtn, 300, 460);
+    }
+
+    private renderTurretAngleSelector(ctx: CanvasRenderingContext2D, sel: number): void {
+        if (!this.player) return;
+        const setting = this.player.powerPlant.getSetting();
+        const angle = sel === 1 ? setting.leftTurretAngle : setting.rightTurretAngle;
+        const anglesLeft = [90, 135, 180, 225, 270];
+        const anglesRight = [90, 45, 0, 315, 270];
+        const angles = sel === 1 ? anglesLeft : anglesRight;
+        const yPos = [350, 392, 434, 476, 518];
+        const idx = angles.indexOf(angle);
+        if (idx >= 0) {
+            const selector = this.assets.tryGetImage('turret_selector');
+            if (selector) ctx.drawImage(selector, 450, yPos[idx]);
+        }
+    }
+
+    /** Render settings panel in right area (matching C++ positions) */
+    private renderCustSettings(ctx: CanvasRenderingContext2D): void {
+        if (!this.player) return;
+        const settingIdx = this.player.powerPlant.currentSetting;
+
+        ctx.font = '18px XenoFont, monospace';
+        ctx.fillStyle = '#0f0';
+        ctx.textAlign = 'left';
+        ctx.fillText('User Settings', 520, 80);
+
+        const labels = [
+            "speed setting (HOTKEY 'Q')",
+            "power setting (HOTKEY 'W')",
+            "armor setting (HOTKEY 'E')",
+        ];
+        for (let i = 0; i < 3; i++) {
+            ctx.fillStyle = settingIdx === i ? '#0f0' : '#9b9b9b';
+            ctx.fillText(labels[i], 520, 110 + i * 30);
+        }
+    }
+
+    /** Render live ship demo with projectiles in right panel */
+    private renderCustShipDemo(ctx: CanvasRenderingContext2D): void {
+        const sel = this.custSelectedSystem;
+        const shipX = 621, shipY = 383;
+
+        // Draw demo projectiles (using actual weapon sprites)
+        for (const p of this.custDemoProjectiles) {
+            const spriteKey = p.type === 'blaster' ? 'blaster_1'
+                            : p.type === 'turret' ? 'turret_1'
+                            : 'torp_1';
+            const img = this.assets.tryGetImage(spriteKey);
+            if (img) {
+                ctx.drawImage(img, p.x, p.y);
+            } else {
+                const color = p.type === 'blaster' ? '#00ff33'
+                            : p.type === 'turret' ? '#00ff80'
+                            : '#0000ff';
+                ctx.fillStyle = color;
+                ctx.fillRect(p.x, p.y, 8, 8);
+            }
+        }
+
+        // Draw ship sprite (frame 8 = center facing) when not Engine-only
+        if (sel !== 5) {
+            const shipImg = this.assets.tryGetImage('PlayerSprite08');
+            if (shipImg) ctx.drawImage(shipImg, shipX, shipY);
+        }
+
+        // Engine feedback: shield bar + speed ship (for Engine or None selection)
+        if (sel === 5 || sel === -1) {
+            // Speed ship bouncing
+            const speedShip = this.assets.tryGetImage('speed_ship');
+            if (speedShip) ctx.drawImage(speedShip, this.custSpeedShipX, 450);
+
+            // "Shields" label at (740, 345) per C++ (SHIELDS_X_POS+73, SHIELDS_Y_POS-220)
+            ctx.font = '18px XenoFont, monospace';
+            ctx.fillStyle = '#0f0';
+            ctx.textAlign = 'left';
+            ctx.fillText('Shields', 740, 345);
+
+            // Shield bar: fills from (740, 545) upward, height = shields * 0.666
+            const shields = this.custShieldDemo;
+            const barHeight = shields * 0.666;
+            let r: number, g: number;
+            if (shields >= 150) {
+                r = Math.min(1, Math.max(0, (shields * -0.015) + 4.5));
+                g = 1.0;
+            } else {
+                r = 1.0;
+                g = Math.min(1, Math.max(0, shields * 0.0066));
+            }
+            ctx.fillStyle = `rgb(${Math.floor(r * 255)},${Math.floor(g * 255)},0)`;
+            ctx.fillRect(740, 545 - barHeight, 45, barHeight);
         }
     }
 }
