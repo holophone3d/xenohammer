@@ -67,7 +67,10 @@ export class Enemy {
         // Create weapons from config offsets
         for (const offset of config.weaponOffsets) {
             const weaponType = type === 'gunship' ? 'enemyCannon' as const : 'enemyBlast' as const;
-            this.weapons.push(Weapon.createEnemyWeapon(weaponType, offset.x, offset.y));
+            const weapon = Weapon.createEnemyWeapon(weaponType, offset.x, offset.y);
+            // C++ EnemyShip.h: gunship sets power_cell_2(2) → doubles damage & uses frame 1 sprite
+            if (type === 'gunship') weapon.powerCell2 = 2;
+            this.weapons.push(weapon);
         }
     }
 

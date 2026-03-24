@@ -127,7 +127,7 @@ export class Weapon {
             sprite.loop = false;
         }
 
-        const actualDamage = this.damage * this.powerMultiplier;
+        const actualDamage = this.damage * this.powerMultiplier * this.powerCell2;
         const proj = new Projectile(spawnX, spawnY, vx, vy, actualDamage, this.owner, sprite, this.type);
 
         if (this.homingEnabled) {

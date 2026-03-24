@@ -525,7 +525,7 @@ export class GameManager {
             const enemyProj = enemy.tryFire(this.now, this.assets);
             if (enemyProj.length > 0) {
                 try {
-                    this.audio.playSound(enemy.type === 'gunship' ? 'AlienWeapon1' : 'AlienWeapon5');
+                    this.audio.playSound(enemy.type === 'gunship' ? 'AlienWeapon1' : 'AlienWeapon5', false, enemy.type === 'gunship' ? 0.5 : 1.0);
                 } catch { /* skip */ }
             }
             this.projectiles.push(...enemyProj);

@@ -62,7 +62,7 @@ export class AudioManager {
     }
 
     /** Play a loaded sound effect. Returns a handle to stop it. */
-    playSound(id: string, loop = false): SoundInstance {
+    playSound(id: string, loop = false, volumeScale = 1.0): SoundInstance {
         const buffer = this.sounds.get(id);
         if (!buffer) {
             console.warn(`Sound "${id}" not loaded`);
@@ -75,7 +75,7 @@ export class AudioManager {
 
         source.buffer = buffer;
         source.loop = loop;
-        gainNode.gain.value = this.sfxVolume;
+        gainNode.gain.value = this.sfxVolume * volumeScale;
 
         source.connect(gainNode);
         gainNode.connect(ctx.destination);

@@ -166,86 +166,82 @@ export class LightFighterAI implements AIBehavior {
     }
 }
 
-// --- Fighter B AI (horizontal sweeps, 2 passes then runaway) ---
+// --- Fighter B AI (frame-based heading, 32-frame directional movement) ---
 // 4 states: ENTERING → RIGHT ↔ LEFT → RUNAWAY
-// Speed 12 px/tick horizontally, slight downward drift
-// Fire rate: 1000ms (C++ FBAI_FIRE_RATE)
+// Speed 12 px/tick, heading-based movement, fires only when facing player
+// Turn rate: 1 frame per 60ms (FBAI_TURNRATE), fire rate: 1000ms
+// C++ reference: FighterBAI.cpp — no pass counting, runaway toward nearest edge
 
 export class FighterBAI implements AIBehavior {
     state = FBAIState.EnteringScreen;
-    private stateTimer = 0;
-    private passes = 0;
-    private readonly maxPasses = 2;
+    private headingFrame = 24; // 0-31 directional frame (24=down, 0=right, 8=up, 16=left)
+    private turnTarget = 24;
+    private turnAccum = 0; // accumulated ms for turn timing
     private fireTimer = 0;
+    private readonly runawayVariation: number; // ±3 frame offset for runaway direction
 
+    private static readonly TURN_RATE = 60; // ms per frame turn (C++ FBAI_TURNRATE)
     private static readonly FIRE_RATE = 1000; // ms (C++ FBAI_FIRE_RATE)
+    // C++ uses LF_SCREEN_WIDTH=800 for runaway midpoint, scale to play area
+    private static readonly SCREEN_MID_X = PLAY_AREA_W / 2;
 
-    update(enemy: Enemy, playerX: number, _playerY: number, dt: number): void {
-        this.stateTimer += dt;
-        this.fireTimer += dt * 1000;
+    constructor() {
+        // C++ uses (m_nWavePosition % 7) - 3 for runaway variation
+        this.runawayVariation = Math.floor(Math.random() * 7) - 3;
+    }
+
+    update(enemy: Enemy, playerX: number, playerY: number, dt: number): void {
+        const dtMs = dt * 1000;
+        this.fireTimer += dtMs;
         const speed = enemy.config.speed; // 12 px/tick
-        const dx = playerX - enemy.x;
 
+        // C++ calculates heading to player for fire check BEFORE state switch
+        const dirToPlayer = FighterBAI.calculateHeading(playerX, playerY, enemy.x, enemy.y);
+
+        // C++ fires only when current heading frame matches player direction
         enemy.wantsFire = false;
+        if (this.headingFrame === dirToPlayer &&
+            this.fireTimer >= FighterBAI.FIRE_RATE &&
+            this.state !== FBAIState.EnteringScreen &&
+            this.state !== FBAIState.RunAway) {
+            enemy.wantsFire = true;
+            this.fireTimer = 0;
+        }
 
         switch (this.state) {
             case FBAIState.EnteringScreen:
-                enemy.vy = speed;
-                enemy.vx = 0;
+                // Fly straight down (frame 24)
+                enemy.wantsFire = false;
                 if (enemy.y > 0) {
-                    this.state = dx > 0 ? FBAIState.Right : FBAIState.Left;
-                    this.stateTimer = 0;
-                }
-                break;
-
-            case FBAIState.Right:
-                enemy.vx = speed;
-                enemy.vy = speed * 0.15;
-                // Fire rate gated: only fire every 1000ms
-                if (this.fireTimer >= FighterBAI.FIRE_RATE) {
-                    enemy.wantsFire = true;
-                    this.fireTimer = 0;
-                }
-                enemy.angle = 0; // facing right
-
-                if (enemy.x > PLAY_AREA_W - 50) {
-                    this.passes++;
-                    if (this.passes >= this.maxPasses) {
-                        this.state = FBAIState.RunAway;
-                    } else {
-                        this.state = FBAIState.Left;
-                    }
-                    this.stateTimer = 0;
+                    this.state = playerX > enemy.x ? FBAIState.Right : FBAIState.Left;
                 }
                 break;
 
             case FBAIState.Left:
-                enemy.vx = -speed;
-                enemy.vy = speed * 0.15;
-                // Fire rate gated: only fire every 1000ms
-                if (this.fireTimer >= FighterBAI.FIRE_RATE) {
-                    enemy.wantsFire = true;
-                    this.fireTimer = 0;
-                }
-                enemy.angle = Math.PI; // facing left
+                this.turnTarget = 17; // slightly past left (C++ FBAI_LEFT target)
+                if (enemy.x < 100) this.state = FBAIState.Right; // C++ edge trigger
+                if (enemy.y > 500) this.state = FBAIState.RunAway; // C++ y>500
+                this.doTurn(dtMs);
+                break;
 
-                if (enemy.x < 50) {
-                    this.passes++;
-                    if (this.passes >= this.maxPasses) {
-                        this.state = FBAIState.RunAway;
-                    } else {
-                        this.state = FBAIState.Right;
-                    }
-                    this.stateTimer = 0;
-                }
+            case FBAIState.Right:
+                this.turnTarget = 31; // slightly past right (C++ FBAI_RIGHT target)
+                if (enemy.x > 500) this.state = FBAIState.Left; // C++ edge trigger
+                if (enemy.y > 500) this.state = FBAIState.RunAway; // C++ y>500
+                this.doTurn(dtMs);
                 break;
 
             case FBAIState.RunAway:
-                enemy.vy = -speed * 1.5;
-                enemy.vx = 0;
                 enemy.wantsFire = false;
-                enemy.angle = -Math.PI / 2;
-                if (enemy.y < -64) {
+                // C++ heads toward closest side with wave-position variation
+                if (enemy.x < FighterBAI.SCREEN_MID_X) {
+                    this.turnTarget = ((16 + this.runawayVariation) % 32 + 32) % 32;
+                } else {
+                    this.turnTarget = ((32 + this.runawayVariation) % 32 + 32) % 32;
+                }
+                this.doTurn(dtMs);
+                // Exit when off screen
+                if (enemy.y < -64 || enemy.x < -64 || enemy.x > PLAY_AREA_W + 64) {
                     enemy.alive = false;
                 }
                 break;
@@ -254,130 +250,150 @@ export class FighterBAI implements AIBehavior {
                 this.state = FBAIState.EnteringScreen;
         }
 
-        // Force runaway if off bottom of screen (C++ runs away at y > 500)
-        if (enemy.y > 500 && this.state !== FBAIState.RunAway) {
-            this.state = FBAIState.RunAway;
-        }
+        // C++ derives velocity from heading frame: rad = frame * 11.25° * π/180
+        const rad = this.headingFrame * 0.19635; // 11.25° in radians
+        enemy.vx = Math.cos(rad) * speed;
+        enemy.vy = -Math.sin(rad) * speed;
 
-        // Update angle from velocity for non-explicit states
-        if (this.state === FBAIState.EnteringScreen) {
-            enemy.angle = Math.PI / 2;
+        // Set angle for sprite frame rendering
+        enemy.angle = Math.atan2(enemy.vy, enemy.vx);
+    }
+
+    /** C++ DoTurn: turn one heading frame per TURN_RATE ms toward target */
+    private doTurn(dtMs: number): void {
+        if (this.headingFrame === this.turnTarget) return;
+
+        this.turnAccum += dtMs;
+        while (this.turnAccum >= FighterBAI.TURN_RATE && this.headingFrame !== this.turnTarget) {
+            this.turnAccum -= FighterBAI.TURN_RATE;
+            // Shortest-path turn on 32-frame circle
+            const diff = ((this.turnTarget - this.headingFrame) % 32 + 32) % 32;
+            if (diff <= 16) {
+                this.headingFrame = (this.headingFrame + 1) % 32;
+            } else {
+                this.headingFrame = (this.headingFrame - 1 + 32) % 32;
+            }
         }
+    }
+
+    /** C++ CalculateHeading: convert player position to 0-31 heading frame */
+    static calculateHeading(px: number, py: number, ex: number, ey: number): number {
+        const dx = px - ex;
+        const dy = -(py - ey); // flip Y for math coords
+        let angle = Math.atan2(dy, dx);
+        if (angle < 0) angle += 2 * Math.PI;
+        // Each frame = 11.25° = 0.19635 rad, add half-frame (0.0982) for rounding
+        return Math.floor((angle + 0.0982) / 0.19635) % 32;
     }
 }
 
-// --- Gunship AI (drag-based physics, burst fire, 3 passes) ---
+// --- Gunship AI (drag-based physics, burst fire with 64px alignment) ---
 // 4 states: ENTERING → FLYBY_RIGHT ↔ FLYBY_LEFT → RUNAWAY
-// Drag 0.9/tick, accel 1.571 px/tick², max speed 9 px/tick
-// Burst: fire for 600ms, pause for 2400ms (3000ms cycle)
-// Fire rate during burst: 600ms between shots (C++ GS_FIRE_RATE), dual cannons alternate
+// Drag 0.9/tick, accel (14/0.9)-14 ≈ 1.556, max speed 9 px/tick
+// Burst: fire for 600ms window every 3000ms cycle, ONLY when |playerX-enemyX| < 64
+// C++ reference: GunshipAI.cpp, GunshipAI.h
 
 export class GunshipAI implements AIBehavior {
     state = GSAIState.EnteringScreen;
-    private stateTimer = 0;
     private passes = 0;
     private burstTimer = 0;
-    private fireTimer = 0;
-    private readonly maxPasses = 3;
-    private nextCannon = 0; // alternates 0/1 for dual cannons
+    private readonly maxPasses = 3; // C++ GS_MAX_PASSES
 
-    private static readonly DRAG = 0.9;
-    private static readonly ACCEL = 1.571; // px/tick²
-    private static readonly MAX_SPEED = 9;
-    private static readonly FIRE_RATE = 600; // ms per shot (C++ GS_FIRE_RATE)
-    private static readonly BURST_FIRE_WINDOW = 600; // ms
-    private static readonly BURST_CYCLE = 3000; // ms
+    private static readonly DRAG = 0.9; // C++ GS_DRAG
+    private static readonly ACCEL = (14 / 0.9) - 14; // C++ GS_ACCEL ≈ 1.556
+    private static readonly MAX_SPEED = 9; // C++ GS_MAXSPEED
+    private static readonly BURST_FIRE_WINDOW = 600; // ms (C++ GS_FIRE_RATE as window)
+    private static readonly BURST_CYCLE = 3000; // ms (C++ GS_BURST_RATE)
+    private static readonly FIRE_RANGE = 64; // px horizontal alignment (C++ GS_FIRERANGE)
 
     update(enemy: Enemy, playerX: number, _playerY: number, dt: number): void {
-        this.stateTimer += dt;
         this.burstTimer += dt * 1000;
-        this.fireTimer += dt * 1000;
         if (this.burstTimer >= GunshipAI.BURST_CYCLE) {
             this.burstTimer -= GunshipAI.BURST_CYCLE;
         }
 
         const ticks = dt * 60;
         const drag = Math.pow(GunshipAI.DRAG, ticks);
+        // C++ fire range check: only fire when horizontally aligned within 64px
+        const aligned = Math.abs(playerX - enemy.x) < GunshipAI.FIRE_RANGE;
+        const inBurst = this.burstTimer < GunshipAI.BURST_FIRE_WINDOW;
 
         enemy.wantsFire = false;
 
         switch (this.state) {
             case GSAIState.EnteringScreen:
-                // Enter from top, accelerate downward
-                enemy.vy += GunshipAI.ACCEL * ticks * 0.5;
+                // C++ enters at constant max speed downward, transitions at y >= 16
+                enemy.vy = GunshipAI.MAX_SPEED;
                 enemy.vx *= drag;
-                enemy.vy *= drag;
-                this.clampSpeed(enemy);
 
-                if (enemy.y > 80) {
+                if (enemy.y >= 16) {
+                    this.passes++;
                     this.state = playerX > enemy.x ? GSAIState.FlyByRight : GSAIState.FlyByLeft;
-                    this.stateTimer = 0;
+                    this.burstTimer = 0;
                 }
                 break;
 
             case GSAIState.FlyByRight:
-                // Accelerate right with slight downward drift
+                // C++ accelerates right; decelerates vertically until vy <= 1
                 enemy.vx += GunshipAI.ACCEL * ticks;
-                enemy.vy += GunshipAI.ACCEL * ticks * 0.2;
+                if (enemy.vy > 1) {
+                    enemy.vy -= GunshipAI.ACCEL * ticks;
+                }
                 enemy.vx *= drag;
                 enemy.vy *= drag;
                 this.clampSpeed(enemy);
 
-                // Burst fire logic with per-shot rate limiting
-                if (this.burstTimer < GunshipAI.BURST_FIRE_WINDOW &&
-                    this.fireTimer >= GunshipAI.FIRE_RATE) {
-                    enemy.wantsFire = true;
-                    this.fireTimer = 0;
-                }
+                // C++ fires during burst window ONLY when aligned (GS_FIRERANGE=64)
+                if (aligned && inBurst) enemy.wantsFire = true;
 
-                if (enemy.x > PLAY_AREA_W - 60) {
+                // C++ edge: x > GS_SCREEN_WIDTH - GS_SCREEN_WIDTH/4 (proportional to play area)
+                if (enemy.x > PLAY_AREA_W - PLAY_AREA_W / 4) {
                     this.passes++;
-                    this.state = this.passes >= this.maxPasses
-                        ? GSAIState.RunAwayRight
+                    this.state = this.passes > this.maxPasses
+                        ? GSAIState.RunAwayLeft
                         : GSAIState.FlyByLeft;
-                    this.stateTimer = 0;
                 }
                 break;
 
             case GSAIState.FlyByLeft:
-                // Accelerate left with slight downward drift
+                // C++ accelerates left; decelerates vertically until vy <= 1
                 enemy.vx -= GunshipAI.ACCEL * ticks;
-                enemy.vy += GunshipAI.ACCEL * ticks * 0.2;
+                if (enemy.vy > 1) {
+                    enemy.vy -= GunshipAI.ACCEL * ticks;
+                }
                 enemy.vx *= drag;
                 enemy.vy *= drag;
                 this.clampSpeed(enemy);
 
-                // Burst fire logic with per-shot rate limiting
-                if (this.burstTimer < GunshipAI.BURST_FIRE_WINDOW &&
-                    this.fireTimer >= GunshipAI.FIRE_RATE) {
-                    enemy.wantsFire = true;
-                    this.fireTimer = 0;
-                }
+                if (aligned && inBurst) enemy.wantsFire = true;
 
-                if (enemy.x < 60) {
+                // C++ edge: x < GS_SCREEN_WIDTH/4
+                if (enemy.x < PLAY_AREA_W / 4) {
                     this.passes++;
-                    this.state = this.passes >= this.maxPasses
-                        ? GSAIState.RunAwayLeft
+                    this.state = this.passes > this.maxPasses
+                        ? GSAIState.RunAwayRight
                         : GSAIState.FlyByRight;
-                    this.stateTimer = 0;
                 }
                 break;
 
             case GSAIState.RunAwayLeft:
+                // C++ RUNAWAY_LEFT: accelerate LEFT + DOWN (exits bottom-left)
                 enemy.vx -= GunshipAI.ACCEL * ticks;
-                enemy.vy -= GunshipAI.ACCEL * ticks * 0.5;
+                enemy.vy += GunshipAI.ACCEL * ticks;
                 enemy.vx *= drag;
                 enemy.vy *= drag;
-                enemy.wantsFire = false;
+                // C++ gunship fires during runaway too if aligned
+                if (aligned && inBurst) enemy.wantsFire = true;
                 if (enemy.x < -96) enemy.alive = false;
                 break;
 
             case GSAIState.RunAwayRight:
+                // C++ RUNAWAY_RIGHT: accelerate RIGHT + DOWN (exits bottom-right)
                 enemy.vx += GunshipAI.ACCEL * ticks;
-                enemy.vy -= GunshipAI.ACCEL * ticks * 0.5;
+                enemy.vy += GunshipAI.ACCEL * ticks;
                 enemy.vx *= drag;
                 enemy.vy *= drag;
-                enemy.wantsFire = false;
+                if (aligned && inBurst) enemy.wantsFire = true;
                 if (enemy.x > PLAY_AREA_W + 96) enemy.alive = false;
                 break;
 
@@ -387,13 +403,6 @@ export class GunshipAI implements AIBehavior {
 
         // Angle derived from velocity for 17-frame sprite
         enemy.angle = Math.atan2(enemy.vy, enemy.vx);
-    }
-
-    /** Get which cannon index should fire next, then alternate */
-    getNextCannon(): number {
-        const idx = this.nextCannon;
-        this.nextCannon = (this.nextCannon + 1) % 2;
-        return idx;
     }
 
     private clampSpeed(enemy: Enemy): void {
