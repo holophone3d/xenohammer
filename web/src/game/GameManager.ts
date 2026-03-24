@@ -576,6 +576,13 @@ export class GameManager {
 
             const bossProj = this.boss.getProjectiles();
             this.projectiles.push(...bossProj);
+
+            // Boss particle emission requests (explosions need particles too)
+            for (const pe of this.boss.getParticleEmits()) {
+                this.particles.emit(pe.x, pe.y, pe.count, {
+                    color: { r: 1, g: 0.6, b: 0.1 }, speed: 100, life: 0.8, fade: 1.5,
+                });
+            }
         }
 
         // Update projectiles with homing target finding

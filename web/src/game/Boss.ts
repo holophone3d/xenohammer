@@ -283,6 +283,8 @@ export class Boss {
     private componentExplosions: Explosion[] = [];
     private smallExpFrames: HTMLImageElement[] = [];
     private bigExpFrames: HTMLImageElement[] = [];
+    // Particle emission requests for GameManager
+    private pendingParticleEmits: Array<{ x: number; y: number; count: number }> = [];
 
     // C++ GL_Handler pulsing alpha values
     private warningAlpha = 1.0;
@@ -834,7 +836,7 @@ export class Boss {
 
             this.orbCount--;
 
-            // C++ destroy_ship(): 9 explosion clusters at node position
+            // C++ destroy_ship(): 9 calls to MakeExplosions at node position
             const nx = this.outerNodes[i].x;
             const ny = this.outerNodes[i].y;
             const nodeExpOffsets = [
@@ -843,13 +845,6 @@ export class Boss {
             ];
             for (const [ox, oy] of nodeExpOffsets) {
                 this.spawnExplosion(nx + ox, ny + oy, 'big');
-                for (let t = 0; t < 4; t++) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const dist = 8 + Math.random() * 24;
-                    this.spawnExplosion(
-                        nx + ox + Math.cos(angle) * dist,
-                        ny + oy + Math.sin(angle) * dist, 'small');
-                }
             }
         }
 
@@ -904,11 +899,6 @@ export class Boss {
             const cx = comp.x + comp.width / 2;
             const cy = comp.y + comp.height / 2;
             this.spawnExplosion(cx, cy, 'big');
-            for (let t = 0; t < 4; t++) {
-                const angle = Math.random() * Math.PI * 2;
-                const dist = 8 + Math.random() * 20;
-                this.spawnExplosion(cx + Math.cos(angle) * dist, cy + Math.sin(angle) * dist, 'small');
-            }
 
             // Sync turret component destruction back to AI
             for (const ai of this.outerTurretAIs) {
@@ -976,11 +966,6 @@ export class Boss {
             const tx = this.x + ai.offsetX + 32;
             const ty = this.y + ai.offsetY + 32;
             this.spawnExplosion(tx, ty, 'big');
-            for (let t = 0; t < 3; t++) {
-                const angle = Math.random() * Math.PI * 2;
-                const dist = Math.random() * 20;
-                this.spawnExplosion(tx + Math.cos(angle) * dist, ty + Math.sin(angle) * dist, 'small');
-            }
         }
 
         const cx = this.centerNode.x + this.centerNode.width / 2;
@@ -994,6 +979,13 @@ export class Boss {
 
     getProjectiles(): Projectile[] {
         return this.pendingProjectiles;
+    }
+
+    /** Returns and clears pending particle emission requests for GameManager */
+    getParticleEmits(): Array<{ x: number; y: number; count: number }> {
+        const emits = this.pendingParticleEmits;
+        this.pendingParticleEmits = [];
+        return emits;
     }
 
     getComponentRects(): Array<{ rect: Rect; component: BossComponent }> {
@@ -1187,9 +1179,41 @@ export class Boss {
 
     // --- Component explosion helpers ---
 
+    /**
+     * C++ MakeExplosions(): 1 big center + 5 trails × 4 small = 21 explosions.
+     * Trail: random direction, speed 4-12, gravity 2.0 px/frame², staggered frame delays.
+     */
     private spawnExplosion(x: number, y: number, type: 'small' | 'big'): void {
-        const frames = type === 'big' ? this.bigExpFrames : this.smallExpFrames;
-        this.componentExplosions.push(new Explosion(x, y, type, frames));
+        // Big center explosion
+        this.componentExplosions.push(
+            new Explosion(x, y, 'big', this.bigExpFrames, 0, 0, 0, 0));
+
+        // 5 trails with parabolic arcs (C++ TRAIL_COUNT=5, TRAIL_LENGTH=4)
+        const TRAIL_COUNT = 5;
+        const TRAIL_LENGTH = 4;
+        const EXPLOSION_SIZE = 32;
+        const GRAVITY = EXPLOSION_SIZE / 16; // 2.0
+
+        for (let trail = 0; trail < TRAIL_COUNT; trail++) {
+            const dir = Math.random() * Math.PI * 2;
+            const speed = (Math.random() + 0.5) * (EXPLOSION_SIZE / 4); // 4-12
+            let tvx = speed * Math.cos(dir);
+            let tvy = -speed * Math.sin(dir);
+            let px = x;
+            let py = y;
+
+            for (let t = 0; t < TRAIL_LENGTH; t++) {
+                px += tvx;
+                py += tvy;
+                tvy += GRAVITY;
+                const delay = t * 2; // C++: -explosionnum*2 frame stagger
+                this.componentExplosions.push(
+                    new Explosion(px, py, 'small', this.smallExpFrames, tvx / 2, tvy / 2, GRAVITY, delay));
+            }
+        }
+
+        // Emit particles for visual richness
+        this.pendingParticleEmits.push({ x, y, count: type === 'big' ? 25 : 12 });
     }
 
     private updateComponentExplosions(dt: number): void {

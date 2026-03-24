@@ -15,23 +15,43 @@ export class Explosion {
     y: number;
     type: 'small' | 'big';
     private frames: HTMLImageElement[];
-    private currentFrame = 0;
+    private currentFrame: number;
     private frameTimer = 0;
     private _finished = false;
     private fallbackSize: number;
+    // C++ trail physics: velocity + gravity
+    private vx: number;
+    private vy: number;
+    private gravity: number;
 
-    constructor(x: number, y: number, type: 'small' | 'big', frames: HTMLImageElement[]) {
+    constructor(
+        x: number, y: number, type: 'small' | 'big', frames: HTMLImageElement[],
+        vx = 0, vy = 0, gravity = 0, frameDelay = 0,
+    ) {
         this.x = x;
         this.y = y;
         this.type = type;
         this.frames = frames;
         this.fallbackSize = type === 'big' ? 64 : 32;
+        this.vx = vx;
+        this.vy = vy;
+        this.gravity = gravity;
+        // C++ negative frame = delay before animation starts
+        this.currentFrame = -frameDelay;
     }
 
     update(dt: number): void {
         if (this._finished) return;
 
-        this.frameTimer += dt * 1000;
+        // Move along trajectory (C++ velocity + gravity)
+        const dtMs = dt * 1000;
+        if (this.vx !== 0 || this.vy !== 0) {
+            this.x += this.vx * dt * 60;
+            this.y += this.vy * dt * 60;
+            this.vy += this.gravity * dt * 60;
+        }
+
+        this.frameTimer += dtMs;
         while (this.frameTimer >= FRAME_INTERVAL_MS) {
             this.frameTimer -= FRAME_INTERVAL_MS;
             this.currentFrame++;
@@ -43,10 +63,11 @@ export class Explosion {
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
-        if (this._finished) return;
+        if (this._finished || this.currentFrame < 0) return;
 
         // Additive glow behind explosion — original uses glColor4f(5,2,0,0.15) + additive
-        const progress = this.currentFrame / (this.frames.length || FRAME_COUNT);
+        const frameIdx = Math.max(0, this.currentFrame);
+        const progress = frameIdx / (this.frames.length || FRAME_COUNT);
         const glowAlpha = 0.15 * (1 - progress);
         if (glowAlpha > 0.01) {
             ctx.save();
@@ -61,8 +82,8 @@ export class Explosion {
             ctx.restore();
         }
 
-        if (this.frames.length > 0 && this.currentFrame < this.frames.length) {
-            const img = this.frames[this.currentFrame];
+        if (this.frames.length > 0 && frameIdx < this.frames.length) {
+            const img = this.frames[frameIdx];
             ctx.drawImage(img, this.x - img.width / 2, this.y - img.height / 2);
         } else {
             // Fallback: expanding orange circle with additive glow
