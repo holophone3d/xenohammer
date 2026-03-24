@@ -26,9 +26,10 @@ import { Explosion, ChainExplosion } from './Explosion';
 const BOSS_START_X = 245;
 const BOSS_START_Y = -600;
 const BOSS_HOVER_Y = -50;           // C++: boss stops at y=-50
-const BOSS_DESCENT_SPEED = 50;      // px/s (C++ ~60px/s at 60fps, frame-dependent)
+const BOSS_DESCENT_SPEED = 50;      // px/s (C++ ~60px/s due to nLastMove drift)
 const BOSS_WAIT_TIME = 110_000;     // ms before boss enters
 const BOSS_MUSIC_TIME = 96_000;     // ms before boss music starts
+const MORPH_TICK_MS = 10;           // ms per 1px morph step (C++ is 100ms but feels too slow)
 
 const ORB_FRAME_COUNT = 33;         // orb00–orb32
 const ORB_ANIM_SPEED = 60;          // ms per frame
@@ -651,8 +652,9 @@ export class Boss {
             for (let i = 0; i < 8; i++) {
                 const ai = this.outerTurretAIs[i];
                 if (ai.destroyed) continue;
-                const tx = this.x + ai.offsetX + 32; // center of 64×64 turret
-                const ty = this.y + ai.offsetY + 32;
+                // C++: turret position = boss + turret_offset + 16 (not center)
+                const tx = this.x + ai.offsetX + 16;
+                const ty = this.y + ai.offsetY + 16;
                 const result = this.runTurretAI(ai, playerX, playerY, tx, ty);
                 if (result.fire) {
                     this.fireTurret(ai.frame, tx, ty);
@@ -665,8 +667,8 @@ export class Boss {
             for (let i = 0; i < 6; i++) {
                 const ai = this.uTurretAIs[i];
                 if (ai.destroyed) continue;
-                const tx = this.x + ai.offsetX + 32;
-                const ty = this.y + ai.offsetY + 32;
+                const tx = this.x + ai.offsetX + 16;
+                const ty = this.y + ai.offsetY + 16;
                 const result = this.runTurretAI(ai, playerX, playerY, tx, ty);
                 if (result.fire) {
                     this.fireTurret(ai.frame, tx, ty);
@@ -800,10 +802,10 @@ export class Boss {
         const bob = Math.sin(this.stateTimer * 0.5) * 3;
         this.y = BOSS_HOVER_Y + bob;
 
-        // C++ 1px/100ms  matching original timing
+        // Move U-pieces at MORPH_TICK_MS per pixel step
         this.morphTickAccum += dt * 1000;
-        while (this.morphTickAccum >= 100) {
-            this.morphTickAccum -= 100;
+        while (this.morphTickAccum >= MORPH_TICK_MS) {
+            this.morphTickAccum -= MORPH_TICK_MS;
 
             if (this.state === BossState.Morph1) {
                 // Move U-pieces straight down
