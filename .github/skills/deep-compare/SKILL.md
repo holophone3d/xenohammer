@@ -582,24 +582,41 @@ For complex systems (like boss), break into sub-audits:
     ACCEL_RATE=100ms, FAI_FIRE_RATE=3000ms, SCREEN_TIME=60000ms. Nose fires only
     within 64px x-alignment. Shortest-path turning with frame wrapping.
 
+26. **C++ template indirection swaps sprite names** — `GameManager.cpp:395-401`:
+    `CapShipRtTemplate->add_frame("CapShipLt")` and vice versa. The TEMPLATE name
+    indicates POSITION (Rt = right wing at x=-62), but it loads the OPPOSITE sprite.
+    Always verify which sprite file is loaded, not just the template/component name.
+    This also applies to destroyed variants (CapShipRtDest ↔ CapShipLtDest).
+
+27. **Frigate has TWO different weapon types** — Nose = ENEMYCANNON (damage = 4×5 = 20,
+    power_cell_2 = 8, frame index 7 = biggest blast, sound = AlienWeapon1 at 50% vol).
+    Turrets = ENEMYBLASTER (damage = 3×5 = 15, power_cell_2 = 4, frame index 3,
+    sound = AlienWeapon5 at 100% vol). Both use the same 8-frame enemyFireTemplate
+    sprite sheet but different frame indices for different blast sizes.
+
+28. **Weapon fire positions include weapon offsets** — C++ `weapon->fire(x + cos*24 + offset_x,
+    y + -sin*24 + offset_y)`. The weapon offset positions the projectile at the actual
+    muzzle, not the frigate center. Turret1 offset = (-31, 53), Turret2 = (95, 53),
+    NoseBlaster = (32, 212). Missing offsets cause projectiles to spawn from wrong location.
+
 ### Development Process
 
-26. **Don't trust documentation or assumptions** — Read the C++ every single time.
+29. **Don't trust documentation or assumptions** — Read the C++ every single time.
     Every "I think I know what it does" has been wrong at least once.
 
-27. **Rogue background agents** — Stale async agents can complete after main work and
+30. **Rogue background agents** — Stale async agents can complete after main work and
     commit changes that overwrite current state. Always verify commits before accepting.
     If a bad commit lands, `git reset --hard` to known good commit.
 
-28. **File deletion during editing** — The edit tool on Windows can sometimes corrupt
+31. **File deletion during editing** — The edit tool on Windows can sometimes corrupt
     or delete files mid-edit. Always verify file exists after edits. Restore via
     `git checkout -- <file>` if lost.
 
-29. **Test with Puppeteer after EVERY change** — `node debug.mjs` captures 13
+32. **Test with Puppeteer after EVERY change** — `node debug.mjs` captures 13
     screenshots through the full game flow. Compare against reference screenshots.
     Visual bugs are immediately obvious in screenshots.
 
-30. **SPEC.md is the living document** — When C++ analysis reveals new details, update
+33. **SPEC.md is the living document** — When C++ analysis reveals new details, update
     SPEC.md FIRST, then implement. This prevents re-discovering the same facts in
     future sessions.
 
