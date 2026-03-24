@@ -307,10 +307,11 @@ export class CapitalShip {
             } catch { /* no sprite */ }
         }
 
-        // C++ ENEMYBLASTER damage = 3 * ENEMY_DAMAGE_1(5) = 15
+        // C++ ENEMYBLASTER Projectile constructor: dx = _dx * 2, dy = _dy * 2
+        // Turret passes (xOff/2, yOff/2) → doubled = (xOff, yOff)
         const proj = new Projectile(
             spawnX, spawnY,
-            xOff / 2, yOff / 2,
+            xOff, yOff,
             15, 'enemy', sprite, 'enemyBlast',
         );
         this.pendingProjectiles.push(proj);
@@ -343,10 +344,10 @@ export class CapitalShip {
             } catch { /* no sprite */ }
         }
 
-        // C++ ENEMYCANNON damage = 4 * ENEMY_DAMAGE_1(5) = 20
+        // C++ ENEMYCANNON Projectile constructor: hardcodes dx=0, dy=21 (ignores passed args!)
         const proj = new Projectile(
             spawnX, spawnY,
-            0, FAI_MAX_SPEED,
+            0, 21,
             20, 'enemy', sprite, 'enemyCannon',
         );
         this.pendingProjectiles.push(proj);
