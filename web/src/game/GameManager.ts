@@ -544,7 +544,7 @@ export class GameManager {
                 speed: 8, life: 0.1, fade: 3, direction: Math.PI / 2, spread: 0.3,
             });
 
-            // Capital ship death: spawn 8 explosions, add score
+            // Capital ship death: C++ Frigate::destroy_ship() — 8× MakeExplosions
             if (ship.justDied) {
                 ship.justDied = false;
                 this.score += ENEMY_SCORES['frigate'] ?? 2000;
@@ -552,12 +552,16 @@ export class GameManager {
                 try { this.audio.playSound('ExploMini1'); } catch { /* skip */ }
 
                 for (const pt of ship.getExplosionPoints()) {
-                    this.gameExplosions.push(new Explosion(pt.x, pt.y, 'big', this.bigExpFrames));
-                    this.particles.emit(pt.x, pt.y, 20, {
-                        color: { r: 1, g: 0.6, b: 0.1 }, speed: 100, life: 0.8, fade: 1.5,
-                    });
+                    this.makeExplosions(pt.x, pt.y, ship.vx, ship.vy);
                 }
             }
+
+            // C++ ShipComponent::destroy_ship() — sound + explosion per component death
+            for (const cd of ship.pendingComponentDestructions) {
+                this.makeExplosions(cd.x, cd.y, ship.vx, ship.vy);
+                try { this.audio.playSound('ExploMini1'); } catch { /* skip */ }
+            }
+            ship.pendingComponentDestructions = [];
         }
         // Clean up dead capital ships
         this.capitalShips = this.capitalShips.filter(s => s.isAlive());
@@ -582,6 +586,11 @@ export class GameManager {
                 this.particles.emit(pe.x, pe.y, pe.count, {
                     color: { r: 1, g: 0.6, b: 0.1 }, speed: 100, life: 0.8, fade: 1.5,
                 });
+            }
+
+            // Boss sound emission requests (C++: Sound::playExplosionSound() on component destruction)
+            for (const snd of this.boss.getSoundEmits()) {
+                try { this.audio.playSound(snd); } catch { /* skip */ }
             }
         }
 
@@ -759,21 +768,71 @@ export class GameManager {
         this.score += ENEMY_SCORES[enemy.type] ?? 100;
         if (this.player) this.player.kills++;
 
-        const frames = enemy.config.explosionType === 'large' ? this.bigExpFrames : this.smallExpFrames;
         const cx = enemy.x + enemy.width / 2;
         const cy = enemy.y + enemy.height / 2;
-        this.gameExplosions.push(new Explosion(cx, cy,
-            enemy.config.explosionType === 'large' ? 'big' : 'small', frames));
 
-        const count = enemy.config.explosionType === 'large' ? 30 : 15;
+        // C++ EnemyShip::destroy_ship() — per-type explosion positions
+        if (enemy.type === 'gunship') {
+            // 3× MakeExplosions: center, left engine, right engine
+            this.makeExplosions(cx, cy, enemy.vx, enemy.vy);
+            this.makeExplosions(
+                enemy.x + enemy.width / 3, enemy.y + enemy.height - 5,
+                enemy.vx, enemy.vy);
+            this.makeExplosions(
+                enemy.x + enemy.width - 15, enemy.y + enemy.height - 5,
+                enemy.vx, enemy.vy);
+        } else {
+            // LightFighter, FighterB: 1× MakeExplosions at center
+            this.makeExplosions(cx, cy, enemy.vx, enemy.vy);
+        }
+
+        // Particles supplement the trail system
+        const count = enemy.type === 'gunship' ? 30 : 15;
         this.particles.emit(cx, cy, count, {
             color: { r: 1, g: 0.6, b: 0.1 }, speed: 100, life: 0.8, fade: 1.5,
         });
 
+        // C++: Sound::playExplosionSound() — once per destroy_ship() call
         try { this.audio.playSound('ExploMini1'); } catch { /* skip */ }
 
         const pu = PowerUp.tryDrop(enemy.x, enemy.y, enemy.config.powerUpDropChance, this.assets);
         if (pu) this.gamePowerUps.push(pu);
+    }
+
+    /**
+     * C++ explosionGenerator::MakeExplosions() — trail explosion system.
+     * 5 trails × 4 small explosions + 1 big center = 21 per call.
+     * Trail positions are pre-calculated along parabolic arcs (gravity applied
+     * during generation, NOT at runtime). Each explosion drifts at half the
+     * source velocity using VELOCITY_DIVISOR scaling.
+     */
+    private makeExplosions(sourceX: number, sourceY: number, dx: number, dy: number): void {
+        const TRAIL_COUNT = 5;
+        const TRAIL_LENGTH = 4;
+        const EXPLOSION_SIZE = 32;
+        const GRAVITY = EXPLOSION_SIZE / 16; // 2.0
+
+        for (let trail = 0; trail < TRAIL_COUNT; trail++) {
+            const dir = Math.random() * Math.PI * 2;
+            const speed = (Math.random() + 0.5) * (EXPLOSION_SIZE / 4); // 4–12
+            let tvx = speed * Math.cos(dir);
+            let tvy = -speed * Math.sin(dir);
+            let px = sourceX;
+            let py = sourceY;
+
+            for (let t = 0; t < TRAIL_LENGTH; t++) {
+                px += tvx;
+                py += tvy;
+                tvy += GRAVITY;
+                const delay = t * 2; // C++: set_curr_frame(-explosionnum*2)
+                this.gameExplosions.push(
+                    new Explosion(px, py, 'small', this.smallExpFrames, dx / 2, dy / 2, 0, delay));
+            }
+        }
+
+        // Big center explosion (C++: SourceX-48, SourceY-48 = top-left of 96px sprite → web draws centered)
+        this.gameExplosions.push(
+            new Explosion(sourceX, sourceY, 'big', this.bigExpFrames, dx / 4, dy / 4));
     }
 
     private applyPowerUp(pu: PowerUp): void {

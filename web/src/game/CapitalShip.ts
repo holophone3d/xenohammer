@@ -108,11 +108,14 @@ export class CapitalShip {
 
     private pendingProjectiles: Projectile[] = [];
     private assets: AssetLoader | null = null;
+    // Component destruction events for GameManager (sound + explosions)
+    pendingComponentDestructions: Array<{ x: number; y: number }> = [];
 
     // --- FrigateAI state (ported from FrigateAI.cpp) ---
     private aiState = FrigateAIState.ENTERING_SCREEN;
-    private vx = 0;
-    private vy = FAI_MAX_SPEED;  // start descending at max speed
+    /** Velocity — public for explosion trail system */
+    vx = 0;
+    vy = FAI_MAX_SPEED;  // start descending at max speed
     private accelAccum = 0;      // accumulated ms for physics ticks
     private lastAccelTime = 0;
     private lastNoseFireTime = 0;
@@ -587,10 +590,18 @@ export class CapitalShip {
 
         if (!best) return null;
 
+        const wasAlive = best.alive;
         best.armor -= damage;
         if (best.armor <= 0) {
             best.armor = 0;
             best.alive = false;
+        }
+
+        // C++ ShipComponent::destroy_ship() — explosion + sound on component death
+        if (wasAlive && !best.alive) {
+            const cx = this.x + best.offsetX + best.width / 2;
+            const cy = this.y + best.offsetY + best.height / 2;
+            this.pendingComponentDestructions.push({ x: cx, y: cy });
         }
 
         this.updateDamageableFlags();

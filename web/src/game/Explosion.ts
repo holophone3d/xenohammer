@@ -6,6 +6,7 @@
  */
 
 import { AssetLoader } from '../engine';
+import { VELOCITY_DIVISOR } from '../data/ships';
 
 const FRAME_COUNT = 16;
 const FRAME_INTERVAL_MS = 20;
@@ -43,12 +44,13 @@ export class Explosion {
     update(dt: number): void {
         if (this._finished) return;
 
-        // Move along trajectory (C++ velocity + gravity)
+        // Move along trajectory — uses VELOCITY_DIVISOR scaling to match C++ show()
         const dtMs = dt * 1000;
         if (this.vx !== 0 || this.vy !== 0) {
-            this.x += this.vx * dt * 60;
-            this.y += this.vy * dt * 60;
-            this.vy += this.gravity * dt * 60;
+            const moveScale = dtMs / VELOCITY_DIVISOR;
+            this.x += this.vx * moveScale;
+            this.y += this.vy * moveScale;
+            this.vy += this.gravity * moveScale;
         }
 
         this.frameTimer += dtMs;

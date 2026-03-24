@@ -330,6 +330,8 @@ export class Boss {
     private bigExpFrames: HTMLImageElement[] = [];
     // Particle emission requests for GameManager
     private pendingParticleEmits: Array<{ x: number; y: number; count: number }> = [];
+    // Sound requests for GameManager (C++: Sound::playExplosionSound() on component destruction)
+    private pendingSoundEmits: string[] = [];
 
     // C++ GL_Handler pulsing alpha values
     private warningAlpha = 1.0;
@@ -1094,6 +1096,12 @@ export class Boss {
         return emits;
     }
 
+    getSoundEmits(): string[] {
+        const sounds = this.pendingSoundEmits;
+        this.pendingSoundEmits = [];
+        return sounds;
+    }
+
     getComponentRects(): Array<{ rect: Rect; component: BossComponent }> {
         if (this.state === BossState.Waiting || this.state === BossState.Entering ||
             this.state === BossState.Dying  || this.state === BossState.Dead) {
@@ -1299,6 +1307,9 @@ export class Boss {
      * After spawning, particles inherit source velocity (boss dx/dy ≈ 0).
      */
     private spawnExplosion(x: number, y: number, _type: 'small' | 'big'): void {
+        // C++: Sound::playExplosionSound() on every component destruction
+        this.pendingSoundEmits.push('ExploMini1');
+
         // Big center explosion (C++: at SourceX-48, SourceY-48, velocity=dx/4)
         this.componentExplosions.push(
             new Explosion(x, y, 'big', this.bigExpFrames));
