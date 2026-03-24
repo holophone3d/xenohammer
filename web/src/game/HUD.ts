@@ -63,66 +63,62 @@ export class HUD {
 
         if (!player) return;
 
-        // Rank — centered at (725, 0)
+        // Vertical offset — shift all HUD text/cells down to align with console sprite
+        const dy = 12;
+
+        // Rank — centered at top of panel
         const rank = this.getRank(kills);
         ctx.font = '12px XenoFont, monospace';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#0f0';
-        ctx.fillText(rank, 725, 12);
+        ctx.fillText(rank, 725, 12 + dy);
         ctx.textAlign = 'left';
 
-        // Power cell bars (4×2px green) — positions from Console.h
+        // Power cell bars (4×2px green) — positions from Console.h + offset
         ctx.fillStyle = '#0f0';
-        // Blaster rate/power at (719, 52) and (729, 52)
-        this.drawCellBars(ctx, 719, 52, player.powerPlant.getBlasterRateCells());
-        this.drawCellBars(ctx, 729, 52, player.powerPlant.getBlasterPowerCells());
-        // Left turret at (668, 80) and (678, 80)
-        this.drawCellBars(ctx, 668, 80, player.powerPlant.getLeftTurretRateCells());
-        this.drawCellBars(ctx, 678, 80, player.powerPlant.getLeftTurretPowerCells());
-        // Right turret at (768, 80) and (778, 80)
-        this.drawCellBars(ctx, 768, 80, player.powerPlant.getRightTurretRateCells());
-        this.drawCellBars(ctx, 778, 80, player.powerPlant.getRightTurretPowerCells());
-        // Left missile at (698, 83) and (708, 83)
-        this.drawCellBars(ctx, 698, 83, player.powerPlant.getLeftMissileRateCells());
-        this.drawCellBars(ctx, 708, 83, player.powerPlant.getLeftMissilePowerCells());
-        // Right missile at (738, 83) and (748, 83)
-        this.drawCellBars(ctx, 738, 83, player.powerPlant.getRightMissileRateCells());
-        this.drawCellBars(ctx, 748, 83, player.powerPlant.getRightMissilePowerCells());
-        // Ship shield/engine at (718, 122) and (728, 122)
-        this.drawCellBars(ctx, 718, 122, player.powerPlant.getShieldCells());
-        this.drawCellBars(ctx, 728, 122, player.powerPlant.getEngineCells());
+        this.drawCellBars(ctx, 719, 52 + dy, player.powerPlant.getBlasterRateCells());
+        this.drawCellBars(ctx, 729, 52 + dy, player.powerPlant.getBlasterPowerCells());
+        this.drawCellBars(ctx, 668, 80 + dy, player.powerPlant.getLeftTurretRateCells());
+        this.drawCellBars(ctx, 678, 80 + dy, player.powerPlant.getLeftTurretPowerCells());
+        this.drawCellBars(ctx, 768, 80 + dy, player.powerPlant.getRightTurretRateCells());
+        this.drawCellBars(ctx, 778, 80 + dy, player.powerPlant.getRightTurretPowerCells());
+        this.drawCellBars(ctx, 698, 83 + dy, player.powerPlant.getLeftMissileRateCells());
+        this.drawCellBars(ctx, 708, 83 + dy, player.powerPlant.getLeftMissilePowerCells());
+        this.drawCellBars(ctx, 738, 83 + dy, player.powerPlant.getRightMissileRateCells());
+        this.drawCellBars(ctx, 748, 83 + dy, player.powerPlant.getRightMissilePowerCells());
+        this.drawCellBars(ctx, 718, 122 + dy, player.powerPlant.getShieldCells());
+        this.drawCellBars(ctx, 728, 122 + dy, player.powerPlant.getEngineCells());
 
-        // Kills — at (660, 130), count right-aligned at (790, 130)
+        // Kills
         ctx.font = '12px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
-        ctx.fillText('Kills', 660, 130);
+        ctx.fillText('Kills', 660, 130 + dy);
         ctx.textAlign = 'right';
-        ctx.fillText(kills.toString(), 790, 130);
+        ctx.fillText(kills.toString(), 790, 130 + dy);
         ctx.textAlign = 'left';
 
-        // Power settings — between green separator lines (y≈140–265)
-        // C++ uses 30px spacing: 190, 220, 250
+        // Power settings (30px spacing)
         const setting = player.powerPlant.currentSetting;
         const settingLabels = ["speed setting 'Q'", "power setting 'W'", "armor setting 'E'"];
-        const settingY = [190, 220, 250];
+        const settingY = [190 + dy, 220 + dy, 250 + dy];
         ctx.font = '12px XenoFont, monospace';
         for (let i = 0; i < 3; i++) {
             ctx.fillStyle = setting === i ? '#0f0' : '#9b9b9b';
             ctx.fillText(settingLabels[i], 660, settingY[i]);
         }
 
-        // RU's — at (660, 280)
+        // RU's
         ctx.font = '12px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
-        ctx.fillText("RU's", 660, 280);
-        ctx.fillText(player.powerPlant.resourceUnits.toString(), 700, 280);
+        ctx.fillText("RU's", 660, 280 + dy);
+        ctx.fillText(player.powerPlant.resourceUnits.toString(), 700, 280 + dy);
 
-        // Shield/Armor labels at y=335
+        // Shield/Armor labels
         ctx.font = '12px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.textAlign = 'center';
-        ctx.fillText('Shields', 688, 335);
-        ctx.fillText('Armor', 760, 335);
+        ctx.fillText('Shields', 688, 335 + dy);
+        ctx.fillText('Armor', 760, 335 + dy);
         ctx.textAlign = 'left';
 
         // Shield bar (grows upward from y=565) — dynamic color
