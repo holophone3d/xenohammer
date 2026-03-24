@@ -149,9 +149,6 @@ export class GameManager {
         this.player = new Player();
         this.player.loadSprite(this.assets);
 
-        // Restore persisted settings (power cells, research, kills, RU)
-        this.loadSettings();
-
         this.state = GameState.StartScreen;
     }
 
@@ -1000,12 +997,14 @@ export class GameManager {
     private updateGameOver(dt: number): void {
         this.stateTimer += dt;
         if (this.stateTimer >= 4) {
-            // Full reset — new game after death (C++ creates fresh player on new game)
+            // Death returns to Ready Room with all stats intact (like C++ game_reset)
             this.score = 0;
             this.level = 0;
-            this.player = new Player();
-            this.clearSave();
-            this.state = this.started ? GameState.ReadyRoom : GameState.StartScreen;
+            if (this.player) {
+                this.player.shields = this.player.maxShields;
+                this.player.armor = this.player.maxArmor;
+            }
+            this.state = GameState.ReadyRoom;
         }
     }
 
@@ -1149,11 +1148,16 @@ export class GameManager {
                 this.state = GameState.BriefingSubmenu;
             } else if (newHover === 1) {
                 try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
-                this.optionsSaveTooltip = 'Save Done';
+                this.saveGame();
+                this.optionsSaveTooltip = 'Game Saved';
                 this.optionsSaveTooltipTimer = 2;
             } else if (newHover === 2) {
                 try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
-                this.optionsSaveTooltip = 'Load Done';
+                if (this.loadGame()) {
+                    this.optionsSaveTooltip = 'Game Loaded';
+                } else {
+                    this.optionsSaveTooltip = 'No Save Found';
+                }
                 this.optionsSaveTooltipTimer = 2;
             } else if (newHover === 3) {
                 try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
@@ -1568,7 +1572,6 @@ export class GameManager {
             try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
             this.player.shields = 300;
             this.player.armor = 300;
-            this.saveSettings();
             this.state = GameState.ReadyRoom;
             return;
         }
@@ -2043,17 +2046,20 @@ export class GameManager {
         }
     }
 
-    // ========== Settings Persistence (localStorage) ==========
+    // ========== Save / Load (explicit, menu-driven only) ==========
 
     private static readonly SAVE_KEY = 'xenohammer_save';
 
-    private saveSettings(): void {
+    private saveGame(): void {
         if (!this.player) return;
         const data = {
+            score: this.score,
+            level: this.level,
+            difficulty: this.difficulty,
+            kills: this.player.kills,
             settings: this.player.powerPlant.settings,
             currentSetting: this.player.powerPlant.currentSetting,
             resourceUnits: this.player.powerPlant.resourceUnits,
-            kills: this.player.kills,
             turretAngleAvailable: this.turretAngleAvailable,
             isHomingResearched: this.isHomingResearched,
         };
@@ -2062,12 +2068,17 @@ export class GameManager {
         } catch { /* storage full or unavailable */ }
     }
 
-    private loadSettings(): void {
-        if (!this.player) return;
+    /** Returns true if a save was found and loaded. */
+    private loadGame(): boolean {
+        if (!this.player) return false;
         try {
             const raw = localStorage.getItem(GameManager.SAVE_KEY);
-            if (!raw) return;
+            if (!raw) return false;
             const data = JSON.parse(raw);
+            if (typeof data.score === 'number') this.score = data.score;
+            if (typeof data.level === 'number') this.level = data.level;
+            if (typeof data.difficulty === 'number') this.difficulty = data.difficulty;
+            if (typeof data.kills === 'number') this.player.kills = data.kills;
             if (data.settings && Array.isArray(data.settings) && data.settings.length === 3) {
                 this.player.powerPlant.settings = data.settings;
             }
@@ -2077,20 +2088,17 @@ export class GameManager {
             if (typeof data.resourceUnits === 'number') {
                 this.player.powerPlant.resourceUnits = data.resourceUnits;
             }
-            if (typeof data.kills === 'number') {
-                this.player.kills = data.kills;
-            }
             if (typeof data.turretAngleAvailable === 'boolean') {
                 this.turretAngleAvailable = data.turretAngleAvailable;
             }
             if (typeof data.isHomingResearched === 'boolean') {
                 this.isHomingResearched = data.isHomingResearched;
             }
-        } catch { /* corrupt or missing save data */ }
-    }
-
-    private clearSave(): void {
-        try { localStorage.removeItem(GameManager.SAVE_KEY); } catch { /* unavailable */ }
+            // Restore full health after load
+            this.player.shields = this.player.maxShields;
+            this.player.armor = this.player.maxArmor;
+            return true;
+        } catch { return false; }
     }
 
     // ========== DEBUG: Backtick (`) menu ==========
