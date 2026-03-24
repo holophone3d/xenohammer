@@ -599,24 +599,37 @@ For complex systems (like boss), break into sub-audits:
     muzzle, not the frigate center. Turret1 offset = (-31, 53), Turret2 = (95, 53),
     NoseBlaster = (32, 212). Missing offsets cause projectiles to spawn from wrong location.
 
+29. **C++ power_MUX is non-linear, NOT the cell value** — `PowerPlant::get_power_MUX()`
+    returns: {0→1.0, 1→1.5, 2→2.0, 3→2.5, 4→3.0, 5→5.0, >5→value itself}.
+    Damage formula: `BASE_DAMAGE * get_power_MUX(power_cell_2)`. Fire rate:
+    `BASE_DELAY / get_power_MUX(power_cell_1)`. Using raw cell value gives wrong scaling.
+
+30. **ENEMYBLASTER (type 4) DOUBLES passed velocity** — Projectile constructor:
+    `dx = _dx * 2, dy = _dy * 2`. When turrets pass `(xOff/2, yOff/2)`, actual velocity
+    = `(xOff, yOff)`. Web must account for this doubling at the call site since it doesn't
+    have type-specific logic in the Projectile class.
+
+31. **ENEMYCANNON (type 5) HARDCODES velocity** — `dx=0, dy=21` regardless of passed args.
+    Nose weapon `fire(x, y, 0, FAI_MAX_SPEED)` — the velocity params are completely ignored.
+
 ### Development Process
 
-29. **Don't trust documentation or assumptions** — Read the C++ every single time.
+32. **Don't trust documentation or assumptions** — Read the C++ every single time.
     Every "I think I know what it does" has been wrong at least once.
 
-30. **Rogue background agents** — Stale async agents can complete after main work and
+33. **Rogue background agents** — Stale async agents can complete after main work and
     commit changes that overwrite current state. Always verify commits before accepting.
     If a bad commit lands, `git reset --hard` to known good commit.
 
-31. **File deletion during editing** — The edit tool on Windows can sometimes corrupt
+34. **File deletion during editing** — The edit tool on Windows can sometimes corrupt
     or delete files mid-edit. Always verify file exists after edits. Restore via
     `git checkout -- <file>` if lost.
 
-32. **Test with Puppeteer after EVERY change** — `node debug.mjs` captures 13
+35. **Test with Puppeteer after EVERY change** — `node debug.mjs` captures 13
     screenshots through the full game flow. Compare against reference screenshots.
     Visual bugs are immediately obvious in screenshots.
 
-33. **SPEC.md is the living document** — When C++ analysis reveals new details, update
+36. **SPEC.md is the living document** — When C++ analysis reveals new details, update
     SPEC.md FIRST, then implement. This prevents re-discovering the same facts in
     future sessions.
 
