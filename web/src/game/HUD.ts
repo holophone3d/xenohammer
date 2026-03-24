@@ -63,9 +63,9 @@ export class HUD {
 
         if (!player) return;
 
-        // Rank — centered at (725, 0) per original (bitmap font ~10px)
+        // Rank — centered at (725, 0)
         const rank = this.getRank(kills);
-        ctx.font = '10px XenoFont, monospace';
+        ctx.font = '12px XenoFont, monospace';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#0f0';
         ctx.fillText(rank, 725, 12);
@@ -93,31 +93,32 @@ export class HUD {
         this.drawCellBars(ctx, 728, 122, player.powerPlant.getEngineCells());
 
         // Kills — at (660, 130), count right-aligned at (790, 130)
-        ctx.font = '10px XenoFont, monospace';
+        ctx.font = '12px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.fillText('Kills', 660, 130);
         ctx.textAlign = 'right';
         ctx.fillText(kills.toString(), 790, 130);
         ctx.textAlign = 'left';
 
-        // Power settings — active = bright green, inactive = dimmed
+        // Power settings — between green separator lines (y≈140–265)
+        // C++ uses 30px spacing: 190, 220, 250
         const setting = player.powerPlant.currentSetting;
         const settingLabels = ["speed setting 'Q'", "power setting 'W'", "armor setting 'E'"];
         const settingY = [190, 220, 250];
-        ctx.font = '10px XenoFont, monospace';
+        ctx.font = '12px XenoFont, monospace';
         for (let i = 0; i < 3; i++) {
             ctx.fillStyle = setting === i ? '#0f0' : '#9b9b9b';
             ctx.fillText(settingLabels[i], 660, settingY[i]);
         }
 
         // RU's — at (660, 280)
-        ctx.font = '10px XenoFont, monospace';
+        ctx.font = '12px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.fillText("RU's", 660, 280);
         ctx.fillText(player.powerPlant.resourceUnits.toString(), 700, 280);
 
         // Shield/Armor labels at y=335
-        ctx.font = '10px XenoFont, monospace';
+        ctx.font = '12px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.textAlign = 'center';
         ctx.fillText('Shields', 688, 335);
