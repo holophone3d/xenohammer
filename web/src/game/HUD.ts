@@ -90,22 +90,22 @@ export class HUD {
         // Right missile at (738, 83) and (748, 83)
         this.drawCellBars(ctx, 738, 83, player.powerPlant.getRightMissileRateCells());
         this.drawCellBars(ctx, 748, 83, player.powerPlant.getRightMissilePowerCells());
-        // Ship shield/engine at (668, 122) and (678, 122)
-        this.drawCellBars(ctx, 668, 122, player.powerPlant.getShieldCells());
-        this.drawCellBars(ctx, 678, 122, player.powerPlant.getEngineCells());
+        // Ship shield/engine at (718, 122) and (728, 122)
+        this.drawCellBars(ctx, 718, 122, player.powerPlant.getShieldCells());
+        this.drawCellBars(ctx, 728, 122, player.powerPlant.getEngineCells());
 
         // Kills — at (660, 130), count right-aligned at (790, 130)
         ctx.font = '12px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
-        ctx.fillText('Kills', 660, 140);
+        ctx.fillText('Kills', 660, 130);
         ctx.textAlign = 'right';
-        ctx.fillText(kills.toString(), 790, 140);
+        ctx.fillText(kills.toString(), 790, 130);
         ctx.textAlign = 'left';
 
         // Power settings — active = bright green, inactive = dimmed
         const setting = player.powerPlant.currentSetting;
         const settingLabels = ["speed setting 'Q'", "power setting 'W'", "armor setting 'E'"];
-        const settingY = [195, 215, 235];
+        const settingY = [190, 220, 250];
         ctx.font = '12px XenoFont, monospace';
         for (let i = 0; i < 3; i++) {
             ctx.fillStyle = setting === i ? '#0f0' : '#9b9b9b';
@@ -116,14 +116,14 @@ export class HUD {
         ctx.font = '12px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.fillText("RU's", 660, 280);
-        ctx.fillText(player.powerPlant.resourceUnits.toString(), 695, 280);
+        ctx.fillText(player.powerPlant.resourceUnits.toString(), 700, 280);
 
         // Shield/Armor labels at y=335
         ctx.font = '12px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.textAlign = 'center';
-        ctx.fillText('Shields', 688, 340);
-        ctx.fillText('Armor', 760, 340);
+        ctx.fillText('Shields', 688, 335);
+        ctx.fillText('Armor', 760, 335);
         ctx.textAlign = 'left';
 
         // Speed ship animation area
@@ -138,37 +138,29 @@ export class HUD {
         this.drawHealthBar(ctx, ARMOR_BAR_X, ARMOR_BAR_Y, BAR_W, player.armor, player.maxArmor);
     }
 
-    /** Draw health bar with dynamic green→yellow→red color from original C++ formula. */
+    /** Draw health bar with dynamic green→yellow→red color from original C++ formula.
+     *  C++ draws directly on console texture with no background or border. */
     private drawHealthBar(
         ctx: CanvasRenderingContext2D,
         x: number, y: number, w: number,
         value: number, max: number,
     ): void {
         // Bar height: value * 0.666 per original (300 HP → 200px)
-        const maxBarH = Math.floor(max * 0.666);
         const fillH = Math.floor(value * 0.666);
 
-        // Background
-        ctx.fillStyle = '#111';
-        ctx.fillRect(x, y - maxBarH, w, maxBarH);
-
-        // Fill (grows upward from bottom) with dynamic color
+        // Fill (grows upward from bottom) with dynamic color — no background, no border
         if (fillH > 0) {
             ctx.fillStyle = getBarColor(value);
             ctx.fillRect(x, y - fillH, w, fillH);
         }
-
-        // Border — pink/magenta outline matching reference screenshots
-        ctx.strokeStyle = '#c060a0';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x, y - maxBarH, w, maxBarH);
     }
 
-    /** Draw power cell bars — small 4×4px green blocks stacked upward. */
+    /** Draw power cell bars — 4×2px green blocks stacked upward (4px stride).
+     *  C++ formula: fill_rect(X, Y-((i*4)+2), X+4, (Y-(i*4))-4) → 2px tall, 2px gap. */
     private drawCellBars(ctx: CanvasRenderingContext2D, x: number, y: number, cells: number): void {
         ctx.fillStyle = '#0f0';
         for (let i = 0; i < cells; i++) {
-            ctx.fillRect(x, y - (i * 6 + 2), 4, 4);
+            ctx.fillRect(x, y - (i * 4 + 4), 4, 2);
         }
     }
 
