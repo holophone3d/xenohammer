@@ -514,119 +514,381 @@ Angles snap to the nearest 45° before lookup. Default turret angles: Left=135°
 
 ---
 
-## 8. Boss (Type 4)
+## 8. Boss (Type 4) — Authoritative Reference
 
-### Overview
+> **Source of truth:** This section was compiled from a line-by-line audit of
+> `Boss.cpp` (constructor lines 27–256, state machine lines 684–778,
+> collision lines 501–540, destruction lines 575–664) and
+> `GL_Handler.cpp` (energy effects lines 328–534).
+> All positions, armor values, AI configs, and state transitions are
+> verified against the original C++ source.
+
+### 8.1 Overview
+
+| Property | C++ Value | Notes |
+|----------|-----------|-------|
+| Starting Position | (245, −600) — offscreen above | Set by GameManager |
+| Hover Position | Y = −50 | `y == -50` triggers BOSS_NORMAL |
+| Entering Speed | 1 px / 100ms = **10 px/s** | Tick-based: `y++` every 100ms |
+| Wait Time | 110,000ms (110 seconds into level) | `BOSS_WAIT = 110000` |
+| Boss Music Trigger | 96 seconds (BOSS_WAIT − 14000ms) | `BossNear1` + background music |
+| Orb Animation Interval | 60ms per frame | `nLastOrbUpdate` |
+| Difficulty HP Offset | Easy=−200, Medium=0, Hard=+200, ExtremelyHard=+1000 | Added to base armor/shields |
+
+### 8.2 All 38 Components — Complete Reference
+
+#### Constants
+
+```
+NODE_OFFSETS:
+  NODE1 = (-213, 111)    NODE2 = (-65, 259)
+  NODE3 = ( 97, 259)     NODE4 = (245, 111)
+
+U-COMPONENT BASE:
+  LEFTU_X  = -94     LEFTU_Y  = -68
+  RIGHTU_X = 112     RIGHTU_Y = -65
+```
+
+#### Center Components
+
+| Component | Offset (x,y) | Shields | Armor | Damageable | Sprite | Start Frame |
+|-----------|-------------|---------|-------|------------|--------|-------------|
+| CenterNode | (0, 0) | 1000+Hp | 1000+Hp | **true*** | CenterNodeTemplate (160×160) | 0 |
+| CenterOrb | (48, 48) | 1000+Hp | 1000+Hp | **false** | OrbTemplate (64×64) | 0 |
+
+\* CenterNode is created with `damageable=true` in C++, but is effectively protected during
+Normal phase by collision priority order (CenterOrb checked first, blocks hits). Both CenterNode
+and CenterOrb become explicitly damageable at BOSS_MORPH2→BOSS_FINAL transition.
+
+#### Outer Nodes (4) — Structural, effectively invulnerable
+
+| Node | Offset | Shields | Armor | Damageable | Sprite |
+|------|--------|---------|-------|------------|--------|
+| 0 (upper-left) | (−213, 111) | 500,000 | 500,000 | true | OuterNodeTemplate (128×128) |
+| 1 (lower-left) | (−65, 259) | 500,000 | 500,000 | true | OuterNodeTemplate |
+| 2 (lower-right) | (97, 259) | 500,000 | 500,000 | true | OuterNodeTemplate |
+| 3 (upper-right) | (245, 111) | 500,000 | 500,000 | true | OuterNodeTemplate |
+
+#### Outer Orbs (4) — Primary targets in Normal phase
+
+| Orb | Offset | Shields | Armor | Start Frame | Sprite |
+|-----|--------|---------|-------|-------------|--------|
+| 0 | (NODE1_X+32, NODE1_Y+**31**) = (−181, 142) | 500+Hp | 500+Hp | 5 | OrbTemplate (64×64) |
+| 1 | (NODE2_X+32, NODE2_Y+**31**) = (−33, 290) | 500+Hp | 500+Hp | 25 | OrbTemplate |
+| 2 | (NODE3_X+32, NODE3_Y+**31**) = (129, 290) | 500+Hp | 500+Hp | 10 | OrbTemplate |
+| 3 | (NODE4_X+32, NODE4_Y+**31**) = (277, 142) | 500+Hp | 500+Hp | 15 | OrbTemplate |
+
+**Important:** Y offset is **+31**, not +32. 33 animation frames; frame interval = 60ms.
+When `curr_frame == num_frames - 1` (frame 32), the orb is considered destroyed.
+
+#### Platforms (8) — Not damageable, destroyed in cascade
+
+| Platform | Offset (absolute) | Type | Parent Node | Sprite |
+|----------|-------------------|------|-------------|--------|
+| 0 | (−264, 134) | LEFT | 0 | PlatformLTemplate (80×80) |
+| 1 | (−116, 282) | LEFT | 1 | PlatformLTemplate |
+| 2 | (198, 283) | RIGHT | 2 | PlatformRTemplate |
+| 3 | (346, 135) | RIGHT | 3 | PlatformRTemplate |
+| 4 | (−188, 211) | DOWN | 0 | PlatformDTemplate |
+| 5 | (−40, 359) | DOWN | 1 | PlatformDTemplate |
+| 6 | (122, 359) | DOWN | 2 | PlatformDTemplate |
+| 7 | (270, 211) | DOWN | 3 | PlatformDTemplate |
+
+Platform offsets relative to parent node:
+- LEFT: (NODE_X − 51, NODE_Y + 23)
+- RIGHT: (NODE_X + 101, NODE_Y + 24)
+- DOWN: (NODE_X + 25, NODE_Y + 100)
+
+#### Connectors (3)
+
+| Connector | Offset (absolute) | Shields | Armor | Sprite |
+|-----------|-------------------|---------|-------|--------|
+| 0 (UL) | ((N1_X+N2_X)/2, (N1_Y+N2_Y)/2) = (−139, 185) | 10,000 | 10,000 | connectorul |
+| 1 (H) | ((N2_X+N3_X)/2+32, (N2_Y+N3_Y)/2+48) = (48, 307) | 10,000 | 10,000 | connectorh |
+| 2 (UR) | ((N3_X+N4_X)/2, (N3_Y+N4_Y)/2) = (171, 185) | 10,000 | 10,000 | connectorur |
+
+Created with `damageable=false` then immediately set to `true` via `set_damageable(true)`.
+
+#### U-Components (2) — Not damageable, hidden until morph
+
+| Component | Start Offset | Shields | Armor | Sprite |
+|-----------|-------------|---------|-------|--------|
+| LeftU | (LEFTU_X−80, LEFTU_Y−336) = (−174, −404) | 500+Hp | 500+Hp | bossul (144×288) |
+| RightU | (RIGHTU_X+80, RIGHTU_Y−336) = (192, −401) | 500+Hp | 500+Hp | bossur (144×288) |
+
+Only visible/rendered during Morph1, Morph2, and Final states.
+
+#### Boss Shield
 
 | Property | Value |
 |----------|-------|
-| Base Armor | 1000 HP |
-| Base Shields | 1000 HP |
-| Starting Position | (245, −600) — offscreen above |
-| Hover Position | Y = 40 |
-| Descent Speed | 40 px/s |
-| AI Wait Time | 110,000ms (110 seconds into level before entering) |
+| Offset | (−48, −48) |
+| Shields | **50,000** |
+| Armor | **50,000** |
+| Sprite | bossShield (256×256) |
+| Damageable | Created false, set to true |
+| Deleted when | `orbCount == 0` (all 4 outer orbs destroyed) |
 
-### Center Node
-- Offset: (0, 0) relative to boss origin
-- Armor scales by difficulty:
+### 8.3 Turrets — AI Configurations
 
-| Difficulty | Armor |
-|-----------|------:|
-| Easy (0) | 800 |
-| Normal (1) | 1000 |
-| Hard (2) | 1200 |
-| Nightmare (3) | 2000 |
+#### 8 Outer Turrets (on platforms)
 
-### Center Orb
-- Offset from center node: (48, 48)
-- Not directly damageable (cosmetic/animation)
-- Armor: 1000 HP (structural)
-- Starting frame: 0
+| Turret | Offset (absolute) | Shields | Armor | AI Type | Fire Rate (ms) |
+|--------|-------------------|---------|-------|---------|---------------|
+| 0 | (−256, 142) | 0 | 600+Hp | SWEEPING | 60 |
+| 1 | (−108, 290) | 0 | 600+Hp | RANDOM | 2000 |
+| 2 | (206, 291) | 0 | 600+Hp | RANDOM | 2000 |
+| 3 | (354, 143) | 0 | 600+Hp | SWEEPING | 60 |
+| 4 | (−180, 219) | 0 | 600+Hp | RANDOM | 2000 |
+| 5 | (−32, 367) | 0 | 600+Hp | RANDOM | 2000 |
+| 6 | (130, 367) | 0 | 600+Hp | RANDOM | 2000 |
+| 7 | (278, 219) | 0 | 600+Hp | RANDOM | 2000 |
 
-### Outer Nodes (4)
+Turret offsets = Platform offset + 8 (centering 64×64 turret on 80×80 platform).
+All turrets fire in ALL states after entering. Weapon: ENEMYBLASTER, power cell 2 = 4.
 
-| Node | Offset (x, y) | Armor |
-|------|---------------|------:|
-| 1 (upper-left) | (−213, 111) | 500,000 |
-| 2 (lower-left) | (−65, 259) | 500,000 |
-| 3 (lower-right) | (97, 259) | 500,000 |
-| 4 (upper-right) | (245, 111) | 500,000 |
+Turret weapon positions: `(turret_x_offset + 16, turret_y_offset + 16)`.
 
-### Outer Orbs (4, one per outer node)
-- Offset from parent node: (32, 31)
-- Armor: 500 HP each
-- Damageable: Yes
-- 33 animation frames (`orb00`–`orb32`)
-- Frame interval: 60ms
-- Starting frames: Orb 0 = frame 5, Orb 1 = frame 25, Orb 2 = frame 10, Orb 3 = frame 15
+#### 6 U-Turrets (on U-components)
 
-### Platforms (8)
+| UTurret | Start Offset (absolute) | Shields | Armor | AI Type | Fire Rate (ms) |
+|---------|------------------------|---------|-------|---------|---------------|
+| 0 | (−128, −190) | 0 | 600+Hp | SWEEPING | 30 |
+| 1 | (−159, −231) | 0 | 600+Hp | NORMAL | 500 |
+| 2 | (−159, −282) | 0 | 600+Hp | SWEEPING | 60 |
+| 3 | (224, −189) | 0 | 600+Hp | SWEEPING | 30 |
+| 4 | (252, −230) | 0 | 600+Hp | NORMAL | 500 |
+| 5 | (252, −281) | 0 | 600+Hp | SWEEPING | 60 |
 
-| Platform | Type | Parent Node | Offset from Node | Armor |
-|----------|------|-------------|-------------------|------:|
-| 0 | LEFT | Node 1 | (−51, 23) | 10 |
-| 1 | LEFT | Node 2 | (−51, 23) | 10 |
-| 2 | RIGHT | Node 3 | (101, 24) | 10 |
-| 3 | RIGHT | Node 4 | (101, 24) | 10 |
-| 4 | DOWN | Node 1 | (25, 100) | 10 |
-| 5 | DOWN | Node 2 | (25, 100) | 10 |
-| 6 | DOWN | Node 3 | (25, 100) | 10 |
-| 7 | DOWN | Node 4 | (25, 100) | 10 |
+U-turrets **only fire during BOSS_FINAL state**. Sprite: GunTurretTemplate (33 frames).
 
-Sprites: `BossLeftPlatform`, `BossRightPlatform`, `BossDownPlatform`
+UTurret weapon positions:
+- Left U (indices 0–2): `(x_offset + 96, y_offset + 352)`
+- Right U (indices 3–5): `(x_offset − 64, y_offset + 352)`
 
-### U-Components (2)
+#### Turret AI Types (C++ TurretAI behavior)
 
-| Component | Offset (x, y) | Armor |
-|-----------|---------------|------:|
-| LeftU | (−174, −404) | 500 |
-| RightU | (192, −401) | 500 |
+| Type | Behavior |
+|------|----------|
+| NORMAL | Tracks player, fires when facing. FireRate = cooldown between shots |
+| RANDOM | Snaps to random frame every FireRate ms, fires |
+| SWEEPING | Increments frame by 1 every FireRate ms, fires continuously |
+| FIXED | Never changes frame (unused on boss) |
 
-Not damageable. Sprites: `BossLeftU`, `BossRightU`
+#### Turret Fire Direction (C++ `FireTurret()`)
 
-### Turrets
+```
+frame → angle:  rad = ((frame - 8) / 32) × 2π
+offset:         x_off = cos(rad) × 24,  y_off = sin(rad) × −24
+projectile:     position = boss + offset,  velocity = offset / 2
+```
 
-**8 Outer Turrets (on platforms):**
+Frame 0 = right, Frame 8 = down (toward player), Frame 16 = left, Frame 24 = up.
 
-| Turret | AI Type | AI Parameter | Weapon |
-|--------|---------|-------------|--------|
-| 0 | SWEEPING | 60°/s | ENEMYBLASTER, power frame 4 |
-| 1 | RANDOM | 2000ms | ENEMYBLASTER, power frame 4 |
-| 2 | RANDOM | 2000ms | ENEMYBLASTER, power frame 4 |
-| 3 | SWEEPING | 60°/s | ENEMYBLASTER, power frame 4 |
-| 4 | RANDOM | 2000ms | ENEMYBLASTER, power frame 4 |
-| 5 | RANDOM | 2000ms | ENEMYBLASTER, power frame 4 |
-| 6 | RANDOM | 2000ms | ENEMYBLASTER, power frame 4 |
-| 7 | RANDOM | 2000ms | ENEMYBLASTER, power frame 4 |
+### 8.4 State Machine
 
-**6 U-Turrets:** 3 on LeftU, 3 on RightU. Weapon: ENEMYBLASTER.
+```
+BOSS_WAITING ──(110s)──→ BOSS_ENTERING_SCREEN ──(y reaches -50)──→ BOSS_NORMAL
+                                                                       │
+                                            (all 4 outer orbs at final frame)
+                                                                       │
+                                                                       ▼
+                                                                 BOSS_MORPH1
+                                            (LeftU.offsetY reaches LEFTU_Y-80 = -148)
+                                                                       │
+                                                                       ▼
+                                                                 BOSS_MORPH2
+                                            (LeftU.offsetY reaches LEFTU_Y = -68)
+                                                                       │
+                                                                       ▼
+                                                                 BOSS_FINAL
+                                            (CenterOrb destroyed → death sequence)
+```
 
-Turret sprites: 33 frames (`Turret00`–`Turret32`), frame 32 = destroyed state.
+#### State Details
 
-### Boss AI States
-1. `BOSS_WAITING` — Boss does not appear. Timer counts from level start to 110 seconds.
-2. `BOSS_ENTERING_SCREEN` — Descends from Y=−600 to Y=40 at 40 px/s.
-3. `BOSS_NORMAL` — Shield active, all turrets fire. Shield protects center node while any outer node lives.
-4. `BOSS_MORPH1` — One outer node destroyed, fire rate ×0.75.
-5. `BOSS_MORPH2` — Both outer nodes destroyed, fire rate ×0.5.
-6. `BOSS_FINAL` — All outer nodes destroyed, center node vulnerable.
+**BOSS_WAITING:**
+- No rendering/updates. Boss music triggers at BOSS_WAIT − 14000ms = 96 seconds.
+- Transition: `levelTime >= 110000ms`
 
-**Boss Music:** `BossNear1` triggers at 96 seconds into level (14 seconds before boss appears).
+**BOSS_ENTERING_SCREEN:**
+- Movement: `y++` every 100ms (1 px/100ms = 10 px/s)
+- Transition: `y == -50` → BOSS_NORMAL
 
-### Boss Shield
-- 1000 HP total (sprite: `bossShield`)
-- Active while at least one outer node is alive
-- Absorbs all damage directed at center node
-- Outer nodes must be destroyed first to expose center
+**BOSS_NORMAL:**
+- All 8 outer turrets fire. Shield active (orbCount > 0).
+- Hover bob: gentle sine oscillation.
+- Transition trigger: ALL 4 outer orbs at `curr_frame == num_frames - 1` (destroyed frame)
 
-### Destruction Sequence
-1. Center node HP reaches 0 → death sequence begins
-2. Chain explosion: 30 explosions over 3.0 seconds
-3. Each explosion: 50% big (`BigExp`), 50% small (`SmallExp`)
-4. Random positions within 200px radius of boss center
-5. Evenly staggered delay across 3-second duration
-6. After 3 seconds: boss marked dead
+**BOSS_MORPH1:**
+- U-components move **straight down** only: +1 Y per 100ms
+- All 6 U-turrets also move +1 Y per 100ms
+- Target: `LeftU.offsetY == LEFTU_Y - 80` = −148
+- Distance: from −404 to −148 = **256 pixels = 25.6 seconds**
+
+**BOSS_MORPH2:**
+- U-components move **down + inward**: +1 Y and ±1 X per 100ms
+  - LeftU: +1 X (rightward), RightU: −1 X (leftward)
+  - UTurrets 0–2: +1 X, UTurrets 3–5: −1 X
+- Target: `LeftU.offsetY == LEFTU_Y` = −68
+- Distance: from −148 to −68 = **80 pixels = 8.0 seconds**
+
+**BOSS_FINAL:**
+- `CenterNode.damageable = true`, `CenterOrb.damageable = true`
+- U-turrets begin firing (in addition to outer turrets)
+- Win condition: destroy CenterOrb
+
+### 8.5 Collision Detection — Priority Order
+
+C++ `collision_update()` checks components in this **exact order** (first hit wins):
+
+1. **CenterOrb** (highest priority — checked first)
+2. **CenterNode**
+3. **OuterOrbs[0–3]**
+4. **OuterTurrets[0–7]**
+5. **Connectors[0–2]**
+6. **UTurrets[0–5]**
+7. **bossShield** (lowest priority — checked last)
+
+Each component's `collision_update()` checks:
+- Component is not NULL
+- Component is damageable
+- Projectile overlaps component bounds
+- If hit: apply damage, return true (stops further checks)
+
+**Ship-body collision** (`collision_update_ship`) has a different order:
+CenterNode → OuterNodes[0–3] → LeftU → RightU → Connectors[0–2] → bossShield
+
+**Web implementation note:** Web version checks shield FIRST (sprite-level collision masks
+with transparent center let bullets through to inner components). This is a deliberate
+design choice for better gameplay feel with sprite-mask collision detection.
+
+### 8.6 Cascade Destruction (When Outer Orb Dies)
+
+When OuterOrb `i` is destroyed:
+1. **OuterOrbs[i]**: `set_visible(false)` — stop drawing entirely
+2. **OuterNodes[i]**: `set_visible(false)` — stop drawing
+3. **OuterTurrets[i]** (side): `set_visible(false)`, `set_damageable(false)`, set to destroyed frame
+4. **OuterTurrets[i+4]** (down): `set_visible(false)`, `set_damageable(false)`, set to destroyed frame
+5. **platforms[i]** (side): `set_visible(false)`
+6. **platforms[i+4]** (down): `set_visible(false)`
+7. **Connectors** per mapping:
+   - Orb 0 → Connector[0]
+   - Orb 1 → Connector[0], Connector[1]
+   - Orb 2 → Connector[1], Connector[2]
+   - Orb 3 → Connector[2]
+   - For each: `set_visible(false)`, `set_damageable(false)`
+8. `orbCount--`
+9. When `orbCount == 0`: `bossShield` is deleted (set to NULL)
+
+**Important:** Destroyed turrets are **not drawn at all** in C++ (`set_visible(false)`).
+Do not draw them in a destroyed frame — simply skip rendering.
+
+### 8.7 Death Sequence (CenterOrb Destroyed)
+
+1. CenterOrb destroyed → begin death sequence
+2. All 6 U-turrets: trigger `destroy_ship()` explosions, mark destroyed
+3. 11-second death timer begins with random chain explosions
+4. Boss marked dead when timer expires
+
+#### Explosion Positions — `destroy_ship(x, y)` (9 explosions per turret)
+
+Relative to component position `(_x, _y)`:
+```
+(_x+32, _y+32)   (_x+62, _y+32)   (_x+96, _y+32)
+(_x+32, _y+62)   (_x+62, _y+62)   (_x+96, _y+62)
+(_x+32, _y+96)   (_x+62, _y+96)   (_x+96, _y+96)
+```
+(3×3 grid at positions 32, 62, 96 — covers a ~64px area centered within 128px component)
+
+#### Explosion Positions — `destroy_orb(x, y)` (5 explosions per orb)
+
+```
+(_x+32, _y+32)   (_x+62, _y+32)   (_x+96, _y+32)
+(_x+32, _y+62)                     (_x+96, _y+62)
+```
+(Top row + side middle — no bottom row, no center bottom)
+
+### 8.8 Draw Order (from `update()` component iteration)
+
+Components are updated/rendered in this order:
+1. CenterNode
+2. CenterOrb
+3. OuterNodes[0–3]
+4. OuterOrbs[0–3]
+5. LeftU, RightU (only during Morph1/Morph2/Final)
+6. platforms[0–7]
+7. OuterTurrets[0–7] (skip destroyed — `get_visible()` check)
+8. UTurrets[0–5] (only during Morph1/Morph2/Final)
+9. Connectors[0–2]
+10. bossShield
+
+Energy effects (GL_Handler) are drawn as a separate overlay pass (see §8.9).
+
+### 8.9 Energy Effects (GL_Handler.cpp)
+
+All positions are relative to boss origin `(get_x(), get_y())`.
+Uses OpenGL additive blending with textured quads.
+
+#### Shield Glow (always while orbCount > 0)
+- Center: `(+80, +80)`, Size: 260×230 (offsets 130×115)
+- Color: `(0.4, 0.15, 1.0)` purple — Alpha: `orbCount / 4.0`
+
+#### Central Red Orb Glow (always)
+- Center: `(+80, +80)`, Size: 180×180 (offsets 90×90)
+- Color: `(1.0, 0.0, 0.0)` red — Alpha: `bossAlpha` (pulsing)
+
+#### Outer Node Orb Glows (conditionally visible per orb)
+- Center: `(NODE_X + 64, NODE_Y + 64)`, Size: 180×180
+- Color: `(1.0, 0.0, 0.0, bossAlpha)` red
+- Only drawn if corresponding `OuterOrb[i].get_visible()`
+
+#### Center Connector Points (white pulsing dots)
+- CP1: `(+12, +148)` — shown if Orb[0] OR Orb[1] visible
+- CP2: `(+148, +148)` — shown if Orb[2] OR Orb[3] visible
+- Size: 60×60 (offset 30×30), Color: `(1.0, 1.0, 1.0, warningAlpha)`
+
+#### Energy Beams (node-to-center connector lines)
+- Color: `(0.4, 0.15, 1.0, warningAlpha × 0.5)` — purple, half-alpha
+- Texture: `bar.bmp` (texture[3])
+
+| Beam | From | To | Offset | Notes |
+|------|------|----|--------|-------|
+| Node1→CP1 | `(N1_X+128, N1_Y+64−10)` = (−85, 165) | `(+12, +148)` → y−16 | 30×30 | y−16 on destination |
+| Node2→CP1 | `(N2_X+64, N2_Y)` = (−1, 259) | `(+12, +148)` | 20×30 | Narrower beam |
+| Node3→CP2 | `(N3_X+64, N3_Y)` = (161, 259) | `(+148, +148)` | 20×30 | Narrower beam |
+| Node4→CP2 | `(N4_X, N4_Y+64−10)` = (245, 165) | `(+148, +148)` → y−16 | 30×30 | y−16 on destination |
+
+#### Node Connector Points (white dots at beam origins)
+- Same color as center connector points: `(1.0, 1.0, 1.0, warningAlpha)`
+- Size: 60×60 (offset 30×30)
+
+| Node | Position |
+|------|----------|
+| Node 1 | `(N1_X+128, N1_Y+64)` = (−85, 175) |
+| Node 2 | `(N2_X+64, N2_Y)` = (−1, 259) |
+| Node 3 | `(N3_X+64, N3_Y)` = (161, 259) |
+| Node 4 | `(N4_X, N4_Y+64)` = (245, 175) |
+
+#### Connector Bars (diagonal energy lines between nodes)
+- Color: `(0.0, 0.0, 1.0, bossAlpha)` — blue
+- Texture: bar.bmp
+
+| Bar | Condition | From | To | Offset |
+|-----|-----------|------|----|--------|
+| Left | Orb[0] AND Orb[1] | `(N1_X+104, N1_Y+104+16)` = (−109, 231) | `(N2_X+26, N2_Y+26−16)` = (−39, 269) | 30×30 |
+| Right | Orb[2] AND Orb[3] | `(N4_X+26, N4_Y+104+16)` = (271, 231) | `(N3_X+104, N3_Y+26−16)` = (201, 269) | 30×30 |
+| Center | Orb[1] AND Orb[2] | `(N2_X+148, N2_Y+65)` = (83, 324) | same point | 50×25 |
+
+#### U-Arm Red Lights (only when `orbCount == -1`)
+- Color: `(1.0, 0.0, 0.0, bossAlpha)` — red
+- Size: 40×40 (offset 20×20)
+- LeftU light: `(LeftU.x + 96, LeftU.y + 281)`
+- RightU light: `(RightU.x + 43, RightU.y + 281)`
+
+#### Pulsing Alpha Values
+- `bossAlpha`: oscillates sinusoidally, used for orb glows + connector bars
+- `warningAlpha`: oscillates at different rate, used for connector points + beams
 
 ---
 
