@@ -151,6 +151,9 @@ export interface BossComponent {
     height: number;
     sprite: Sprite | null;
     destroyedSprite: Sprite | null;
+    collisionMask: Uint8Array | null;
+    maskWidth: number;
+    maskHeight: number;
 }
 
 // Frame-based turret AI state (matching C++ TurretAI)
@@ -178,7 +181,48 @@ function makeComp(
         name, x: 0, y: 0, offsetX: offX, offsetY: offY,
         armor, maxArmor: armor, destroyed: false, damageable,
         width: w, height: h, sprite: null, destroyedSprite: null,
+        collisionMask: null, maskWidth: 0, maskHeight: 0,
     };
+}
+
+/**
+ * Build a 1-byte-per-pixel collision mask from a sprite image.
+ * 0 = transparent (alpha < 128 or magenta), 1 = opaque.
+ * Matches C++ frameMask generation (magenta = transparent marker).
+ */
+function buildCollisionMask(img: HTMLImageElement): { mask: Uint8Array; w: number; h: number } | null {
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    if (w === 0 || h === 0) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, w, h).data;
+    const mask = new Uint8Array(w * h);
+    for (let i = 0; i < mask.length; i++) {
+        const r = data[i * 4];
+        const g = data[i * 4 + 1];
+        const b = data[i * 4 + 2];
+        const a = data[i * 4 + 3];
+        // Magenta (R>200, G<50, B>200) is the C++ transparency marker
+        const isMagenta = r > 200 && g < 50 && b > 200;
+        mask[i] = (a > 128 && !isMagenta) ? 1 : 0;
+    }
+    return { mask, w, h };
+}
+
+/** Apply a built mask to a BossComponent */
+function applyMask(comp: BossComponent, img: HTMLImageElement | null): void {
+    if (!img) return;
+    const result = buildCollisionMask(img);
+    if (result) {
+        comp.collisionMask = result.mask;
+        comp.maskWidth = result.w;
+        comp.maskHeight = result.h;
+    }
 }
 
 function makeTurretAI(
@@ -428,6 +472,46 @@ export class Boss {
         // Explosion sprite frames
         this.smallExpFrames = Explosion.loadFrames(assets, 'small');
         this.bigExpFrames = Explosion.loadFrames(assets, 'big');
+
+        // Build collision masks from sprite images (C++ frameMask equivalent)
+        this.buildCollisionMasks(tryImg);
+    }
+
+    /** Generate per-pixel collision masks for all boss components */
+    private buildCollisionMasks(tryImg: (id: string) => HTMLImageElement | null): void {
+        // Static structural components
+        applyMask(this.centerNode, tryImg('BossNode1'));
+        for (const node of this.outerNodes) applyMask(node, tryImg('BossNode2'));
+
+        // Platforms — match sprite by type from PLATFORM_DEFS
+        const platMaskMap: Record<string, string> = {
+            LEFT: 'BossLeftPlatform', RIGHT: 'BossRightPlatform', DOWN: 'BossDownPlatform',
+        };
+        for (let i = 0; i < this.platforms.length; i++) {
+            applyMask(this.platforms[i], tryImg(platMaskMap[PLATFORM_DEFS[i].type]));
+        }
+        applyMask(this.connectors[0], tryImg('ConnectorUL'));
+        applyMask(this.connectors[1], tryImg('ConnectorH'));
+        applyMask(this.connectors[2], tryImg('ConnectorUR'));
+        applyMask(this.bossShield, tryImg('bossShield'));
+
+        // U-components
+        applyMask(this.uComponents[0], tryImg('BossLeftU'));
+        applyMask(this.uComponents[1], tryImg('BossRightU'));
+
+        // Orbs — use frame 0 (all frames are similar circular shapes)
+        const orbImg = tryImg('orb00');
+        if (orbImg) {
+            applyMask(this.centerOrb, orbImg);
+            for (const orb of this.outerOrbs) applyMask(orb, orbImg);
+        }
+
+        // Turrets — use frame 0 (64x64, small enough that mask helps but isn't critical)
+        const turretImg = tryImg('Turret00');
+        if (turretImg) {
+            for (const ai of this.outerTurretAIs) applyMask(ai.comp, turretImg);
+            for (const ai of this.uTurretAIs) applyMask(ai.comp, turretImg);
+        }
     }
 
     // ---------------------------------------------------------------
@@ -863,16 +947,20 @@ export class Boss {
     // Damage
     // ---------------------------------------------------------------
 
-    takeDamage(hitX: number, hitY: number, damage: number): void {
+    /**
+     * Apply damage from a projectile hit. Returns true if the hit was accepted
+     * (opaque pixel collision), false if it missed (transparent area).
+     */
+    takeDamage(hitX: number, hitY: number, damage: number): boolean {
         if (this.state === BossState.Waiting || this.state === BossState.Entering ||
-            this.state === BossState.Dying  || this.state === BossState.Dead) return;
+            this.state === BossState.Dying  || this.state === BossState.Dead) return false;
 
         const comp = this.findHitComponent(hitX, hitY);
-        if (!comp) return;
+        if (!comp) return false;
 
         // Shield absorbs damage to center when active
         if ((comp === this.centerNode || comp === this.centerOrb) && this.shieldActive) {
-            return;
+            return true; // hit accepted (absorbed by shield mechanic)
         }
 
         // Boss shield component absorbs hits
@@ -884,7 +972,7 @@ export class Boss {
             }
             this.hitFlashTimer = 0.1;
             this.hitFlashComp = comp;
-            return;
+            return true;
         }
 
         comp.armor -= damage;
@@ -908,41 +996,59 @@ export class Boss {
                 if (ai.comp === comp) { ai.destroyed = true; break; }
             }
         }
+        return true;
     }
 
+    /**
+     * Sprite-level collision detection with priority ordering.
+     * Shield is checked FIRST (highest priority) — its sprite mask has a
+     * transparent center so bullets pass through to internal components.
+     * Uses per-pixel collision masks built from sprite images (C++ frameMask
+     * equivalent) instead of bounding-box-only checks.
+     */
     private findHitComponent(hitX: number, hitY: number): BossComponent | null {
-        // C++ Boss::collision_update checks each component via Sprite_Collide
-        // in priority order and returns on FIRST hit. We use point-in-rect with
-        // same priority order for a faithful approximation.
-        const check = (comp: BossComponent): boolean =>
-            !comp.destroyed && comp.damageable &&
-            hitX >= comp.x && hitX <= comp.x + comp.width &&
-            hitY >= comp.y && hitY <= comp.y + comp.height;
+        // Sprite-level check: AABB broadphase then pixel mask verification
+        const check = (comp: BossComponent): boolean => {
+            if (comp.destroyed || !comp.damageable) return false;
+            // AABB broadphase
+            if (hitX < comp.x || hitX > comp.x + comp.width ||
+                hitY < comp.y || hitY > comp.y + comp.height) return false;
+            // Sprite mask check — if no mask, fall back to AABB (accept hit)
+            if (!comp.collisionMask) return true;
+            // Convert to mask-local coordinates (scale if mask size differs from component)
+            const localX = Math.floor((hitX - comp.x) * comp.maskWidth / comp.width);
+            const localY = Math.floor((hitY - comp.y) * comp.maskHeight / comp.height);
+            if (localX < 0 || localX >= comp.maskWidth ||
+                localY < 0 || localY >= comp.maskHeight) return false;
+            return comp.collisionMask[localY * comp.maskWidth + localX] > 0;
+        };
 
-        // 1. Center orb (64x64 win condition - smallest, highest priority)
+        // 1. Boss shield — HIGHEST PRIORITY (catches bullets on opaque rim pixels,
+        //    transparent center lets bullets pass through to internal components)
+        if (check(this.bossShield)) return this.bossShield;
+
+        // 2. Center orb (64x64 win condition)
         if (check(this.centerOrb)) return this.centerOrb;
-        // 2. Center node (160x160 - only damageable in Final)
+        // 3. Center node (160x160 — only damageable in Final)
         if (check(this.centerNode)) return this.centerNode;
-        // 3. Outer orbs (64x64 each)
+        // 4. Outer orbs (64x64 each)
         for (const orb of this.outerOrbs) {
             if (check(orb)) return orb;
         }
-        // 4. Outer turrets (64x64 each)
+        // 5. Outer turrets (64x64 each)
         for (const ai of this.outerTurretAIs) {
             if (!ai.destroyed && check(ai.comp)) return ai.comp;
         }
-        // 5. Connectors
+        // 6. Connectors
         for (const conn of this.connectors) {
             if (check(conn)) return conn;
         }
-        // 6. U-turrets (only in Final state)
+        // 7. U-turrets (only in Final state)
         if (this.state === BossState.Final) {
             for (const ai of this.uTurretAIs) {
                 if (!ai.destroyed && check(ai.comp)) return ai.comp;
             }
         }
-        // 7. Boss shield (absorbs stray hits)
-        if (check(this.bossShield)) return this.bossShield;
 
         return null;
     }

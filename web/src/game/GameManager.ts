@@ -714,14 +714,20 @@ export class GameManager {
                 }
             }
             if (proj.alive && this.boss && this.boss.alive) {
+                // Use projectile center for sprite-level collision accuracy.
+                // Boss.takeDamage handles priority ordering and per-pixel mask
+                // checks internally; returns false if bullet hit a transparent area.
                 for (const { component, rect } of this.boss.getComponentRects()) {
                     if (!component.damageable || component.destroyed) continue;
                     if (rectsOverlap(proj.getRect(), rect)) {
-                        this.boss.takeDamage(proj.x, proj.y, proj.damage);
-                        proj.alive = false;
-                        this.particles.emit(proj.x, proj.y, 6, {
-                            color: { r: 1, g: 0.8, b: 0.2 }, speed: 50, life: 0.3,
-                        });
+                        const cx = proj.x + proj.width / 2;
+                        const cy = proj.y + proj.height / 2;
+                        if (this.boss.takeDamage(cx, cy, proj.damage)) {
+                            proj.alive = false;
+                            this.particles.emit(proj.x, proj.y, 6, {
+                                color: { r: 1, g: 0.8, b: 0.2 }, speed: 50, life: 0.3,
+                            });
+                        }
                         break;
                     }
                 }
