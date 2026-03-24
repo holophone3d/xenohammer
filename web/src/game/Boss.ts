@@ -911,48 +911,40 @@ export class Boss {
     }
 
     private findHitComponent(hitX: number, hitY: number): BossComponent | null {
-        // Check order: center orb, center node, outer orbs, outer turrets (as collision rects),
-        // connectors, U-turrets, boss shield
-        const candidates: BossComponent[] = [];
+        // C++ Boss::collision_update checks each component via Sprite_Collide
+        // in priority order and returns on FIRST hit. We use point-in-rect with
+        // same priority order for a faithful approximation.
+        const check = (comp: BossComponent): boolean =>
+            !comp.destroyed && comp.damageable &&
+            hitX >= comp.x && hitX <= comp.x + comp.width &&
+            hitY >= comp.y && hitY <= comp.y + comp.height;
 
-        // Center orb first (win condition)
-        if (this.centerOrb.damageable && !this.centerOrb.destroyed) candidates.push(this.centerOrb);
-        if (this.centerNode.damageable && !this.centerNode.destroyed) candidates.push(this.centerNode);
+        // 1. Center orb (64x64 win condition - smallest, highest priority)
+        if (check(this.centerOrb)) return this.centerOrb;
+        // 2. Center node (160x160 - only damageable in Final)
+        if (check(this.centerNode)) return this.centerNode;
+        // 3. Outer orbs (64x64 each)
         for (const orb of this.outerOrbs) {
-            if (!orb.destroyed && orb.damageable) candidates.push(orb);
+            if (check(orb)) return orb;
         }
-        // Outer turrets (damageable)
+        // 4. Outer turrets (64x64 each)
         for (const ai of this.outerTurretAIs) {
-            if (!ai.destroyed && !ai.comp.destroyed) candidates.push(ai.comp);
+            if (!ai.destroyed && check(ai.comp)) return ai.comp;
         }
-        // Connectors
+        // 5. Connectors
         for (const conn of this.connectors) {
-            if (!conn.destroyed && conn.damageable) candidates.push(conn);
+            if (check(conn)) return conn;
         }
-        // U-turrets (only in Final state)
+        // 6. U-turrets (only in Final state)
         if (this.state === BossState.Final) {
             for (const ai of this.uTurretAIs) {
-                if (!ai.destroyed && !ai.comp.destroyed) candidates.push(ai.comp);
+                if (!ai.destroyed && check(ai.comp)) return ai.comp;
             }
         }
-        // Boss shield
-        if (!this.bossShield.destroyed && this.bossShield.damageable) candidates.push(this.bossShield);
+        // 7. Boss shield (absorbs stray hits)
+        if (check(this.bossShield)) return this.bossShield;
 
-        let best: BossComponent | null = null;
-        let bestDist = Infinity;
-
-        for (const comp of candidates) {
-            if (hitX >= comp.x && hitX <= comp.x + comp.width &&
-                hitY >= comp.y && hitY <= comp.y + comp.height) {
-                const dist = Math.abs(hitX - (comp.x + comp.width / 2)) +
-                             Math.abs(hitY - (comp.y + comp.height / 2));
-                if (dist < bestDist) {
-                    bestDist = dist;
-                    best = comp;
-                }
-            }
-        }
-        return best;
+        return null;
     }
 
     private beginDeathSequence(): void {
@@ -1187,14 +1179,15 @@ export class Boss {
 
     /**
      * C++ MakeExplosions(): 1 big center + 5 trails × 4 small = 21 explosions.
-     * Trail: random direction, speed 4-12, gravity 2.0 px/frame², staggered frame delays.
+     * Trail velocity determines SPAWN POSITIONS (parabolic arc).
+     * After spawning, particles inherit source velocity (boss dx/dy ≈ 0).
      */
-    private spawnExplosion(x: number, y: number, type: 'small' | 'big'): void {
-        // Big center explosion
+    private spawnExplosion(x: number, y: number, _type: 'small' | 'big'): void {
+        // Big center explosion (C++: at SourceX-48, SourceY-48, velocity=dx/4)
         this.componentExplosions.push(
-            new Explosion(x, y, 'big', this.bigExpFrames, 0, 0, 0, 0));
+            new Explosion(x, y, 'big', this.bigExpFrames));
 
-        // 5 trails with parabolic arcs (C++ TRAIL_COUNT=5, TRAIL_LENGTH=4)
+        // 5 trails with parabolic arc spawn positions (C++ TRAIL_COUNT=5, TRAIL_LENGTH=4)
         const TRAIL_COUNT = 5;
         const TRAIL_LENGTH = 4;
         const EXPLOSION_SIZE = 32;
@@ -1209,17 +1202,19 @@ export class Boss {
             let py = y;
 
             for (let t = 0; t < TRAIL_LENGTH; t++) {
+                // Trail position is pre-calculated along parabolic arc
                 px += tvx;
                 py += tvy;
                 tvy += GRAVITY;
                 const delay = t * 2; // C++: -explosionnum*2 frame stagger
+                // C++: explosion velocity = source_dx/2 (boss is hovering, so ~0)
                 this.componentExplosions.push(
-                    new Explosion(px, py, 'small', this.smallExpFrames, tvx / 2, tvy / 2, GRAVITY, delay));
+                    new Explosion(px, py, 'small', this.smallExpFrames, 0, 0, 0, delay));
             }
         }
 
         // Emit particles for visual richness
-        this.pendingParticleEmits.push({ x, y, count: type === 'big' ? 25 : 12 });
+        this.pendingParticleEmits.push({ x, y, count: 20 });
     }
 
     private updateComponentExplosions(dt: number): void {
