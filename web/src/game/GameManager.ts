@@ -398,11 +398,11 @@ export class GameManager {
             ctx.fillText('Launch', 600, 270);
         }
 
-        // Notification labels
-        if (this.levelBriefed <= this.level) {
+        // Notification labels — hide when hovering over the briefing CRT
+        if (this.levelBriefed <= this.level && !inCenter) {
             ctx.font = '18px XenoFont, monospace';
             ctx.fillStyle = '#0f0';
-            ctx.fillText('New Level Briefing Available!', 300, 206 - (inCenter ? 20 : 0));
+            ctx.fillText('New Level Briefing Available!', 300, 206);
         }
 
         // Bottom tooltip bar — black background
