@@ -538,6 +538,11 @@ export class GameManager {
             const shipProj = ship.getProjectiles();
             this.projectiles.push(...shipProj);
 
+            // Play capital ship fire sounds (C++: ENEMYCANNON→AlienWeapon1@0.5, ENEMYBLASTER→AlienWeapon5@1.0)
+            for (const fs of ship.getFireSounds()) {
+                try { this.audio.playSound(fs.sound, false, fs.volume); } catch { /* skip */ }
+            }
+
             // Engine flames (C++: make_CapShipEngine at x+40, y, intensity 1.0)
             this.particles.emit(ship.x + 40, ship.y, 2, {
                 color: { r: 1, g: Math.random() * 0.7, b: Math.random() * 0.2 },

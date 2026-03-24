@@ -107,6 +107,7 @@ export class CapitalShip {
     leftTurret: FrigateTurret;
 
     private pendingProjectiles: Projectile[] = [];
+    private pendingFireSounds: { sound: string; volume: number }[] = [];
     private assets: AssetLoader | null = null;
     // Component destruction events for GameManager (sound + explosions)
     pendingComponentDestructions: Array<{ x: number; y: number }> = [];
@@ -164,10 +165,13 @@ export class CapitalShip {
         this.body.sprite            = tryImg('CapShipBody');
         this.nose.sprite            = tryImg('CapShipNose');
         this.nose.destroyedSprite   = tryImg('CapShipNoseDest');
-        this.leftWing.sprite        = tryImg('CapShipLt');
-        this.leftWing.destroyedSprite  = tryImg('CapShipLtDest');
-        this.rightWing.sprite       = tryImg('CapShipRt');
-        this.rightWing.destroyedSprite = tryImg('CapShipRtDest');
+        // C++ swaps sprite names: CapShipRtTemplate loads CapShipLt sprite (and vice versa)
+        // rightWing at offset (-62) = screen left → uses CapShipLt art
+        // leftWing at offset (62) = screen right → uses CapShipRt art
+        this.rightWing.sprite         = tryImg('CapShipLt');
+        this.rightWing.destroyedSprite = tryImg('CapShipLtDest');
+        this.leftWing.sprite          = tryImg('CapShipRt');
+        this.leftWing.destroyedSprite  = tryImg('CapShipRtDest');
 
         // Turret animated frames (Turret00–Turret31 = directional, Turret32 = destroyed)
         const turretFrames: HTMLImageElement[] = [];
@@ -277,17 +281,19 @@ export class CapitalShip {
     /**
      * Fire a turret projectile based on turret frame direction.
      * C++ formula: rad = (frame-8)/32 * 2π; offset = cos/sin * 24; velocity = offset/2
+     * C++ weapon offsets: turret1=(-31,53), turret2=(95,53) relative to frigate position.
      */
-    private fireTurret(turret: FrigateTurret): void {
+    private fireTurret(turret: FrigateTurret, weaponOffsetX: number, weaponOffsetY: number): void {
         const frame = turret.turretFrame;
         const rad = ((frame - 8) / 32) * 2 * Math.PI;
         const xOff = Math.cos(rad) * 24;
         const yOff = Math.sin(rad) * -24;
 
-        const spawnX = this.x + xOff;
-        const spawnY = this.y + yOff;
+        // C++: fire(get_x() + x_off, get_y() + y_off, ...) then weapon adds offset
+        const spawnX = this.x + weaponOffsetX + xOff;
+        const spawnY = this.y + weaponOffsetY + yOff;
 
-        // Build sprite (enemyBlast, power_cell_2=4 → frame index 3)
+        // Build sprite (ENEMYBLASTER, power_cell_2=4 → frame index 3)
         let sprite: Sprite | null = null;
         if (this.assets) {
             try {
@@ -301,12 +307,16 @@ export class CapitalShip {
             } catch { /* no sprite */ }
         }
 
+        // C++ ENEMYBLASTER damage = 3 * ENEMY_DAMAGE_1(5) = 15
         const proj = new Projectile(
             spawnX, spawnY,
             xOff / 2, yOff / 2,
-            10, 'enemy', sprite, 'enemyBlast',
+            15, 'enemy', sprite, 'enemyBlast',
         );
         this.pendingProjectiles.push(proj);
+
+        // C++: Sound::playEnemyLightFighterFire() for ENEMYBLASTER
+        this.pendingFireSounds.push({ sound: 'AlienWeapon5', volume: 1.0 });
     }
 
     /**
@@ -318,12 +328,13 @@ export class CapitalShip {
         const spawnX = this.x + 32;
         const spawnY = this.y + 212;
 
-        // Build sprite (enemyCannon, power_cell_2=8 → frame index clamped)
+        // Build sprite (ENEMYCANNON, power_cell_2=8 → frame index 7 = biggest blast)
+        // C++ uses 8-frame enemyFireTemplate for BOTH types, just different frame indices
         let sprite: Sprite | null = null;
         if (this.assets) {
             try {
                 const frames: HTMLImageElement[] = [];
-                for (let i = 0; i < 4; i++) {
+                for (let i = 0; i < 8; i++) {
                     frames.push(this.assets.getImage(`enemy_${i + 1}`));
                 }
                 sprite = new Sprite(frames, 100);
@@ -332,12 +343,16 @@ export class CapitalShip {
             } catch { /* no sprite */ }
         }
 
+        // C++ ENEMYCANNON damage = 4 * ENEMY_DAMAGE_1(5) = 20
         const proj = new Projectile(
             spawnX, spawnY,
             0, FAI_MAX_SPEED,
-            15, 'enemy', sprite, 'enemyCannon',
+            20, 'enemy', sprite, 'enemyCannon',
         );
         this.pendingProjectiles.push(proj);
+
+        // C++: Sound::playEnemyGunShipFire() at half volume for ENEMYCANNON
+        this.pendingFireSounds.push({ sound: 'AlienWeapon1', volume: 0.5 });
     }
 
     // ---------------------------------------------------------------
@@ -498,6 +513,7 @@ export class CapitalShip {
         if (!this.alive) return;
 
         this.pendingProjectiles = [];
+        this.pendingFireSounds = [];
         this.updateDamageableFlags();
 
         // Run FrigateAI state machine
@@ -530,12 +546,12 @@ export class CapitalShip {
         if (this.rightTurret.alive) {
             const rt = this.updateTurretAI(this.rightTurret, playerX, playerY, now);
             this.rightTurret.turretFrame = rt.frame;
-            if (rt.fire) this.fireTurret(this.rightTurret);
+            if (rt.fire) this.fireTurret(this.rightTurret, -31, 53);
         }
         if (this.leftTurret.alive) {
             const lt = this.updateTurretAI(this.leftTurret, playerX, playerY, now);
             this.leftTurret.turretFrame = lt.frame;
-            if (lt.fire) this.fireTurret(this.leftTurret);
+            if (lt.fire) this.fireTurret(this.leftTurret, 95, 53);
         }
 
         // Nose cannon fires when AI says fire
@@ -559,6 +575,11 @@ export class CapitalShip {
     /** Return projectiles generated during the last update. */
     getProjectiles(): Projectile[] {
         return this.pendingProjectiles;
+    }
+
+    /** Return fire sounds generated during the last update. */
+    getFireSounds(): { sound: string; volume: number }[] {
+        return this.pendingFireSounds;
     }
 
     // ---------------------------------------------------------------
