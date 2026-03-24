@@ -37,11 +37,9 @@ function getBarColor(value: number): string {
 
 export class HUD {
     private consoleSprite: HTMLImageElement | null = null;
-    private speedShipSprite: HTMLImageElement | null = null;
 
     loadSprites(assets: AssetLoader): void {
         try { this.consoleSprite = assets.getImage('console'); } catch { /* not available */ }
-        try { this.speedShipSprite = assets.getImage('speed_ship'); } catch { /* not available */ }
     }
 
     draw(
@@ -65,15 +63,15 @@ export class HUD {
 
         if (!player) return;
 
-        // Rank — centered at (725, 0) per original (bitmap font ~12px)
+        // Rank — centered at (725, 0) per original (bitmap font ~10px)
         const rank = this.getRank(kills);
-        ctx.font = '12px XenoFont, monospace';
+        ctx.font = '10px XenoFont, monospace';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#0f0';
-        ctx.fillText(rank, 725, 14);
+        ctx.fillText(rank, 725, 12);
         ctx.textAlign = 'left';
 
-        // Power cell bars (4×4px green) — approximate positions from Console.h
+        // Power cell bars (4×2px green) — positions from Console.h
         ctx.fillStyle = '#0f0';
         // Blaster rate/power at (719, 52) and (729, 52)
         this.drawCellBars(ctx, 719, 52, player.powerPlant.getBlasterRateCells());
@@ -95,7 +93,7 @@ export class HUD {
         this.drawCellBars(ctx, 728, 122, player.powerPlant.getEngineCells());
 
         // Kills — at (660, 130), count right-aligned at (790, 130)
-        ctx.font = '12px XenoFont, monospace';
+        ctx.font = '10px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.fillText('Kills', 660, 130);
         ctx.textAlign = 'right';
@@ -106,30 +104,25 @@ export class HUD {
         const setting = player.powerPlant.currentSetting;
         const settingLabels = ["speed setting 'Q'", "power setting 'W'", "armor setting 'E'"];
         const settingY = [190, 220, 250];
-        ctx.font = '12px XenoFont, monospace';
+        ctx.font = '10px XenoFont, monospace';
         for (let i = 0; i < 3; i++) {
             ctx.fillStyle = setting === i ? '#0f0' : '#9b9b9b';
             ctx.fillText(settingLabels[i], 660, settingY[i]);
         }
 
         // RU's — at (660, 280)
-        ctx.font = '12px XenoFont, monospace';
+        ctx.font = '10px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.fillText("RU's", 660, 280);
         ctx.fillText(player.powerPlant.resourceUnits.toString(), 700, 280);
 
         // Shield/Armor labels at y=335
-        ctx.font = '12px XenoFont, monospace';
+        ctx.font = '10px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.textAlign = 'center';
         ctx.fillText('Shields', 688, 335);
         ctx.fillText('Armor', 760, 335);
         ctx.textAlign = 'left';
-
-        // Speed ship animation area
-        if (this.speedShipSprite) {
-            ctx.drawImage(this.speedShipSprite, 680, 400);
-        }
 
         // Shield bar (grows upward from y=565) — dynamic color
         this.drawHealthBar(ctx, SHIELD_BAR_X, SHIELD_BAR_Y, BAR_W, player.shields, player.maxShields);

@@ -57,6 +57,17 @@ export class PowerUp {
     draw(ctx: CanvasRenderingContext2D): void {
         if (!this.active) return;
 
+        // Green glow aura (C++ GL_Handler.cpp:554-582 — green quad at 70% opacity)
+        ctx.save();
+        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = '#0f0';
+        const glowPad = 6;
+        ctx.fillRect(
+            this.x - glowPad, this.y - glowPad,
+            POWERUP_SIZE + glowPad * 2, POWERUP_SIZE + glowPad * 2,
+        );
+        ctx.restore();
+
         if (this.sprite) {
             ctx.drawImage(this.sprite, this.x, this.y);
         } else {

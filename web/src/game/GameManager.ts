@@ -1000,8 +1000,11 @@ export class GameManager {
     private updateGameOver(dt: number): void {
         this.stateTimer += dt;
         if (this.stateTimer >= 4) {
+            // Full reset — new game after death (C++ creates fresh player on new game)
             this.score = 0;
             this.level = 0;
+            this.player = new Player();
+            this.clearSave();
             this.state = this.started ? GameState.ReadyRoom : GameState.StartScreen;
         }
     }
@@ -2084,6 +2087,10 @@ export class GameManager {
                 this.isHomingResearched = data.isHomingResearched;
             }
         } catch { /* corrupt or missing save data */ }
+    }
+
+    private clearSave(): void {
+        try { localStorage.removeItem(GameManager.SAVE_KEY); } catch { /* unavailable */ }
     }
 
     // ========== DEBUG: Backtick (`) menu ==========
