@@ -800,10 +800,10 @@ export class Boss {
         const bob = Math.sin(this.stateTimer * 0.5) * 3;
         this.y = BOSS_HOVER_Y + bob;
 
-        // C++ 1px/100ms; sped up 5× for web (1px/20ms)
+        // C++ 1px/100ms  matching original timing
         this.morphTickAccum += dt * 1000;
-        while (this.morphTickAccum >= 20) {
-            this.morphTickAccum -= 20;
+        while (this.morphTickAccum >= 100) {
+            this.morphTickAccum -= 100;
 
             if (this.state === BossState.Morph1) {
                 // Move U-pieces straight down
@@ -901,21 +901,26 @@ export class Boss {
             // Orb just destroyed — cascade destruction
             this.outerNodes[i].destroyed = true;
 
-            // Destroy turrets i and i+4
+            // Destroy turrets i and i+4 (C++: set_visible(false), set_damageable(false))
             this.outerTurretAIs[i].destroyed = true;
             this.outerTurretAIs[i].comp.destroyed = true;
+            this.outerTurretAIs[i].comp.damageable = false;
             if (i + 4 < 8) {
                 this.outerTurretAIs[i + 4].destroyed = true;
                 this.outerTurretAIs[i + 4].comp.destroyed = true;
+                this.outerTurretAIs[i + 4].comp.damageable = false;
             }
 
             // Destroy platforms i and i+4
             this.platforms[i].destroyed = true;
             if (i + 4 < 8) this.platforms[i + 4].destroyed = true;
 
-            // Destroy adjacent connectors
+            // Destroy adjacent connectors (C++: set_visible(false), set_damageable(false))
             for (const ci of ORB_CONNECTOR_MAP[i]) {
-                if (ci < this.connectors.length) this.connectors[ci].destroyed = true;
+                if (ci < this.connectors.length) {
+                    this.connectors[ci].destroyed = true;
+                    this.connectors[ci].damageable = false;
+                }
             }
 
             this.orbCount--;
@@ -1057,10 +1062,11 @@ export class Boss {
         this.state = BossState.Dying;
         this.stateTimer = 0;
 
-        // Destroy all U-turrets
+        // Destroy all U-turrets (C++: set_damageable(false), destroyed frame)
         for (const ai of this.uTurretAIs) {
             ai.destroyed = true;
             ai.comp.destroyed = true;
+            ai.comp.damageable = false;
             const tx = this.x + ai.offsetX + 32;
             const ty = this.y + ai.offsetY + 32;
             this.spawnExplosion(tx, ty, 'big');
@@ -1149,8 +1155,10 @@ export class Boss {
             if (!conn.destroyed) this.drawComp(ctx, conn, '#556');
         }
 
-        // U-components
-        for (const u of this.uComponents) this.drawComp(ctx, u, '#446');
+        // U-components (only visible during morph/final, matching C++ visibility)
+        if (this.state === BossState.Morph1 || this.state === BossState.Morph2 || this.state === BossState.Final) {
+            for (const u of this.uComponents) this.drawComp(ctx, u, '#446');
+        }
 
         // Platforms
         for (const p of this.platforms) {
@@ -1544,16 +1552,11 @@ export class Boss {
 
     private drawTurretSet(ctx: CanvasRenderingContext2D, turrets: BossTurretAI[]): void {
         for (const ai of turrets) {
+            // C++: destroyed turrets are set_visible(false)  not drawn at all
+            if (ai.destroyed) continue;
+
             const tx = this.x + ai.offsetX;
             const ty = this.y + ai.offsetY;
-
-            if (ai.destroyed) {
-                // C++: destroyed turrets show frame 32 (destroyed sprite)
-                if (this.turretSprites.length > 32) {
-                    ctx.drawImage(this.turretSprites[32], tx, ty);
-                }
-                continue;
-            }
 
             if (this.turretSprites.length >= 32) {
                 const frameIdx = Math.max(0, Math.min(31, ai.frame));
