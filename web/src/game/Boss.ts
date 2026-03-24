@@ -1109,10 +1109,8 @@ export class Boss {
             this.drawTurretSet(ctx, this.uTurretAIs);
         }
 
-        // Boss shield sprite
-        if (!this.bossShield.destroyed && this.shieldActive) {
-            this.drawComp(ctx, this.bossShield, 'rgba(0,128,255,0.15)');
-        }
+        // Boss shield — rendered via drawEnergyEffects() as additive purple glow
+        // (C++ uses OpenGL textured quad with additive blending, not a sprite)
 
         // Center orb armor bar (in Final state)
         if (this.centerOrb.damageable && !this.centerOrb.destroyed && this.centerOrb.armor < this.centerOrb.maxArmor) {
@@ -1147,13 +1145,21 @@ export class Boss {
             }
         }
 
-        // Hit flash
+        // Hit flash — subtle glow at hit component center (not a white rectangle)
         if (this.hitFlashTimer > 0 && this.hitFlashComp) {
             const hc = this.hitFlashComp;
+            const hcx = hc.x + hc.width / 2;
+            const hcy = hc.y + hc.height / 2;
+            const flashR = Math.max(hc.width, hc.height) * 0.4;
+            const flashA = this.hitFlashTimer * 4;
             ctx.save();
-            ctx.globalAlpha = this.hitFlashTimer * 3;
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(hc.x, hc.y, hc.width, hc.height);
+            ctx.globalCompositeOperation = 'lighter';
+            const grad = ctx.createRadialGradient(hcx, hcy, 0, hcx, hcy, flashR);
+            grad.addColorStop(0, `rgba(255,255,255,${flashA})`);
+            grad.addColorStop(0.5, `rgba(255,200,100,${flashA * 0.5})`);
+            grad.addColorStop(1, 'rgba(255,100,0,0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(hcx - flashR, hcy - flashR, flashR * 2, flashR * 2);
             ctx.restore();
         }
 
@@ -1253,7 +1259,7 @@ export class Boss {
         // --- Boss shield glow (C++: purple, orbCount/4 alpha, 130×115 at center+80) ---
         if (this.orbCount > 0 && !this.bossShield.destroyed) {
             const shieldAlpha = this.orbCount / 4;
-            this.drawGlow(ctx, bx + 80, by + 80, 130, 115, 0.4, 0.15, 1.0, shieldAlpha * 0.5);
+            this.drawGlow(ctx, bx + 80, by + 80, 130, 115, 0.4, 0.15, 1.0, shieldAlpha);
         }
 
         // --- Central red glowing orb (C++: 90×90 at center+80, bossAlpha) ---
@@ -1285,7 +1291,7 @@ export class Boss {
         if (!this.outerOrbs[0].destroyed) {
             const n1x = bx + NODE_OFFSETS[0].x + 128;
             const n1y = by + NODE_OFFSETS[0].y + 64 - 10;
-            this.drawBeam(ctx, n1x, n1y, cp1x, cp1y - 16, 30, 0.4, 0.15, 1.0, beamAlpha);
+            this.drawBeam(ctx, n1x, n1y, cp1x, cp1y + 16, 30, 0.4, 0.15, 1.0, beamAlpha);
         }
         // Node2 → center point 1
         if (!this.outerOrbs[1].destroyed) {
@@ -1303,7 +1309,7 @@ export class Boss {
         if (!this.outerOrbs[3].destroyed) {
             const n4x = bx + NODE_OFFSETS[3].x;
             const n4y = by + NODE_OFFSETS[3].y + 64 - 10;
-            this.drawBeam(ctx, n4x, n4y, cp2x, cp2y - 16, 30, 0.4, 0.15, 1.0, beamAlpha);
+            this.drawBeam(ctx, n4x, n4y, cp2x, cp2y + 16, 30, 0.4, 0.15, 1.0, beamAlpha);
         }
 
         // --- 4 outer node connector points (C++: white 30×30, warningAlpha) ---
