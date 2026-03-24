@@ -176,10 +176,16 @@ export const TURRET_VELOCITY_TABLE: Record<number, { dx: number; dy: number }> =
     315: { dx:  20, dy:  21 },   // DOWN-RIGHT
 };
 
-/** Power cell multipliers for weapon damage/rate */
+/** Power cell multipliers for weapon damage/rate — from C++ PowerPlant::get_power_MUX() */
 export const POWER_MULTIPLIERS: Record<number, number> = {
     0: 1.0, 1: 1.5, 2: 2.0, 3: 2.5, 4: 3.0, 5: 5.0,
 };
+
+/** C++ PowerPlant::get_power_MUX() — non-linear damage/rate multiplier.
+ *  Values >5 return the cell value directly (C++ default case). */
+export function getPowerMUX(cellValue: number): number {
+    return POWER_MULTIPLIERS[cellValue] ?? cellValue;
+}
 
 /** Player weapon slot definitions matching the C++ source */
 export const PLAYER_WEAPON_SLOTS = [

@@ -154,7 +154,6 @@ export class Player {
             const weapon = this.weapons[i];
             const c2 = cell2Values[i];
             weapon.powerCell2 = c2;
-            weapon.powerMultiplier = c2;  // damage scales with cell2 directly
             const proj = weapon.fire(this.x, this.y, now, assets);
             if (proj) projectiles.push(proj);
         }

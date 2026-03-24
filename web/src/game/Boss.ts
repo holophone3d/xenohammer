@@ -788,10 +788,13 @@ export class Boss {
             } catch { /* no sprite */ }
         }
 
+        // C++ ENEMYBLASTER: fire(x+xOff, y+yOff, xOff/2, yOff/2)
+        // Projectile constructor doubles: dx=_dx*2, dy=_dy*2 → actual = (xOff, yOff)
+        // C++ damage: 3 * ENEMY_DAMAGE_1(5) * power_MUX(pc2=4 → 3.0) = 45
         const proj = new Projectile(
             spawnX, spawnY,
-            xOff / 2, yOff / 2,
-            10, 'enemy', sprite, 'enemyBlast',
+            xOff, yOff,
+            45, 'enemy', sprite, 'enemyBlast',
         );
         this.pendingProjectiles.push(proj);
     }

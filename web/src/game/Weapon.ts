@@ -4,7 +4,7 @@
  */
 
 import { Sprite, AssetLoader } from '../engine';
-import { WeaponConfig, WEAPONS, TURRET_VELOCITY_TABLE } from '../data/ships';
+import { WeaponConfig, WEAPONS, TURRET_VELOCITY_TABLE, getPowerMUX } from '../data/ships';
 import { Projectile, ProjectileOwner } from './Projectile';
 
 export type WeaponType = 'blaster' | 'turret' | 'missile' | 'enemyBlast' | 'enemyCannon';
@@ -127,7 +127,8 @@ export class Weapon {
             sprite.loop = false;
         }
 
-        const actualDamage = this.damage * this.powerMultiplier * this.powerCell2;
+        // C++ damage = BASE_DAMAGE * get_power_MUX(power_cell_2)
+        const actualDamage = Math.floor(this.damage * getPowerMUX(this.powerCell2));
         const proj = new Projectile(spawnX, spawnY, vx, vy, actualDamage, this.owner, sprite, this.type);
 
         if (this.homingEnabled) {
