@@ -63,34 +63,34 @@ export class HUD {
 
         if (!player) return;
 
-        // Vertical offset — shift all HUD text/cells down to align with console sprite
+        // Vertical offset for text only (power cell bars stay at Console.h positions)
         const dy = 12;
 
         // Rank — centered at top of panel
         const rank = this.getRank(kills);
-        ctx.font = '12px XenoFont, monospace';
+        ctx.font = '14px XenoFont, monospace';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#0f0';
         ctx.fillText(rank, 725, 12 + dy);
         ctx.textAlign = 'left';
 
-        // Power cell bars (4×2px green) — positions from Console.h + offset
+        // Power cell bars (4×2px green) — original Console.h positions (no offset)
         ctx.fillStyle = '#0f0';
-        this.drawCellBars(ctx, 719, 52 + dy, player.powerPlant.getBlasterRateCells());
-        this.drawCellBars(ctx, 729, 52 + dy, player.powerPlant.getBlasterPowerCells());
-        this.drawCellBars(ctx, 668, 80 + dy, player.powerPlant.getLeftTurretRateCells());
-        this.drawCellBars(ctx, 678, 80 + dy, player.powerPlant.getLeftTurretPowerCells());
-        this.drawCellBars(ctx, 768, 80 + dy, player.powerPlant.getRightTurretRateCells());
-        this.drawCellBars(ctx, 778, 80 + dy, player.powerPlant.getRightTurretPowerCells());
-        this.drawCellBars(ctx, 698, 83 + dy, player.powerPlant.getLeftMissileRateCells());
-        this.drawCellBars(ctx, 708, 83 + dy, player.powerPlant.getLeftMissilePowerCells());
-        this.drawCellBars(ctx, 738, 83 + dy, player.powerPlant.getRightMissileRateCells());
-        this.drawCellBars(ctx, 748, 83 + dy, player.powerPlant.getRightMissilePowerCells());
-        this.drawCellBars(ctx, 718, 122 + dy, player.powerPlant.getShieldCells());
-        this.drawCellBars(ctx, 728, 122 + dy, player.powerPlant.getEngineCells());
+        this.drawCellBars(ctx, 719, 52, player.powerPlant.getBlasterRateCells());
+        this.drawCellBars(ctx, 729, 52, player.powerPlant.getBlasterPowerCells());
+        this.drawCellBars(ctx, 668, 80, player.powerPlant.getLeftTurretRateCells());
+        this.drawCellBars(ctx, 678, 80, player.powerPlant.getLeftTurretPowerCells());
+        this.drawCellBars(ctx, 768, 80, player.powerPlant.getRightTurretRateCells());
+        this.drawCellBars(ctx, 778, 80, player.powerPlant.getRightTurretPowerCells());
+        this.drawCellBars(ctx, 698, 83, player.powerPlant.getLeftMissileRateCells());
+        this.drawCellBars(ctx, 708, 83, player.powerPlant.getLeftMissilePowerCells());
+        this.drawCellBars(ctx, 738, 83, player.powerPlant.getRightMissileRateCells());
+        this.drawCellBars(ctx, 748, 83, player.powerPlant.getRightMissilePowerCells());
+        this.drawCellBars(ctx, 718, 122, player.powerPlant.getShieldCells());
+        this.drawCellBars(ctx, 728, 122, player.powerPlant.getEngineCells());
 
         // Kills
-        ctx.font = '12px XenoFont, monospace';
+        ctx.font = '14px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.fillText('Kills', 660, 130 + dy);
         ctx.textAlign = 'right';
@@ -101,20 +101,20 @@ export class HUD {
         const setting = player.powerPlant.currentSetting;
         const settingLabels = ["speed setting 'Q'", "power setting 'W'", "armor setting 'E'"];
         const settingY = [190 + dy, 220 + dy, 250 + dy];
-        ctx.font = '12px XenoFont, monospace';
+        ctx.font = '14px XenoFont, monospace';
         for (let i = 0; i < 3; i++) {
             ctx.fillStyle = setting === i ? '#0f0' : '#9b9b9b';
             ctx.fillText(settingLabels[i], 660, settingY[i]);
         }
 
         // RU's
-        ctx.font = '12px XenoFont, monospace';
+        ctx.font = '14px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.fillText("RU's", 660, 280 + dy);
         ctx.fillText(player.powerPlant.resourceUnits.toString(), 700, 280 + dy);
 
         // Shield/Armor labels
-        ctx.font = '12px XenoFont, monospace';
+        ctx.font = '14px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.textAlign = 'center';
         ctx.fillText('Shields', 688, 335 + dy);
