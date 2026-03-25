@@ -10,7 +10,8 @@ import { Rect, PLAY_AREA_H } from './Collision';
 
 export type PowerUpType = 'armor' | 'shield' | 'weapon';
 
-const POWERUP_SIZE = 16;
+const POWERUP_W = 30;
+const POWERUP_H = 16;
 const DRIFT_SPEED = 2;           // 2 px/tick downward
 const BOB_AMPLITUDE = 3;
 const BOB_FREQUENCY = 3;
@@ -68,20 +69,19 @@ export class PowerUp {
                 case 'shield': ctx.fillStyle = '#00f'; break;
                 case 'weapon': ctx.fillStyle = '#ff0'; break;
             }
-            ctx.fillRect(this.x, this.y, POWERUP_SIZE, POWERUP_SIZE);
+            ctx.fillRect(this.x, this.y, POWERUP_W, POWERUP_H);
         }
 
         // Green glow on top (C++ GL_Handler.cpp:554-582, drawn as GL overlay)
         // C++ uses Particle.bmp textured quad, additive blend, glColor4f(0,1,0,0.7)
-        // Sprite is 30×16, glow centered on it. Using 50×30 quad (half C++ size
-        // since the particle radial falloff makes most of the 100×60 quad invisible)
+        // Powerup sprite is 30×16px. Glow centered on sprite.
         if (this.glowSprite) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
             ctx.globalAlpha = 0.7;
-            const gw = 50, gh = 30;
-            const gcx = this.x + 15;  // center of 30px-wide sprite
-            const gcy = this.y + 8;   // center of 16px-tall sprite
+            const gw = 70, gh = 50;
+            const gcx = this.x + POWERUP_W / 2;   // center of 30px-wide sprite
+            const gcy = this.y + POWERUP_H / 2;   // center of 16px-tall sprite
             if (!PowerUp._glowCanvas) {
                 PowerUp._glowCanvas = document.createElement('canvas');
             }
@@ -105,7 +105,7 @@ export class PowerUp {
     private static _glowCanvas: HTMLCanvasElement | null = null;
 
     getRect(): Rect {
-        return { x: this.x, y: this.y, w: POWERUP_SIZE, h: POWERUP_SIZE };
+        return { x: this.x, y: this.y, w: POWERUP_W, h: POWERUP_H };
     }
 
     getArmorRestore(): number {
