@@ -70,23 +70,26 @@ export class PowerUp {
             ctx.fillRect(this.x, this.y, POWERUP_W, POWERUP_H);
         }
 
-        // Green glow on top (C++ GL_Handler.cpp:554-582, drawn as GL overlay)
-        // Soft radial gradient for smooth falloff, additive blended
+        // Green glow on top (C++ GL_Handler.cpp:554-582)
+        // C++ stretches Particle.bmp onto a rect (±50×±30 = 100×60px quad),
+        // creating an elliptical glow matching the rectangular powerup shape.
+        // glColor4f(0,1,0,0.7), additive blend (GL_SRC_ALPHA, GL_ONE).
         {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
-            const gcx = this.x + POWERUP_W / 2;
-            const gcy = this.y + POWERUP_H / 2;
-            const r = 28;
-            const grad = ctx.createRadialGradient(gcx, gcy, 0, gcx, gcy, r);
+            // Use scale transform to stretch a circular gradient into an ellipse
+            const gcx = this.x + 18;   // C++: get_x() + 18
+            const gcy = this.y + 10;   // C++: get_y() + 10
+            const rx = 35, ry = 20;    // half the C++ quad (50×30), trimmed for visible glow
+            ctx.translate(gcx, gcy);
+            ctx.scale(rx / ry, 1);     // stretch horizontally to match rectangular shape
+            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, ry);
             grad.addColorStop(0, 'rgba(0,255,0,0.7)');
-            grad.addColorStop(0.4, 'rgba(0,255,0,0.4)');
-            grad.addColorStop(0.7, 'rgba(0,255,0,0.15)');
+            grad.addColorStop(0.3, 'rgba(0,255,0,0.5)');
+            grad.addColorStop(0.6, 'rgba(0,255,0,0.2)');
             grad.addColorStop(1.0, 'rgba(0,255,0,0)');
             ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.arc(gcx, gcy, r, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.fillRect(-ry * (rx / ry), -ry, ry * 2 * (rx / ry), ry * 2);
             ctx.restore();
         }
     }
