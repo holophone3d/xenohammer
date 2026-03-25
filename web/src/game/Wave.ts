@@ -32,6 +32,17 @@ export class WaveManager {
         this.allWavesSpawned = false;
     }
 
+    /** Mark all waves as already spawned (used by debug boss spawn) */
+    suppressAllWaves(): void {
+        const level = LEVELS[this.levelIndex];
+        if (level) {
+            for (let i = 0; i < level.waves.length; i++) {
+                this.spawnedWaves.add(i);
+            }
+        }
+        this.allWavesSpawned = true;
+    }
+
     /** Update timer, return any enemies/capital ships that should spawn this frame */
     update(dt: number, difficulty: number): WaveSpawnResult {
         this.levelTimer += dt;

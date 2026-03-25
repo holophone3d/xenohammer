@@ -2341,6 +2341,7 @@ export class GameManager {
         this.stateTimer = 0;
         this.particles.clear();
         this.waveManager.startLevel(2);
+        this.waveManager.suppressAllWaves(); // No fighter waves during debug boss
 
         // Spawn boss and skip wait — go directly to Entering state
         this.boss = new Boss(this.difficulty);

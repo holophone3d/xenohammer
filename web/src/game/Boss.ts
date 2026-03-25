@@ -1549,47 +1549,50 @@ export class Boss {
         ctx.restore();
     }
 
-    /** Draw an energy beam between two points (replicates OpenGL bar.bmp triangle strip) */
+    /**
+     * Draw an energy beam matching C++ createTriangleStrip(x,y,x1,y1,ox,oy).
+     * C++ vertices: (x±ox, y-oy) at start, (x1±ox, y1+oy) at end.
+     * Uses fixed x/y offsets (not perpendicular to beam direction).
+     */
     private drawBeam(
         ctx: CanvasRenderingContext2D,
         x1: number, y1: number, x2: number, y2: number,
-        width: number, r: number, g: number, b: number, a: number,
+        ox: number, r: number, g: number, b: number, a: number,
+        oy?: number,
     ): void {
         if (a <= 0) return;
-        const dx = x2 - x1, dy = y2 - y1;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        if (len < 1) return;
-        // Perpendicular unit vector
-        const px = -dy / len * width;
-        const py = dx / len * width;
+        const offy = oy ?? ox; // default oy = ox (square offsets like C++)
 
         const color = `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)}`;
 
-        // Draw beam as gradient-filled quad
         ctx.save();
         ctx.globalAlpha = a;
-        // Core bright beam
+
+        // C++ createTriangleStrip quad:
+        // Start edge: (x1-ox, y1-oy) to (x1+ox, y1-oy)
+        // End edge:   (x2-ox, y2+oy) to (x2+ox, y2+oy)
+        // Core bright fill
         ctx.beginPath();
-        ctx.moveTo(x1 + px * 0.3, y1 + py * 0.3);
-        ctx.lineTo(x2 + px * 0.3, y2 + py * 0.3);
-        ctx.lineTo(x2 - px * 0.3, y2 - py * 0.3);
-        ctx.lineTo(x1 - px * 0.3, y1 - py * 0.3);
+        ctx.moveTo(x1 - ox * 0.3, y1 - offy * 0.3);
+        ctx.lineTo(x1 + ox * 0.3, y1 - offy * 0.3);
+        ctx.lineTo(x2 + ox * 0.3, y2 + offy * 0.3);
+        ctx.lineTo(x2 - ox * 0.3, y2 + offy * 0.3);
         ctx.closePath();
         ctx.fillStyle = `${color},${0.8})`;
         ctx.fill();
 
-        // Outer glow
+        // Outer glow quad (full extent)
         ctx.beginPath();
-        ctx.moveTo(x1 + px, y1 + py);
-        ctx.lineTo(x2 + px, y2 + py);
-        ctx.lineTo(x2 - px, y2 - py);
-        ctx.lineTo(x1 - px, y1 - py);
+        ctx.moveTo(x1 - ox, y1 - offy);
+        ctx.lineTo(x1 + ox, y1 - offy);
+        ctx.lineTo(x2 + ox, y2 + offy);
+        ctx.lineTo(x2 - ox, y2 + offy);
         ctx.closePath();
         ctx.fillStyle = `${color},${0.3})`;
         ctx.fill();
 
         // Endpoint glows
-        const glowR = width * 0.8;
+        const glowR = ox * 0.8;
         const glow = ctx.createRadialGradient(x1, y1, 0, x1, y1, glowR);
         glow.addColorStop(0, `${color},${0.6})`);
         glow.addColorStop(1, `${color},0)`);
@@ -1606,12 +1609,22 @@ export class Boss {
     }
 
     private drawTurretSet(ctx: CanvasRenderingContext2D, turrets: BossTurretAI[]): void {
-        for (const ai of turrets) {
-            // C++: set_visible(false) — destroyed turrets are fully hidden, not shown
-            if (ai.destroyed) continue;
+        for (let idx = 0; idx < turrets.length; idx++) {
+            const ai = turrets[idx];
+
+            // If platform destroyed, turret is fully hidden (C++: set_visible(false) on cascade)
+            if (turrets === this.outerTurretAIs && this.platforms[idx]?.destroyed) continue;
 
             const tx = this.x + ai.offsetX;
             const ty = this.y + ai.offsetY;
+
+            if (ai.destroyed) {
+                // Turret destroyed but platform still alive → show destroyed sprite (frame 32)
+                if (this.turretSprites.length >= 33) {
+                    ctx.drawImage(this.turretSprites[32], tx, ty);
+                }
+                continue;
+            }
 
             if (this.turretSprites.length >= 32) {
                 const frameIdx = Math.max(0, Math.min(31, ai.frame));
