@@ -61,16 +61,15 @@ export class PowerUp {
 
         // Green glow using Particle texture (C++ GL_Handler.cpp:554-582)
         // C++: center at (x+18, y+10), quad ±50×±30 = 100×60px, additive blend
+        // Particle.png is black bg + white radial glow. Multiply-tint to green,
+        // then additive blend makes black invisible and glow shines green.
         if (this.glowSprite) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
             ctx.globalAlpha = 0.7;
-            // Tint green by drawing into an offscreen canvas (or just draw the white particle — additive makes it glow)
-            // The particle texture is white, so we colorize it green
             const gw = 100, gh = 60;
             const gx = this.x + 18 - gw / 2;
             const gy = this.y + 10 - gh / 2;
-            // Draw particle stretched to glow size, tinted green via a temp canvas
             if (!PowerUp._glowCanvas) {
                 PowerUp._glowCanvas = document.createElement('canvas');
                 PowerUp._glowCanvas.width = 100;
@@ -79,7 +78,7 @@ export class PowerUp {
             const gc = PowerUp._glowCanvas.getContext('2d')!;
             gc.clearRect(0, 0, 100, 60);
             gc.drawImage(this.glowSprite, 0, 0, 100, 60);
-            gc.globalCompositeOperation = 'source-in';
+            gc.globalCompositeOperation = 'multiply';
             gc.fillStyle = '#0f0';
             gc.fillRect(0, 0, 100, 60);
             gc.globalCompositeOperation = 'source-over';
