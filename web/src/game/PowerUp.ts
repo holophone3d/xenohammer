@@ -78,8 +78,8 @@ export class PowerUp {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
             // Use scale transform to stretch a circular gradient into an ellipse
-            const gcx = this.x + 18;   // C++: get_x() + 18
-            const gcy = this.y + 10;   // C++: get_y() + 10
+            const gcx = this.x + POWERUP_W / 2;  // center of sprite
+            const gcy = this.y + POWERUP_H / 2;
             const rx = 35, ry = 20;    // half the C++ quad (50×30), trimmed for visible glow
             ctx.translate(gcx, gcy);
             ctx.scale(rx / ry, 1);     // stretch horizontally to match rectangular shape
