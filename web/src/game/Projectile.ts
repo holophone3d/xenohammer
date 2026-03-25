@@ -93,7 +93,7 @@ export class Projectile {
             // per-type color quads. Player alpha=0.7, enemy alpha=0.9.
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
-            const baseSize = (this.owner === 'enemy') ? 27 : this.width;
+            const baseSize = Math.max(this.width, this.height);
             const glowSize = baseSize * 1.5;
             let glowColor: string;
             switch (this.weaponType) {

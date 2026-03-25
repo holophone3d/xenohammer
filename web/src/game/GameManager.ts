@@ -2244,6 +2244,9 @@ export class GameManager {
             this.debugActive = !this.debugActive;
             if (this.player) this.player.godMode = this.debugActive;
             this.debugKeyDebounce = 15;
+        } else if (this.input.isKeyPressed('4')) {
+            if (this.player) this.player.powerPlant.resourceUnits += 10;
+            this.debugKeyDebounce = 15;
         }
     }
 
@@ -2325,12 +2328,13 @@ export class GameManager {
         }
         if (this.debugMenuOpen) {
             ctx.fillStyle = 'rgba(0,0,0,0.85)';
-            ctx.fillRect(2, 28, 170, 60);
+            ctx.fillRect(2, 28, 170, 74);
             ctx.fillStyle = '#0f0';
             ctx.font = '12px monospace';
             ctx.fillText('1: Spawn Frigate', 8, 44);
             ctx.fillText('2: Spawn Boss', 8, 58);
             ctx.fillText('3: Toggle God Mode', 8, 72);
+            ctx.fillText('4: +10 RUs', 8, 86);
             if (this.debugActive) {
                 ctx.fillStyle = '#ff0';
                 ctx.fillText('(ON)', 150, 72);
