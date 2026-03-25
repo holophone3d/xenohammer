@@ -1003,15 +1003,9 @@ export class Boss {
         const comp = this.findHitComponent(hitX, hitY);
         if (!comp) return false;
 
-        // Shield absorbs damage to center when active — bullet destroyed, no damage
-        if ((comp === this.centerNode || comp === this.centerOrb) && this.shieldActive) {
-            return true;
-        }
-
         // Boss shield component absorbs hits (bullet explodes on contact)
         if (comp === this.bossShield) {
             if (!this.shieldActive) {
-                // Shield orbs gone but shield component still has HP — take damage
                 this.bossShield.armor -= damage;
                 if (this.bossShield.armor <= 0) {
                     this.bossShield.armor = 0;
@@ -1021,6 +1015,16 @@ export class Boss {
             this.hitFlashTimer = 0.1;
             this.hitFlashComp = comp;
             return true;
+        }
+
+        // When shield is active, ALL internal components are protected.
+        // Only outer orbs and outer turrets (outside the shield) can be damaged.
+        if (this.shieldActive) {
+            const isOuterOrb = this.outerOrbs.includes(comp);
+            const isOuterTurret = this.outerTurretAIs.some(ai => ai.comp === comp);
+            if (!isOuterOrb && !isOuterTurret) {
+                return true; // bullet explodes but no damage to internal component
+            }
         }
 
         comp.armor -= damage;
@@ -1555,9 +1559,8 @@ export class Boss {
     }
 
     /**
-     * Draw an energy beam matching C++ createTriangleStrip(x,y,x1,y1,ox,oy).
-     * C++ vertices: (x±ox, y-oy) at start, (x1±ox, y1+oy) at end.
-     * Uses fixed x/y offsets (not perpendicular to beam direction).
+     * Draw an energy beam matching C++ createTriangleStrip with bar.bmp texture.
+     * Uses radial gradients at endpoints + a soft center fill to avoid hard quad edges.
      */
     private drawBeam(
         ctx: CanvasRenderingContext2D,
@@ -1566,46 +1569,41 @@ export class Boss {
         oy?: number,
     ): void {
         if (a <= 0) return;
-        const offy = oy ?? ox; // default oy = ox (square offsets like C++)
+        const offy = oy ?? ox;
 
         const color = `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)}`;
 
         ctx.save();
         ctx.globalAlpha = a;
 
-        // C++ createTriangleStrip quad:
-        // Start edge: (x1-ox, y1-oy) to (x1+ox, y1-oy)
-        // End edge:   (x2-ox, y2+oy) to (x2+ox, y2+oy)
-        // Core bright fill
-        ctx.beginPath();
-        ctx.moveTo(x1 - ox * 0.3, y1 - offy * 0.3);
-        ctx.lineTo(x1 + ox * 0.3, y1 - offy * 0.3);
-        ctx.lineTo(x2 + ox * 0.3, y2 + offy * 0.3);
-        ctx.lineTo(x2 - ox * 0.3, y2 + offy * 0.3);
-        ctx.closePath();
-        ctx.fillStyle = `${color},${0.8})`;
-        ctx.fill();
+        // Soft center beam (narrower, higher opacity — no hard edges visible)
+        const dx = x2 - x1, dy = y2 - y1;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len > 1) {
+            const px = -dy / len, py = dx / len;
+            const hw = ox * 0.35; // half-width of visible core
+            ctx.beginPath();
+            ctx.moveTo(x1 + px * hw, y1 + py * hw);
+            ctx.lineTo(x2 + px * hw, y2 + py * hw);
+            ctx.lineTo(x2 - px * hw, y2 - py * hw);
+            ctx.lineTo(x1 - px * hw, y1 - py * hw);
+            ctx.closePath();
+            ctx.fillStyle = `${color},${0.5})`;
+            ctx.fill();
+        }
 
-        // Outer glow quad (full extent)
-        ctx.beginPath();
-        ctx.moveTo(x1 - ox, y1 - offy);
-        ctx.lineTo(x1 + ox, y1 - offy);
-        ctx.lineTo(x2 + ox, y2 + offy);
-        ctx.lineTo(x2 - ox, y2 + offy);
-        ctx.closePath();
-        ctx.fillStyle = `${color},${0.3})`;
-        ctx.fill();
-
-        // Endpoint glows
-        const glowR = ox * 0.8;
+        // Endpoint glows (large enough to bridge the gap to neighboring beams)
+        const glowR = Math.max(ox, offy);
         const glow = ctx.createRadialGradient(x1, y1, 0, x1, y1, glowR);
         glow.addColorStop(0, `${color},${0.6})`);
+        glow.addColorStop(0.4, `${color},${0.25})`);
         glow.addColorStop(1, `${color},0)`);
         ctx.fillStyle = glow;
         ctx.beginPath(); ctx.arc(x1, y1, glowR, 0, Math.PI * 2); ctx.fill();
 
         const glow2 = ctx.createRadialGradient(x2, y2, 0, x2, y2, glowR);
         glow2.addColorStop(0, `${color},${0.6})`);
+        glow2.addColorStop(0.4, `${color},${0.25})`);
         glow2.addColorStop(1, `${color},0)`);
         ctx.fillStyle = glow2;
         ctx.beginPath(); ctx.arc(x2, y2, glowR, 0, Math.PI * 2); ctx.fill();
