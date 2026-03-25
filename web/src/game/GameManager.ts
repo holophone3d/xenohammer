@@ -819,19 +819,13 @@ export class GameManager {
                         const cx = proj.x + proj.width / 2;
                         const cy = proj.y + proj.height / 2;
                         if (this.boss.takeDamage(cx, cy, proj.damage)) {
-                            if (this.boss.lastHitDeflected) {
-                                // Shield deflects — bounce projectile back
-                                proj.vy = -Math.abs(proj.vy) - 50; // bounce upward
-                                proj.vx = proj.vx * 0.5 + (Math.random() - 0.5) * 60;
-                            } else {
-                                proj.alive = false;
-                                this.gameExplosions.push(new Explosion(
-                                    proj.x, proj.y, 'small', this.smallExpFrames,
-                                    proj.vx / 5, proj.vy / 5));
-                                this.particles.emit(proj.x, proj.y, 6, {
-                                    color: { r: 1, g: 0.8, b: 0.2 }, speed: 50, life: 0.3,
-                                });
-                            }
+                            proj.alive = false;
+                            this.gameExplosions.push(new Explosion(
+                                proj.x, proj.y, 'small', this.smallExpFrames,
+                                proj.vx / 5, proj.vy / 5));
+                            this.particles.emit(proj.x, proj.y, 6, {
+                                color: { r: 1, g: 0.8, b: 0.2 }, speed: 50, life: 0.3,
+                            });
                         }
                         break;
                     }
