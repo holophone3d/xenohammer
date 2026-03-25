@@ -27,6 +27,7 @@ export class PowerUp {
     private baseX: number;
     private bobTimer = 0;
     private sprite: HTMLImageElement | null = null;
+    private glowSprite: HTMLImageElement | null = null;
 
     constructor(x: number, y: number, type: PowerUpType, assets?: AssetLoader | null) {
         this.x = x;
@@ -36,6 +37,7 @@ export class PowerUp {
 
         if (assets) {
             try { this.sprite = assets.getImage('powerup'); } catch { /* not available */ }
+            try { this.glowSprite = assets.getImage('Particle'); } catch { /* not available */ }
         }
     }
 
@@ -57,21 +59,37 @@ export class PowerUp {
     draw(ctx: CanvasRenderingContext2D): void {
         if (!this.active) return;
 
-        // Green glow aura (C++ GL_Handler.cpp:554-582 — green quad at 70% opacity)
-        ctx.save();
-        ctx.globalAlpha = 0.7;
-        ctx.fillStyle = '#0f0';
-        const glowPad = 6;
-        ctx.fillRect(
-            this.x - glowPad, this.y - glowPad,
-            POWERUP_SIZE + glowPad * 2, POWERUP_SIZE + glowPad * 2,
-        );
-        ctx.restore();
+        // Green glow using Particle texture (C++ GL_Handler.cpp:554-582)
+        // C++: center at (x+18, y+10), quad ±50×±30 = 100×60px, additive blend
+        if (this.glowSprite) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = 0.7;
+            // Tint green by drawing into an offscreen canvas (or just draw the white particle — additive makes it glow)
+            // The particle texture is white, so we colorize it green
+            const gw = 100, gh = 60;
+            const gx = this.x + 18 - gw / 2;
+            const gy = this.y + 10 - gh / 2;
+            // Draw particle stretched to glow size, tinted green via a temp canvas
+            if (!PowerUp._glowCanvas) {
+                PowerUp._glowCanvas = document.createElement('canvas');
+                PowerUp._glowCanvas.width = 100;
+                PowerUp._glowCanvas.height = 60;
+            }
+            const gc = PowerUp._glowCanvas.getContext('2d')!;
+            gc.clearRect(0, 0, 100, 60);
+            gc.drawImage(this.glowSprite, 0, 0, 100, 60);
+            gc.globalCompositeOperation = 'source-in';
+            gc.fillStyle = '#0f0';
+            gc.fillRect(0, 0, 100, 60);
+            gc.globalCompositeOperation = 'source-over';
+            ctx.drawImage(PowerUp._glowCanvas, gx, gy);
+            ctx.restore();
+        }
 
         if (this.sprite) {
             ctx.drawImage(this.sprite, this.x, this.y);
         } else {
-            // Fallback: colored rectangle
             switch (this.type) {
                 case 'armor': ctx.fillStyle = '#0f0'; break;
                 case 'shield': ctx.fillStyle = '#00f'; break;
@@ -80,6 +98,8 @@ export class PowerUp {
             ctx.fillRect(this.x, this.y, POWERUP_SIZE, POWERUP_SIZE);
         }
     }
+
+    private static _glowCanvas: HTMLCanvasElement | null = null;
 
     getRect(): Rect {
         return { x: this.x, y: this.y, w: POWERUP_SIZE, h: POWERUP_SIZE };

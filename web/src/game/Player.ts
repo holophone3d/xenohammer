@@ -32,6 +32,7 @@ export class Player {
     private lastHitTime = 0;
     private lastRegenTime = 0;
     private spriteFrame = 8;
+    private shieldTexture: HTMLImageElement | null = null;
 
     constructor() {
         this.x = PLAYER_START.x;
@@ -190,6 +191,7 @@ export class Player {
         } catch {
             // Sprite frames not available
         }
+        try { this.shieldTexture = assets.getImage('Shield'); } catch { /* not available */ }
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
@@ -203,49 +205,47 @@ export class Player {
             ctx.fillRect(this.x, this.y, 48, 48);
         }
 
-        // Shield bubble — pure blue with additive blending
-        // C++: glColor4f(0.0, 0.0, 1.0, 0.7) with GL_SRC_ALPHA,GL_ONE
-        // Shield.bmp is a ring texture — transparent center, bright white ring edge
+        // Shield bubble — Shield.png texture with additive blending
+        // C++: glColor4f(0.3, 0.6, 0.9, shields/300), GL_SRC_ALPHA/GL_ONE
+        // Center at (x+38, y+24), quad ±64.5×±44.5 = 129×89px
         if (this.shields > 0) {
             const cx = this.x + 38;
-            const cy = this.y + 24;  // C++: screen_y = get_y() + 24
-            const rx = 64.5;
-            const ry = 44.5;
-            const shieldAlpha = Math.min(1.0, (this.shields / this.maxShields));
+            const cy = this.y + 24;
+            const hw = 64.5, hh = 44.5;
+            const shieldAlpha = Math.min(1.0, this.shields / this.maxShields);
 
             ctx.save();
-            ctx.globalCompositeOperation = 'lighter'; // additive blending
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = shieldAlpha;
 
-            // Sharp ring gradient: transparent center → bright blue edge
-            const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
-            grad.addColorStop(0, 'rgba(0,0,0,0)');                                 // fully transparent center
-            grad.addColorStop(0.60, 'rgba(0,0,0,0)');                              // still transparent
-            grad.addColorStop(0.72, `rgba(0,40,180,${0.1 * shieldAlpha})`);        // start fading in
-            grad.addColorStop(0.82, `rgba(0,80,255,${0.4 * shieldAlpha})`);        // brightening
-            grad.addColorStop(0.90, `rgba(40,140,255,${0.7 * shieldAlpha})`);      // bright ring
-            grad.addColorStop(0.95, `rgba(100,200,255,${0.85 * shieldAlpha})`);    // brightest - nearly white-blue
-            grad.addColorStop(1.0, `rgba(30,100,255,${0.4 * shieldAlpha})`);       // slight falloff at edge
-
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Draw a second pass for extra brightness at the ring edge
-            const grad2 = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
-            grad2.addColorStop(0, 'rgba(0,0,0,0)');
-            grad2.addColorStop(0.80, 'rgba(0,0,0,0)');
-            grad2.addColorStop(0.90, `rgba(0,100,255,${0.3 * shieldAlpha})`);
-            grad2.addColorStop(0.96, `rgba(80,180,255,${0.5 * shieldAlpha})`);
-            grad2.addColorStop(1.0, `rgba(0,60,200,${0.15 * shieldAlpha})`);
-            ctx.fillStyle = grad2;
-            ctx.beginPath();
-            ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-            ctx.fill();
+            if (this.shieldTexture) {
+                // Shield.png is black bg + white ring. Multiply-tint to blue,
+                // then additive blend makes black invisible and ring glow blue.
+                if (!Player._shieldCanvas) {
+                    Player._shieldCanvas = document.createElement('canvas');
+                    Player._shieldCanvas.width = 129;
+                    Player._shieldCanvas.height = 89;
+                }
+                const sc = Player._shieldCanvas.getContext('2d')!;
+                sc.clearRect(0, 0, 129, 89);
+                sc.drawImage(this.shieldTexture, 0, 0, 129, 89);
+                sc.globalCompositeOperation = 'multiply';
+                sc.fillStyle = 'rgb(77,153,230)';
+                sc.fillRect(0, 0, 129, 89);
+                sc.globalCompositeOperation = 'source-over';
+                ctx.drawImage(Player._shieldCanvas, cx - hw, cy - hh);
+            } else {
+                ctx.fillStyle = `rgba(77,153,230,0.5)`;
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, hw, hh, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
 
             ctx.restore();
         }
     }
+
+    private static _shieldCanvas: HTMLCanvasElement | null = null;
 
     /** Emit engine flame particles. Call from GameManager each frame.
      * C++: make_engine(x+38, y+47, intensity=0.4)
