@@ -87,6 +87,9 @@ export class GameManager {
     private custShieldDemo = 0;
     private turretAngleAvailable = false;
     private isHomingResearched = false;
+    // C++ Sound.cpp:81-100 — two-phase fire sound (single shot → looping rapid fire)
+    private playerFireSound: SoundInstance | null = null;
+    private playerRapidFireActive = false;
 
     constructor(canvasId: string) {
         this.canvas = new GameCanvas(canvasId);
@@ -525,7 +528,29 @@ export class GameManager {
             this.player.emitEngineFlame(this.particles);
             const playerProj = this.player.tryFire(this.input, this.now, this.assets);
             if (playerProj.length > 0) {
-                try { this.audio.playSound('PlayerGun1'); } catch { /* skip */ }
+                // C++ Sound.cpp:81-100: first fire plays single shot (PlayerGun1),
+                // subsequent fires while held switch to looping rapid fire (PlayerGun2)
+                try {
+                    if (this.playerFireSound && this.playerFireSound.isPlaying()) {
+                        if (!this.playerRapidFireActive) {
+                            this.playerFireSound.stop();
+                            this.playerFireSound = this.audio.playSound('PlayerGun2', true);
+                            this.playerRapidFireActive = true;
+                        }
+                    } else {
+                        this.playerFireSound = this.audio.playSound('PlayerGun1');
+                        this.playerRapidFireActive = false;
+                    }
+                } catch { /* skip */ }
+            } else if (this.input.isKeyDown(Input.SPACE)) {
+                // Fire button held but gate not ready — keep sound going
+            } else {
+                // C++ Sound.cpp:169-175: fire released — stop rapid loop, play final single shot
+                if (this.playerRapidFireActive && this.playerFireSound) {
+                    this.playerFireSound.stop();
+                    try { this.playerFireSound = this.audio.playSound('PlayerGun1'); } catch { /* skip */ }
+                    this.playerRapidFireActive = false;
+                }
             }
             this.projectiles.push(...playerProj);
         }
@@ -903,6 +928,11 @@ export class GameManager {
         if (this.engineSound) {
             this.engineSound.stop();
             this.engineSound = null;
+        }
+        if (this.playerFireSound) {
+            this.playerFireSound.stop();
+            this.playerFireSound = null;
+            this.playerRapidFireActive = false;
         }
         this.audio.stopMusic();
         this.musicPlaying = '';

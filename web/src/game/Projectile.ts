@@ -89,20 +89,20 @@ export class Projectile {
         if (!this.alive) return;
 
         if (this.sprite) {
-            // Additive glow behind sprite — color by weapon type
+            // C++ GL_Handler.cpp: additive blending (GL_SRC_ALPHA, GL_ONE) with
+            // per-type color quads. Player alpha=0.7, enemy alpha=0.9.
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
-            // Enemy projectiles: fixed glow size; player projectiles: scale with sprite
             const baseSize = (this.owner === 'enemy') ? 27 : this.width;
             const glowSize = baseSize * 1.5;
             let glowColor: string;
             switch (this.weaponType) {
-                case 'blaster':    glowColor = 'rgba(0,255,51,0.25)'; break;   // green
-                case 'turret':     glowColor = 'rgba(0,255,128,0.25)'; break;  // cyan-green
-                case 'missile':    glowColor = 'rgba(0,0,255,0.3)'; break;     // blue
-                case 'enemyBlast': glowColor = 'rgba(255,80,0,0.25)'; break;   // orange-red
-                case 'enemyCannon': glowColor = 'rgba(255,0,0,0.25)'; break;   // red
-                default:           glowColor = 'rgba(0,255,51,0.25)'; break;
+                case 'blaster':     glowColor = 'rgba(0,255,51,0.7)'; break;    // C++: 0,1.0,0.2,0.7
+                case 'turret':      glowColor = 'rgba(0,255,128,0.7)'; break;   // C++: 0,1.0,0.5,0.7
+                case 'missile':     glowColor = 'rgba(0,0,255,0.7)'; break;     // C++: 0,0,1.0,0.7
+                case 'enemyBlast':  glowColor = 'rgba(255,51,0,0.9)'; break;    // C++: 1.0,0.2,0.0,0.9
+                case 'enemyCannon': glowColor = 'rgba(255,51,0,0.9)'; break;    // same glow as enemy blast
+                default:            glowColor = 'rgba(0,255,51,0.7)'; break;
             }
             const cx = this.x + this.width / 2;
             const cy = this.y + this.height / 2;
