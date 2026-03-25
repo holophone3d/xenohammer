@@ -305,6 +305,7 @@ export class Boss {
 
     // --- Shield ---
     shieldActive = true;
+    lastHitDeflected = false;
 
     // --- Internal ---
     private difficulty: number;
@@ -828,6 +829,7 @@ export class Boss {
             xOff, yOff,
             45, 'enemy', sprite, 'enemyBlast',
         );
+        this.pendingSoundEmits.push('AlienWeapon1');
         this.pendingProjectiles.push(proj);
     }
 
@@ -999,16 +1001,25 @@ export class Boss {
         if (this.state === BossState.Waiting || this.state === BossState.Entering ||
             this.state === BossState.Dying  || this.state === BossState.Dead) return false;
 
+        this.lastHitDeflected = false;
         const comp = this.findHitComponent(hitX, hitY);
         if (!comp) return false;
 
-        // Shield absorbs damage to center when active
+        // Shield absorbs damage to center when active — deflect projectile
         if ((comp === this.centerNode || comp === this.centerOrb) && this.shieldActive) {
-            return true; // hit accepted (absorbed by shield mechanic)
+            this.lastHitDeflected = true;
+            return true;
         }
 
-        // Boss shield component absorbs hits
+        // Boss shield component deflects hits while shield is active
         if (comp === this.bossShield) {
+            if (this.shieldActive) {
+                this.lastHitDeflected = true;
+                this.hitFlashTimer = 0.1;
+                this.hitFlashComp = comp;
+                return true;
+            }
+            // Shield orbs gone but shield component still has HP — take damage
             this.bossShield.armor -= damage;
             if (this.bossShield.armor <= 0) {
                 this.bossShield.armor = 0;
@@ -1450,30 +1461,31 @@ export class Boss {
         }
 
         // --- Connector beams (C++: purple 0.4/0.15/1.0, warningAlpha*0.5, bar.bmp texture) ---
+        // C++ passes center point FIRST, node SECOND — critical for offset direction
         const beamAlpha = this.warningAlpha * 0.5;
-        // Node1 → center point 1
+        // Center point 1 → Node1
         if (!this.outerOrbs[0].destroyed) {
             const n1x = bx + NODE_OFFSETS[0].x + 128;
             const n1y = by + NODE_OFFSETS[0].y + 64 - 10;
-            this.drawBeam(ctx, n1x, n1y, cp1x, cp1y + 16, 30, 0.4, 0.15, 1.0, beamAlpha);
+            this.drawBeam(ctx, cp1x, cp1y + 16, n1x, n1y, 30, 0.4, 0.15, 1.0, beamAlpha);
         }
-        // Node2 → center point 1
+        // Center point 1 → Node2
         if (!this.outerOrbs[1].destroyed) {
             const n2x = bx + NODE_OFFSETS[1].x + 64;
             const n2y = by + NODE_OFFSETS[1].y;
-            this.drawBeam(ctx, n2x, n2y, cp1x, cp1y, 20, 0.4, 0.15, 1.0, beamAlpha);
+            this.drawBeam(ctx, cp1x, cp1y, n2x, n2y, 20, 0.4, 0.15, 1.0, beamAlpha);
         }
-        // Node3 → center point 2
+        // Center point 2 → Node3
         if (!this.outerOrbs[2].destroyed) {
             const n3x = bx + NODE_OFFSETS[2].x + 64;
             const n3y = by + NODE_OFFSETS[2].y;
-            this.drawBeam(ctx, n3x, n3y, cp2x, cp2y, 20, 0.4, 0.15, 1.0, beamAlpha);
+            this.drawBeam(ctx, cp2x, cp2y, n3x, n3y, 20, 0.4, 0.15, 1.0, beamAlpha);
         }
-        // Node4 → center point 2
+        // Center point 2 → Node4
         if (!this.outerOrbs[3].destroyed) {
             const n4x = bx + NODE_OFFSETS[3].x;
             const n4y = by + NODE_OFFSETS[3].y + 64 - 10;
-            this.drawBeam(ctx, n4x, n4y, cp2x, cp2y + 16, 30, 0.4, 0.15, 1.0, beamAlpha);
+            this.drawBeam(ctx, cp2x, cp2y + 16, n4x, n4y, 30, 0.4, 0.15, 1.0, beamAlpha);
         }
 
         // --- 4 outer node connector points (C++: white 30×30, warningAlpha) ---
