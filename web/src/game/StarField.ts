@@ -45,6 +45,13 @@ export class StarField {
         if (assets) this.loadSprites(assets);
     }
 
+    reset(): void {
+        this.elapsed = 0;
+        this.earthY = 150;
+        this.moonY = 200;
+        this.bodiesStopped = false;
+    }
+
     loadSprites(assets: AssetLoader): void {
         try { this.earthSprite = assets.getImage('earth'); } catch { /* not available */ }
         try { this.moonSprite = assets.getImage('moon'); } catch { /* not available */ }

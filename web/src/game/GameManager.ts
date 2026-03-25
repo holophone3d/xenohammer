@@ -437,10 +437,7 @@ export class GameManager {
 
         let tooltip = '';
 
-        if (this.playerDiedLastLevel) {
-            // C++ GUI.cpp:201-202: death message overrides default tooltip
-            tooltip = 'You have died, your game has been restarted';
-        } else if (inLeft) {
+        if (inLeft) {
             tooltip = 'Click here to customize your ship.';
         } else if (inCenter) {
             tooltip = 'Click here to See Briefings, Save, Load, or Quit';
@@ -460,6 +457,9 @@ export class GameManager {
             } else {
                 tooltip = 'You Have Completed the Mission!';
             }
+        } else if (this.playerDiedLastLevel) {
+            // C++ GUI.cpp:201-202: death message replaces default when no zone hovered
+            tooltip = 'You have died, your game has been restarted';
         } else {
             tooltip = 'Click on a screen or the door opening';
         }
@@ -491,6 +491,7 @@ export class GameManager {
         this.stateTimer = 0;
         this.particles.clear();
         this.waveManager.startLevel(levelIndex);
+        this.starField.reset();
 
         // Spawn boss for levels with hasBoss
         const levelDef = LEVELS[levelIndex];
@@ -713,6 +714,10 @@ export class GameManager {
             if (rectsOverlap(proj.getRect(), playerRect)) {
                 this.player!.takeDamage(proj.damage, this.now);
                 proj.alive = false;
+                // C++ creates a small sprite explosion at projectile hit position
+                this.gameExplosions.push(new Explosion(
+                    proj.x, proj.y, 'small', this.smallExpFrames,
+                    proj.vx / 5, proj.vy / 5));
                 this.particles.emit(proj.x, proj.y, 8, {
                     color: { r: 1, g: 0.3, b: 0.3 }, speed: 40, life: 0.3,
                 });
@@ -727,6 +732,10 @@ export class GameManager {
                 if (rectsOverlap(proj.getRect(), enemy.getRect())) {
                     enemy.takeDamage(proj.damage);
                     proj.alive = false;
+                    // C++ creates a small sprite explosion at projectile hit position
+                    this.gameExplosions.push(new Explosion(
+                        proj.x, proj.y, 'small', this.smallExpFrames,
+                        proj.vx / 5, proj.vy / 5));
                     this.particles.emit(proj.x, proj.y, 6, {
                         color: { r: 1, g: 0.8, b: 0.2 }, speed: 50, life: 0.3,
                     });
@@ -746,6 +755,9 @@ export class GameManager {
                     if (rectsOverlap(proj.getRect(), rect)) {
                         ship.takeDamage(proj.x, proj.y, proj.damage);
                         proj.alive = false;
+                        this.gameExplosions.push(new Explosion(
+                            proj.x, proj.y, 'small', this.smallExpFrames,
+                            proj.vx / 5, proj.vy / 5));
                         this.particles.emit(proj.x, proj.y, 6, {
                             color: { r: 1, g: 0.8, b: 0.2 }, speed: 50, life: 0.3,
                         });
@@ -764,6 +776,9 @@ export class GameManager {
                         const cy = proj.y + proj.height / 2;
                         if (this.boss.takeDamage(cx, cy, proj.damage)) {
                             proj.alive = false;
+                            this.gameExplosions.push(new Explosion(
+                                proj.x, proj.y, 'small', this.smallExpFrames,
+                                proj.vx / 5, proj.vy / 5));
                             this.particles.emit(proj.x, proj.y, 6, {
                                 color: { r: 1, g: 0.8, b: 0.2 }, speed: 50, life: 0.3,
                             });
