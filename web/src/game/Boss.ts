@@ -26,10 +26,10 @@ import { Explosion, ChainExplosion } from './Explosion';
 const BOSS_START_X = 245;
 const BOSS_START_Y = -600;
 const BOSS_HOVER_Y = -50;           // C++: boss stops at y=-50
-const BOSS_DESCENT_SPEED = 10;      // px/s (C++: 1px per 100ms = 10px/s)
+const BOSS_DESCENT_SPEED = 50;      // px/s — tuned for feel (C++ literal is 10px/s but too slow)
 const BOSS_WAIT_TIME = 110_000;     // ms before boss enters
 const BOSS_MUSIC_TIME = 96_000;     // ms before boss music starts
-const MORPH_TICK_MS = 100;          // ms per 1px morph step (C++: 100ms per pixel)
+const MORPH_TICK_MS = 10;           // ms per 1px morph step — tuned for feel (C++ literal is 100ms)
 
 const ORB_FRAME_COUNT = 33;         // orb00–orb32
 const ORB_ANIM_SPEED = 60;          // ms per frame
