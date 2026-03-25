@@ -97,12 +97,12 @@ export class Projectile {
             const glowSize = baseSize * 1.5;
             let glowColor: string;
             switch (this.weaponType) {
-                case 'blaster':     glowColor = 'rgba(0,255,51,0.7)'; break;    // C++: 0,1.0,0.2,0.7
-                case 'turret':      glowColor = 'rgba(0,255,128,0.7)'; break;   // C++: 0,1.0,0.5,0.7
-                case 'missile':     glowColor = 'rgba(0,0,255,0.7)'; break;     // C++: 0,0,1.0,0.7
-                case 'enemyBlast':  glowColor = 'rgba(255,51,0,0.9)'; break;    // C++: 1.0,0.2,0.0,0.9
-                case 'enemyCannon': glowColor = 'rgba(255,51,0,0.9)'; break;    // same glow as enemy blast
-                default:            glowColor = 'rgba(0,255,51,0.7)'; break;
+                case 'blaster':     glowColor = 'rgba(0,255,51,0.5)'; break;
+                case 'turret':      glowColor = 'rgba(0,255,128,0.5)'; break;
+                case 'missile':     glowColor = 'rgba(0,0,255,0.5)'; break;
+                case 'enemyBlast':  glowColor = 'rgba(255,51,0,0.6)'; break;
+                case 'enemyCannon': glowColor = 'rgba(255,51,0,0.6)'; break;
+                default:            glowColor = 'rgba(0,255,51,0.5)'; break;
             }
             const cx = this.x + this.width / 2;
             const cy = this.y + this.height / 2;
