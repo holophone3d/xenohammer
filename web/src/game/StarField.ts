@@ -1,7 +1,12 @@
 /**
  * Parallax starfield background — Section 12 of SPEC.md.
  * 600 stars at varying depths (z: 1–300) scrolling downward with parallax.
- * Includes Earth (z=150) and Moon (z=200) celestial bodies.
+ * Includes Earth and Moon celestial bodies (level 1 only).
+ *
+ * C++ StarField.cpp MoveStars model:
+ *   All stars: y += speed (raw increment, same for all)
+ *   Screen projection: yscr = y / z (closer = faster on screen)
+ *   Web equivalent at 60fps: screen_speed = speed * 60 / z
  */
 
 import { AssetLoader } from '../engine';
@@ -19,6 +24,12 @@ interface Star {
 const MAX_STARS = 600;
 const STAR_DISTANCE = 300;
 const DEFAULT_SPEED = 30;
+// C++ MoveStars is frame-rate-dependent; we convert assuming ~60fps target
+const REFERENCE_FPS = 60;
+
+// Initial positions matching reference screenshots
+const EARTH_START_Y = 300;
+const MOON_START_Y = 30;
 
 export class StarField {
     private stars: Star[] = [];
@@ -27,11 +38,9 @@ export class StarField {
 
     private earthSprite: HTMLImageElement | null = null;
     private moonSprite: HTMLImageElement | null = null;
-    // C++ positions: Earth(x=0, y=150), Moon(x=0, y=200) — both LEFT side
-    // Earth is closer (z=150) and faster; Moon further (z=200) and slower
-    private earthY = 150;
-    private moonY = 200;
-    private moonX = 0;  // left side, matching C++ x=0
+    private earthY = EARTH_START_Y;
+    private moonY = MOON_START_Y;
+    private moonX = 0;
     private bodiesStopped = false;
 
     // C++ uses YSCALE=600: Earth vel=30 → 30/600*1000=50px/s, Moon vel=18 → 18/600*1000=30px/s
@@ -47,8 +56,8 @@ export class StarField {
 
     reset(): void {
         this.elapsed = 0;
-        this.earthY = 150;
-        this.moonY = 200;
+        this.earthY = EARTH_START_Y;
+        this.moonY = MOON_START_Y;
         this.bodiesStopped = false;
     }
 
@@ -85,7 +94,9 @@ export class StarField {
         this.elapsed += dt;
 
         for (const star of this.stars) {
-            const layerSpeed = this.speed * (STAR_DISTANCE / (star.z + 1));
+            // C++ MoveStars: y += speed (same for all), yscr = y / z
+            // Effective screen speed = speed / z per frame = speed * fps / z per second
+            const layerSpeed = (this.speed * REFERENCE_FPS) / star.z;
             star.y += layerSpeed * dt;
 
             if (star.y > SCREEN_H) {
