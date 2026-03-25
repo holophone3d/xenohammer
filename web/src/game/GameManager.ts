@@ -152,25 +152,26 @@ export class GameManager {
         this.state = GameState.StartScreen;
     }
 
-    /** Load pre-rendered level intro animation frames (level_anim_1–8 etc.) */
+    /** Load pre-rendered level intro animation frames.
+     *  C++ uses resource keys level_anim_1–8; on-disk PNGs are in_game_1–8 etc. */
     private loadLevelAnimFrames(): void {
-        // Level 1: level_anim_1 through level_anim_8
+        // Level 1: in_game_1 through in_game_8 (typewriter "LEVEL 1_")
         const l1: HTMLImageElement[] = [];
         for (let i = 1; i <= 8; i++) {
-            try { l1.push(this.assets.getImage(`level_anim_${i}`)); } catch { break; }
+            try { l1.push(this.assets.getImage(`in_game_${i}`)); } catch { break; }
         }
-        // Level 2: level_anim_1 through level_anim_7 + level_anim_2_start
+        // Level 2: in_game_1 through in_game_7 + in_game_start2 ("LEVEL 2_")
         const l2: HTMLImageElement[] = [];
         for (let i = 1; i <= 7; i++) {
-            try { l2.push(this.assets.getImage(`level_anim_${i}`)); } catch { break; }
+            try { l2.push(this.assets.getImage(`in_game_${i}`)); } catch { break; }
         }
-        try { l2.push(this.assets.getImage('level_anim_2_start')); } catch { /* skip */ }
-        // Level 3: level_anim_1 through level_anim_7 + level_anim_3_start
+        try { l2.push(this.assets.getImage('in_game_start2')); } catch { /* skip */ }
+        // Level 3: in_game_1 through in_game_7 + in_game_start3 ("LEVEL 3_")
         const l3: HTMLImageElement[] = [];
         for (let i = 1; i <= 7; i++) {
-            try { l3.push(this.assets.getImage(`level_anim_${i}`)); } catch { break; }
+            try { l3.push(this.assets.getImage(`in_game_${i}`)); } catch { break; }
         }
-        try { l3.push(this.assets.getImage('level_anim_3_start')); } catch { /* skip */ }
+        try { l3.push(this.assets.getImage('in_game_start3')); } catch { /* skip */ }
         this.levelAnimFrames = [l1, l2, l3];
     }
 
