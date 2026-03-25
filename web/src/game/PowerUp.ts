@@ -28,7 +28,6 @@ export class PowerUp {
     private baseX: number;
     private bobTimer = 0;
     private sprite: HTMLImageElement | null = null;
-    private glowSprite: HTMLImageElement | null = null;
 
     constructor(x: number, y: number, type: PowerUpType, assets?: AssetLoader | null) {
         this.x = x;
@@ -38,7 +37,6 @@ export class PowerUp {
 
         if (assets) {
             try { this.sprite = assets.getImage('powerup'); } catch { /* not available */ }
-            try { this.glowSprite = assets.getImage('Particle'); } catch { /* not available */ }
         }
     }
 
@@ -73,36 +71,25 @@ export class PowerUp {
         }
 
         // Green glow on top (C++ GL_Handler.cpp:554-582, drawn as GL overlay)
-        // C++ uses Particle.bmp textured quad, additive blend, glColor4f(0,1,0,0.7)
-        // Powerup sprite is 30×16px. Glow centered on sprite.
-        if (this.glowSprite) {
+        // Soft radial gradient for smooth falloff, additive blended
+        {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
-            ctx.globalAlpha = 0.7;
-            const gw = 70, gh = 50;
-            const gcx = this.x + POWERUP_W / 2;   // center of 30px-wide sprite
-            const gcy = this.y + POWERUP_H / 2;   // center of 16px-tall sprite
-            if (!PowerUp._glowCanvas) {
-                PowerUp._glowCanvas = document.createElement('canvas');
-            }
-            const cv = PowerUp._glowCanvas;
-            if (cv.width !== gw || cv.height !== gh) {
-                cv.width = gw;
-                cv.height = gh;
-            }
-            const gc = cv.getContext('2d')!;
-            gc.clearRect(0, 0, gw, gh);
-            gc.drawImage(this.glowSprite, 0, 0, gw, gh);
-            gc.globalCompositeOperation = 'multiply';
-            gc.fillStyle = '#0f0';
-            gc.fillRect(0, 0, gw, gh);
-            gc.globalCompositeOperation = 'source-over';
-            ctx.drawImage(cv, gcx - gw / 2, gcy - gh / 2);
+            const gcx = this.x + POWERUP_W / 2;
+            const gcy = this.y + POWERUP_H / 2;
+            const r = 28;
+            const grad = ctx.createRadialGradient(gcx, gcy, 0, gcx, gcy, r);
+            grad.addColorStop(0, 'rgba(0,255,0,0.7)');
+            grad.addColorStop(0.4, 'rgba(0,255,0,0.4)');
+            grad.addColorStop(0.7, 'rgba(0,255,0,0.15)');
+            grad.addColorStop(1.0, 'rgba(0,255,0,0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(gcx, gcy, r, 0, Math.PI * 2);
+            ctx.fill();
             ctx.restore();
         }
     }
-
-    private static _glowCanvas: HTMLCanvasElement | null = null;
 
     getRect(): Rect {
         return { x: this.x, y: this.y, w: POWERUP_W, h: POWERUP_H };
