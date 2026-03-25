@@ -27,9 +27,9 @@ const DEFAULT_SPEED = 30;
 // C++ MoveStars is frame-rate-dependent; we convert assuming ~60fps target
 const REFERENCE_FPS = 60;
 
-// Initial positions matching reference screenshots
-const EARTH_START_Y = 300;
-const MOON_START_Y = 30;
+// Initial positions: earth horizon at ~mid-screen, moon barely peeking top-left
+const EARTH_START_Y = 270;
+const MOON_START_Y = 350;
 
 export class StarField {
     private stars: Star[] = [];
