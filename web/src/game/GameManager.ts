@@ -1081,9 +1081,9 @@ export class GameManager {
         ctx.fillStyle = inButton ? 'rgb(70,85,70)' : 'rgb(51,64,51)';
         ctx.fillRect(200, yCenter - 33, 400, 33);
         ctx.fillStyle = '#0f0';
-        ctx.font = '14px XenoFont, monospace';
+        ctx.font = '20px XenoFont, monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(text, 400, yCenter - 10);
+        ctx.fillText(text, 400, yCenter - 8);
         ctx.textAlign = 'left';
         return inButton;
     }
@@ -1102,7 +1102,7 @@ export class GameManager {
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 550, 800, 50);
         ctx.fillStyle = '#0f0';
-        ctx.font = '14px XenoFont, monospace';
+        ctx.font = '20px XenoFont, monospace';
         ctx.textAlign = 'center';
         ctx.fillText(text, 400, 580);
         ctx.textAlign = 'left';
@@ -1784,6 +1784,14 @@ export class GameManager {
         ctx.fillRect(512, 45, 288, 508);        // right panel
         ctx.fillRect(512, 553, 5, 47);          // thin divider next to exit button
 
+        // 3b. Green divider lines at section boundaries
+        ctx.fillStyle = '#0f0';
+        ctx.fillRect(0, 40, 800, 1);            // bottom of stats bar
+        ctx.fillRect(0, 301, 512, 1);           // bottom of ship diagram
+        ctx.fillRect(512, 45, 1, 508);          // left edge of right panel
+        ctx.fillRect(512, 553, 5, 1);           // above exit button divider
+        ctx.fillRect(517, 553, 283, 1);         // above exit button
+
         // 4. Stats at top (y=35)
         if (this.player) {
             ctx.font = '18px XenoFont, monospace';
@@ -2023,7 +2031,7 @@ export class GameManager {
         if (sel === 5 || sel === -1) {
             // Speed ship bouncing
             const speedShip = this.assets.tryGetImage('speed_ship');
-            if (speedShip) ctx.drawImage(speedShip, this.custSpeedShipX, 450);
+            if (speedShip) ctx.drawImage(speedShip, this.custSpeedShipX, 509);
 
             // "Shields" label at (740, 345) per C++ (SHIELDS_X_POS+73, SHIELDS_Y_POS-220)
             ctx.font = '18px XenoFont, monospace';
