@@ -594,11 +594,23 @@ export class GameManager {
                 try { this.audio.playSound(fs.sound, false, fs.volume); } catch { /* skip */ }
             }
 
-            // Engine flames (C++: make_CapShipEngine at x+40, y, intensity 1.0)
-            this.particles.emit(ship.x + 40, ship.y, 2, {
-                color: { r: 1, g: Math.random() * 0.7, b: Math.random() * 0.2 },
-                speed: 8, life: 0.1, fade: 3, direction: Math.PI / 2, spread: 0.3,
-            });
+            // Dual engine flames (C++ make_CapShipEngine: two exhaust points at x+40, x+57)
+            // Color: R=G=tempVal(0-2 clamped), B=1.0 (blue/cyan); fade 0.003-0.103/frame
+            for (const engineOffX of [40, 57]) {
+                const tempVal = Math.min(1.0, Math.random() * 2);
+                const cppFade = (Math.random() * 100) / 1000 + 0.003;
+                const fadePerSec = cppFade * 60;
+                const angleDeg = 170 + Math.random() * 20; // -10° to +10° from downward
+                const angleRad = (angleDeg * Math.PI) / 180;
+                this.particles.emit(ship.x + engineOffX, ship.y, 1, {
+                    color: { r: tempVal, g: tempVal, b: 1.0 },
+                    speed: 1 + Math.random() * 2,
+                    life: 1.0,
+                    fade: fadePerSec,
+                    direction: angleRad,
+                    spread: 0,
+                });
+            }
 
             // Capital ship death: C++ Frigate::destroy_ship() — 8× MakeExplosions
             if (ship.justDied) {

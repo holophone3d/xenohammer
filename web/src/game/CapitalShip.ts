@@ -330,17 +330,12 @@ export class CapitalShip {
         const spawnX = this.x + 32;
         const spawnY = this.y + 212;
 
-        // Build sprite (ENEMYCANNON, power_cell_2=8 → frame index 7 = biggest blast)
-        // C++ uses 8-frame enemyFireTemplate for BOTH types, just different frame indices
+        // C++ ENEMYCANNON uses enemy_9 sprite (32×64 elongated bolt), not the round burst
         let sprite: Sprite | null = null;
         if (this.assets) {
             try {
-                const frames: HTMLImageElement[] = [];
-                for (let i = 0; i < 8; i++) {
-                    frames.push(this.assets.getImage(`enemy_${i + 1}`));
-                }
-                sprite = new Sprite(frames, 100);
-                sprite.setFrame(Math.min(7, frames.length - 1));
+                const img = this.assets.getImage('enemy_9');
+                sprite = new Sprite([img], 100);
                 sprite.loop = false;
             } catch { /* no sprite */ }
         }
