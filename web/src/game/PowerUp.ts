@@ -59,33 +59,7 @@ export class PowerUp {
     draw(ctx: CanvasRenderingContext2D): void {
         if (!this.active) return;
 
-        // Green glow using Particle texture (C++ GL_Handler.cpp:554-582)
-        // C++: center at (x+18, y+10), quad ±50×±30 = 100×60px, additive blend
-        // Particle.png is black bg + white radial glow. Multiply-tint to green,
-        // then additive blend makes black invisible and glow shines green.
-        if (this.glowSprite) {
-            ctx.save();
-            ctx.globalCompositeOperation = 'lighter';
-            ctx.globalAlpha = 0.7;
-            const gw = 100, gh = 60;
-            const gx = this.x + 18 - gw / 2;
-            const gy = this.y + 10 - gh / 2;
-            if (!PowerUp._glowCanvas) {
-                PowerUp._glowCanvas = document.createElement('canvas');
-                PowerUp._glowCanvas.width = 100;
-                PowerUp._glowCanvas.height = 60;
-            }
-            const gc = PowerUp._glowCanvas.getContext('2d')!;
-            gc.clearRect(0, 0, 100, 60);
-            gc.drawImage(this.glowSprite, 0, 0, 100, 60);
-            gc.globalCompositeOperation = 'multiply';
-            gc.fillStyle = '#0f0';
-            gc.fillRect(0, 0, 100, 60);
-            gc.globalCompositeOperation = 'source-over';
-            ctx.drawImage(PowerUp._glowCanvas, gx, gy);
-            ctx.restore();
-        }
-
+        // Draw sprite first
         if (this.sprite) {
             ctx.drawImage(this.sprite, this.x, this.y);
         } else {
@@ -95,6 +69,36 @@ export class PowerUp {
                 case 'weapon': ctx.fillStyle = '#ff0'; break;
             }
             ctx.fillRect(this.x, this.y, POWERUP_SIZE, POWERUP_SIZE);
+        }
+
+        // Green glow on top (C++ GL_Handler.cpp:554-582, drawn as GL overlay)
+        // C++ uses Particle.bmp textured quad, additive blend, glColor4f(0,1,0,0.7)
+        // Sprite is 30×16, glow centered on it. Using 50×30 quad (half C++ size
+        // since the particle radial falloff makes most of the 100×60 quad invisible)
+        if (this.glowSprite) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = 0.7;
+            const gw = 50, gh = 30;
+            const gcx = this.x + 15;  // center of 30px-wide sprite
+            const gcy = this.y + 8;   // center of 16px-tall sprite
+            if (!PowerUp._glowCanvas) {
+                PowerUp._glowCanvas = document.createElement('canvas');
+            }
+            const cv = PowerUp._glowCanvas;
+            if (cv.width !== gw || cv.height !== gh) {
+                cv.width = gw;
+                cv.height = gh;
+            }
+            const gc = cv.getContext('2d')!;
+            gc.clearRect(0, 0, gw, gh);
+            gc.drawImage(this.glowSprite, 0, 0, gw, gh);
+            gc.globalCompositeOperation = 'multiply';
+            gc.fillStyle = '#0f0';
+            gc.fillRect(0, 0, gw, gh);
+            gc.globalCompositeOperation = 'source-over';
+            ctx.drawImage(cv, gcx - gw / 2, gcy - gh / 2);
+            ctx.restore();
         }
     }
 
