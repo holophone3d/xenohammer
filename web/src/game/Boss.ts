@@ -31,7 +31,7 @@ const BOSS_WAIT_TIME = 110_000;     // ms before boss enters
 const BOSS_MUSIC_TIME = 96_000;     // ms before boss music starts
 const MORPH_TICK_MS = 10;           // ms per 1px morph step — tuned for feel (C++ literal is 100ms)
 
-const ORB_FRAME_COUNT = 33;         // orb00–orb32
+const ORB_FRAME_COUNT = 32;         // orb00–orb31 (C++ uses % 32, frame 32 never shown)
 const ORB_ANIM_SPEED = 60;          // ms per frame
 const TURRET_FRAME_COUNT = 33;      // Turret00–Turret32
 const TURRET_TURN_RATE = 65;        // ms between frame changes
@@ -340,6 +340,10 @@ export class Boss {
     private bossAlpha = 0.3;
     private bossAlphaUp = true;
 
+    // Boss shield texture (same Shield.png as player, tinted purple)
+    private shieldTexture: HTMLImageElement | null = null;
+    private static _shieldCanvas: HTMLCanvasElement | null = null;
+
     constructor(difficulty = 1) {
         this.difficulty = difficulty;
         this.hpOffset = difficulty === 0 ? -200 : difficulty === 2 ? 200 : difficulty === 3 ? 1000 : 0;
@@ -479,6 +483,9 @@ export class Boss {
 
         // Build collision masks from sprite images (C++ frameMask equivalent)
         this.buildCollisionMasks(tryImg);
+
+        // Load shield texture (same Shield.png used by player, tinted purple for boss)
+        try { this.shieldTexture = assets.getImage('Shield'); } catch { /* not available */ }
     }
 
     /** Generate per-pixel collision masks for all boss components */
@@ -1390,10 +1397,33 @@ export class Boss {
         const bx = this.x;
         const by = this.y;
 
-        // --- Boss shield glow (C++: purple, orbCount/4 alpha, 130×115 at center+80) ---
+        // --- Boss shield (C++: Shield.bmp, purple (0.4,0.15,1.0), orbCount/4 alpha, 130×115 at center+80) ---
         if (this.orbCount > 0 && !this.bossShield.destroyed) {
             const shieldAlpha = this.orbCount / 4;
-            this.drawGlow(ctx, bx + 80, by + 80, 130, 115, 0.4, 0.15, 1.0, shieldAlpha);
+            const scx = bx + 80;
+            const scy = by + 80;
+            const shw = 130, shh = 115;
+
+            if (this.shieldTexture) {
+                // Same approach as player shield: multiply-tint texture to purple
+                if (!Boss._shieldCanvas) {
+                    Boss._shieldCanvas = document.createElement('canvas');
+                    Boss._shieldCanvas.width = shw * 2;
+                    Boss._shieldCanvas.height = shh * 2;
+                }
+                const sc = Boss._shieldCanvas.getContext('2d')!;
+                sc.clearRect(0, 0, shw * 2, shh * 2);
+                sc.drawImage(this.shieldTexture, 0, 0, shw * 2, shh * 2);
+                sc.globalCompositeOperation = 'multiply';
+                sc.fillStyle = 'rgb(102,38,255)'; // C++: (0.4, 0.15, 1.0)
+                sc.fillRect(0, 0, shw * 2, shh * 2);
+                sc.globalCompositeOperation = 'source-over';
+                ctx.globalAlpha = shieldAlpha;
+                ctx.drawImage(Boss._shieldCanvas, scx - shw, scy - shh);
+                ctx.globalAlpha = 1.0;
+            } else {
+                this.drawGlow(ctx, scx, scy, shw, shh, 0.4, 0.15, 1.0, shieldAlpha);
+            }
         }
 
         // --- Central red glowing orb (C++: 90×90 at center+80, bossAlpha) ---
@@ -1577,16 +1607,11 @@ export class Boss {
 
     private drawTurretSet(ctx: CanvasRenderingContext2D, turrets: BossTurretAI[]): void {
         for (const ai of turrets) {
+            // C++: set_visible(false) — destroyed turrets are fully hidden, not shown
+            if (ai.destroyed) continue;
+
             const tx = this.x + ai.offsetX;
             const ty = this.y + ai.offsetY;
-
-            if (ai.destroyed) {
-                // C++: destroyed turrets show gun_turretDest (frame 32)
-                if (this.turretSprites.length >= 33) {
-                    ctx.drawImage(this.turretSprites[32], tx, ty);
-                }
-                continue;
-            }
 
             if (this.turretSprites.length >= 32) {
                 const frameIdx = Math.max(0, Math.min(31, ai.frame));
