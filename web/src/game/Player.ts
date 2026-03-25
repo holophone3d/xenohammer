@@ -31,6 +31,7 @@ export class Player {
 
     private lastHitTime = 0;
     private lastRegenTime = 0;
+    private lastFireAll = 0;         // unified 150ms fire gate (C++ PlayerShip.cpp)
     private spriteFrame = 8;
     private shieldTexture: HTMLImageElement | null = null;
 
@@ -130,9 +131,16 @@ export class Player {
         }
     }
 
-    /** Fire all weapons if Space is held. Returns new projectiles. */
+    /** Fire all weapons if Space is held. Returns new projectiles.
+     * C++ uses a unified 150ms gate: all weapons are attempted every 150ms,
+     * then each weapon applies its own per-weapon rate (blaster 100ms, turret 250ms, missile 1000ms).
+     * The 150ms gate effectively caps the blaster to 150ms minimum between shots. */
     tryFire(input: Input, now: number, assets: AssetLoader | null): Projectile[] {
         if (!this.alive || !input.isKeyDown(Input.SPACE)) return [];
+
+        // Unified 150ms fire gate (C++ PlayerShip.cpp line 60)
+        if (now - this.lastFireAll < 150) return [];
+        this.lastFireAll = now;
 
         const projectiles: Projectile[] = [];
         const s = this.powerPlant.getSetting();

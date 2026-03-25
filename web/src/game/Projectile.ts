@@ -79,7 +79,7 @@ export class Projectile {
 
         // Sprite frame is set once at creation (power level), NOT animated
 
-        // Kill if out of bounds (64px margin)
+        // Kill if out of bounds (C++: zero margin)
         if (isOutOfBounds(this.x, this.y)) {
             this.alive = false;
         }

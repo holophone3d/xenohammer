@@ -48,97 +48,135 @@ export interface AIBehavior {
 // Speed 10 px/tick, turn rate ~0.1 rad/tick, fire during FLYBY within 200px
 // Fire rate: 400ms (C++ LF_FIRE_RATE)
 
+// --- Light Fighter AI (C++ LightFighterAI.cpp — frame-based heading, 32-frame system) ---
+// 5 states: ENTERING → FLYBY → TARGETING → SCATTER → (67% FLYBY / 33% RUNAWAY)
+// Speed 10 px/tick, 32-frame heading, turn rate: 60ms per frame increment
+// C++ reference: LightFighterAI.cpp, LightFighterAI.h
+
 export class LightFighterAI implements AIBehavior {
     state = LFAIState.EnteringScreen;
-    private stateTimer = 0;
-    private angle = Math.PI / 2; // facing down initially
-    private scatterAngle = 0;
+    private headingFrame = 24; // 0-31 directional (24=down initial)
+    private turnTarget = 0;
+    private turnAccum = 0; // ms for turn timing
+    private ticCount = 0; // state timer in ms
     private fireTimer = 0;
+    private readonly wavePosition: number;
 
-    private static readonly TURN_RATE = 0.1; // rad/tick
-    private static readonly FIRE_RANGE = 200;
+    private static readonly SPEED = 10; // C++ LF_SPEED
     private static readonly FIRE_RATE = 400; // ms (C++ LF_FIRE_RATE)
-    private static readonly FACING_THRESHOLD = 15 * (Math.PI / 180); // ~15°
-    private static readonly SCATTER_DURATION = 1.0; // seconds
+    private static readonly TURN_RATE = 60; // ms per frame turn (C++ LF_TURNRATE)
+    // C++ uses LF_SCREEN_WIDTH=800 for boundary/heading calcs
+    private static readonly SCREEN_W = 800;
+    private static readonly SCREEN_H = 600;
+
+    constructor(wavePosition = 0) {
+        this.wavePosition = wavePosition;
+        this.headingFrame = 24; // facing down
+        // C++ stagger: 300 + wavePosition * 410ms
+        this.ticCount = 300 + wavePosition * 410;
+    }
 
     update(enemy: Enemy, playerX: number, playerY: number, dt: number): void {
-        this.stateTimer += dt;
-        this.fireTimer += dt * 1000;
-        const speed = enemy.config.speed; // 10 px/tick
-        const ticks = dt * 60;
-        const dx = playerX - enemy.x;
-        const dy = playerY - enemy.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const targetAngle = Math.atan2(dy, dx);
+        const dtMs = dt * 1000;
+        this.fireTimer += dtMs;
+        const speed = LightFighterAI.SPEED;
 
         enemy.wantsFire = false;
 
         switch (this.state) {
             case LFAIState.EnteringScreen:
-                // Fly downward onto screen
-                this.angle = Math.PI / 2;
-                enemy.vx = 0;
-                enemy.vy = speed;
-                if (enemy.y > 100 + Math.random() * 100) {
-                    this.state = LFAIState.Targeting;
-                    this.stateTimer = 0;
-                }
-                break;
-
-            case LFAIState.Targeting: {
-                // Turn toward player
-                this.turnToward(targetAngle, ticks);
-                enemy.vx = Math.cos(this.angle) * speed;
-                enemy.vy = Math.sin(this.angle) * speed;
-
-                // Transition to FLYBY when facing player
-                const angleDiff = Math.abs(this.normalizeAngle(targetAngle - this.angle));
-                if (angleDiff < LightFighterAI.FACING_THRESHOLD) {
+                // Fly straight down, no turning, timer counts down
+                this.ticCount -= dtMs;
+                if (this.ticCount < 0) {
                     this.state = LFAIState.FlyBy;
-                    this.stateTimer = 0;
+                    // Choose turn direction based on X position
+                    if (enemy.x < LightFighterAI.SCREEN_W / 2) {
+                        this.turnTarget = (8 + 25) % 32; // = 1 (slightly right of up)
+                    } else {
+                        this.turnTarget = ((-8 + 25) % 32 + 32) % 32; // = 17
+                    }
+                    this.turnAccum = 0;
+                    this.ticCount = 1600; // 1.6s flyby
                 }
                 break;
-            }
 
             case LFAIState.FlyBy:
-                // Fly past player, firing weapons when in range
-                enemy.vx = Math.cos(this.angle) * speed;
-                enemy.vy = Math.sin(this.angle) * speed;
-                // Fire rate gated: only fire every 400ms
-                if (dist < LightFighterAI.FIRE_RANGE && this.fireTimer >= LightFighterAI.FIRE_RATE) {
-                    enemy.wantsFire = true;
-                    this.fireTimer = 0;
+                // Turn toward corner target, fire when facing player
+                this.doTurn(dtMs);
+
+                // Fire if facing player and cooldown expired
+                {
+                    const playerHeading = LightFighterAI.calculateHeading(playerX, playerY, enemy.x, enemy.y);
+                    if (playerHeading === this.headingFrame && this.fireTimer >= LightFighterAI.FIRE_RATE) {
+                        enemy.wantsFire = true;
+                        this.fireTimer = 0;
+                    }
                 }
 
-                // Transition to SCATTER when past player
-                if (enemy.y > playerY + 50) {
-                    this.state = LFAIState.Scatter;
-                    this.stateTimer = 0;
-                    // Random scatter direction (break away)
-                    this.scatterAngle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI;
+                this.ticCount -= dtMs;
+                if (this.ticCount < 0) {
+                    this.state = LFAIState.Targeting;
+                    this.ticCount = 0;
+                }
+                break;
+
+            case LFAIState.Targeting:
+                // Continuously turn toward player, fire + scatter when aligned
+                this.turnTarget = LightFighterAI.calculateHeading(playerX, playerY, enemy.x, enemy.y);
+                this.doTurn(dtMs);
+
+                if (this.turnTarget === this.headingFrame) {
+                    // Check player within half-screen bounds
+                    if (Math.abs(playerX - enemy.x) < LightFighterAI.SCREEN_W / 2 &&
+                        Math.abs(playerY - enemy.y) < LightFighterAI.SCREEN_H / 2) {
+                        enemy.wantsFire = true;
+                        this.fireTimer = 0;
+                        this.state = LFAIState.Scatter;
+                        this.ticCount = 1200; // 1.2s scatter
+                    }
                 }
                 break;
 
             case LFAIState.Scatter:
-                // Break away with random vector
-                this.angle = this.scatterAngle;
-                enemy.vx = Math.cos(this.angle) * speed;
-                enemy.vy = Math.sin(this.angle) * speed;
-                enemy.wantsFire = false;
+                // Scatter perpendicular to player based on wave position
+                {
+                    const scatterTarget = LightFighterAI.calculateHeading(playerX, playerY, enemy.x, enemy.y);
+                    if (this.wavePosition % 2 === 0) {
+                        this.turnTarget = ((scatterTarget - 8) % 32 + 32) % 32; // 90° CCW
+                    } else {
+                        this.turnTarget = ((scatterTarget + 8) % 32 + 32) % 32; // 90° CW
+                    }
+                }
+                this.doTurn(dtMs);
 
-                if (this.stateTimer > LightFighterAI.SCATTER_DURATION) {
-                    this.state = LFAIState.RunAway;
-                    this.stateTimer = 0;
+                this.ticCount -= dtMs;
+                if (this.ticCount < 0) {
+                    // 33% runaway, 67% back to flyby
+                    if (Math.random() < 0.333) {
+                        this.state = LFAIState.RunAway;
+                    } else {
+                        this.state = LFAIState.FlyBy;
+                        // Corner targeting: away from player
+                        if (playerX > LightFighterAI.SCREEN_W / 2) {
+                            this.turnTarget = LightFighterAI.calculateHeading(0, 0, enemy.x, enemy.y);
+                        } else {
+                            this.turnTarget = LightFighterAI.calculateHeading(LightFighterAI.SCREEN_W, 0, enemy.x, enemy.y);
+                        }
+                        this.ticCount = 2000; // 2s flyby
+                    }
                 }
                 break;
 
             case LFAIState.RunAway:
-                // Exit screen upward
-                this.angle = -Math.PI / 2;
-                enemy.vx = 0;
-                enemy.vy = -speed;
-                enemy.wantsFire = false;
-                if (enemy.y < -64) {
+                // Head toward nearest screen edge with wave-position variation
+                if (enemy.x < LightFighterAI.SCREEN_W / 2) {
+                    this.turnTarget = ((16 + (this.wavePosition % 7) - 3) % 32 + 32) % 32;
+                } else {
+                    this.turnTarget = ((32 + (this.wavePosition % 7) - 3) % 32 + 32) % 32;
+                }
+                this.doTurn(dtMs);
+
+                if (enemy.y < -64 || enemy.x < -64 || enemy.x > PLAY_AREA_W + 64) {
                     enemy.alive = false;
                 }
                 break;
@@ -147,22 +185,36 @@ export class LightFighterAI implements AIBehavior {
                 this.state = LFAIState.EnteringScreen;
         }
 
-        enemy.angle = this.angle;
+        // Movement: frame-based heading (same as FighterB)
+        const rad = this.headingFrame * 0.19635; // 11.25° in radians
+        enemy.vx = Math.cos(rad) * speed;
+        enemy.vy = -Math.sin(rad) * speed; // negative Y for screen coords
+        enemy.angle = Math.atan2(enemy.vy, enemy.vx);
     }
 
-    private turnToward(target: number, ticks: number): void {
-        let diff = this.normalizeAngle(target - this.angle);
-        const maxTurn = LightFighterAI.TURN_RATE * ticks;
-        if (Math.abs(diff) > maxTurn) {
-            diff = diff > 0 ? maxTurn : -maxTurn;
+    /** C++ DoTurn: turn one heading frame per TURN_RATE ms toward target */
+    private doTurn(dtMs: number): void {
+        if (this.headingFrame === this.turnTarget) return;
+
+        this.turnAccum += dtMs;
+        while (this.turnAccum >= LightFighterAI.TURN_RATE && this.headingFrame !== this.turnTarget) {
+            this.turnAccum -= LightFighterAI.TURN_RATE;
+            const diff = ((this.turnTarget - this.headingFrame) % 32 + 32) % 32;
+            if (diff <= 16) {
+                this.headingFrame = (this.headingFrame + 1) % 32;
+            } else {
+                this.headingFrame = (this.headingFrame - 1 + 32) % 32;
+            }
         }
-        this.angle = this.normalizeAngle(this.angle + diff);
     }
 
-    private normalizeAngle(a: number): number {
-        while (a > Math.PI) a -= 2 * Math.PI;
-        while (a < -Math.PI) a += 2 * Math.PI;
-        return a;
+    /** C++ CalculateHeading: convert target position to 0-31 heading frame */
+    static calculateHeading(px: number, py: number, ex: number, ey: number): number {
+        const dx = px - ex;
+        const dy = -(py - ey); // flip Y for math coords
+        let angle = Math.atan2(dy, dx);
+        if (angle < 0) angle += 2 * Math.PI;
+        return Math.floor((angle + 0.0982) / 0.19635) % 32;
     }
 }
 

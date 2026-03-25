@@ -66,6 +66,10 @@ export class GameManager {
     private smallExpFrames: HTMLImageElement[] = [];
     private bigExpFrames: HTMLImageElement[] = [];
     private levelAnimFrames: HTMLImageElement[][] = []; // per-level animation frames
+    private levelEndAnimFrames: HTMLImageElement[] = []; // "LEVEL COMPLETED" typewriter (in_game_9–22)
+    private levelEndAnimStart = 0; // timestamp when end animation started
+    private hasNewCustomization = true; // "NEW!" label in ready room
+    private playerDiedLastLevel = false; // death message in ready room
     private briefingScrollY = 0;
     private briefingScrollStart = 0;
     private menuHoverIndex = -1;  // tracks which menu button is hovered
@@ -173,6 +177,13 @@ export class GameManager {
         }
         try { l3.push(this.assets.getImage('in_game_start3')); } catch { /* skip */ }
         this.levelAnimFrames = [l1, l2, l3];
+
+        // End-of-level "LEVEL COMPLETED" typewriter: in_game_9 through in_game_22 (14 frames)
+        const endFrames: HTMLImageElement[] = [];
+        for (let i = 9; i <= 22; i++) {
+            try { endFrames.push(this.assets.getImage(`in_game_${i}`)); } catch { break; }
+        }
+        this.levelEndAnimFrames = endFrames;
     }
 
     update(dt: number): void {
@@ -389,6 +400,7 @@ export class GameManager {
         if (inLeft) {
             ctx.fillStyle = '#0f0';
             ctx.fillText('Ship Customization', 114, 340);
+            this.hasNewCustomization = false; // C++: clears on hover
         }
         if (inCenter) {
             ctx.fillStyle = '#0f0';
@@ -397,6 +409,14 @@ export class GameManager {
         if (inRight) {
             ctx.fillStyle = '#0f0';
             ctx.fillText('Launch', 600, 270);
+        }
+
+        // "NEW!" label near customization — C++ GUI.cpp:206-209
+        if (this.hasNewCustomization && !inLeft) {
+            ctx.font = '18px XenoFont, monospace';
+            ctx.fillStyle = '#0f0';
+            ctx.textAlign = 'center';
+            ctx.fillText('NEW!', 114, 340);
         }
 
         // Notification labels — hide when hovering over the briefing CRT
@@ -415,9 +435,12 @@ export class GameManager {
         ctx.fillStyle = '#0f0';
         ctx.textAlign = 'center';
 
-        let tooltip = 'Click on a screen or the door opening';
+        let tooltip = '';
 
-        if (inLeft) {
+        if (this.playerDiedLastLevel) {
+            // C++ GUI.cpp:201-202: death message overrides default tooltip
+            tooltip = 'You have died, your game has been restarted';
+        } else if (inLeft) {
             tooltip = 'Click here to customize your ship.';
         } else if (inCenter) {
             tooltip = 'Click here to See Briefings, Save, Load, or Quit';
@@ -437,6 +460,8 @@ export class GameManager {
             } else {
                 tooltip = 'You Have Completed the Mission!';
             }
+        } else {
+            tooltip = 'Click on a screen or the door opening';
         }
 
         ctx.fillText(tooltip, 400, 580);
@@ -447,6 +472,8 @@ export class GameManager {
 
     private startLevel(levelIndex: number): void {
         this.level = levelIndex;
+        this.playerDiedLastLevel = false;
+        this.levelEndAnimStart = 0;
 
         // Reset player combat state but preserve PowerPlant (upgrades/RU persist)
         if (this.player) {
@@ -645,6 +672,7 @@ export class GameManager {
         // Check game over
         if (this.player && !this.player.alive) {
             this.stopGameplaySounds();
+            this.playerDiedLastLevel = true;
             this.state = GameState.GameOver;
             this.stateTimer = 0;
             return;
@@ -955,17 +983,25 @@ export class GameManager {
             }
         }
 
-        // Level end text overlay (last 5 seconds)
+        // Level end animation overlay (last 5 seconds) — C++ "LEVEL COMPLETED" typewriter
+        // C++: GameAnimation at (223, 200), 14 frames at 100ms each, starts at levelDuration - 5000ms
         const levelDuration = this.waveManager.getLevelDuration();
         const levelTimer = this.waveManager.getLevelTimer();
-        if (levelDuration - levelTimer <= 5 && levelDuration - levelTimer > 0) {
-            ctx.save();
-            ctx.textAlign = 'center';
-            ctx.font = '24px XenoFont, monospace';
-            ctx.fillStyle = '#ff0';
-            ctx.fillText(`END OF LEVEL ${this.level + 1}`, PLAY_AREA_W / 2, 300);
-            ctx.textAlign = 'left';
-            ctx.restore();
+        const timeLeft = levelDuration - levelTimer;
+        if (timeLeft <= 5 && timeLeft > 0 && this.level < 2) {
+            if (this.levelEndAnimStart === 0) {
+                this.levelEndAnimStart = this.now;
+            }
+            if (this.levelEndAnimFrames.length > 0) {
+                const elapsed = (this.now - this.levelEndAnimStart) / 1000;
+                const frameIndex = Math.min(Math.floor(elapsed / 0.1), this.levelEndAnimFrames.length - 1);
+                const frame = this.levelEndAnimFrames[frameIndex];
+                if (frame) {
+                    ctx.drawImage(frame, 223, 200);
+                }
+            }
+        } else if (timeLeft > 5) {
+            this.levelEndAnimStart = 0;
         }
     }
 
@@ -983,14 +1019,23 @@ export class GameManager {
     private renderLevelComplete(): void {
         this.starField.draw(this.canvas.ctx);
         const ctx = this.canvas.ctx;
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#0f0';
-        ctx.font = '28px XenoFont, monospace';
-        ctx.fillText(`END OF LEVEL ${this.level + 1}`, 400, 280);
-        ctx.fillStyle = '#fff';
-        ctx.font = '16px XenoFont, monospace';
-        ctx.fillText(`Score: ${this.score}`, 400, 330);
-        ctx.textAlign = 'left';
+
+        // Show final "LEVEL COMPLETED" frame (last frame of end animation)
+        if (this.levelEndAnimFrames.length > 0) {
+            const frame = this.levelEndAnimFrames[this.levelEndAnimFrames.length - 1];
+            if (frame) {
+                ctx.drawImage(frame, 223, 200);
+            }
+        } else {
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#0f0';
+            ctx.font = '28px XenoFont, monospace';
+            ctx.fillText(`LEVEL ${this.level + 1} COMPLETED`, 400, 280);
+            ctx.textAlign = 'left';
+        }
+
+        // HUD still visible during transition
+        this.hud.draw(ctx, this.player, this.score, this.level, 0, this.player?.kills ?? 0);
     }
 
     // ========== State: GameOver ==========

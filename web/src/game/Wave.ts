@@ -78,7 +78,7 @@ export class WaveManager {
         for (let i = 0; i < count; i++) {
             const x = wave.startX + i;        // C++: _x + i
             const y = -(i * 64);              // C++: -(i*64)
-            result.enemies.push(Enemy.createByType(wave.type, x, y));
+            result.enemies.push(Enemy.createByType(wave.type, x, y, i));
         }
 
         // 30% chance of random gunship per wave (C++ line 579)

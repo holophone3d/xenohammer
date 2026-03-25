@@ -19,7 +19,7 @@ export function rectsOverlap(a: Rect, b: Rect): boolean {
            a.y + a.h > b.y;
 }
 
-export function isOutOfBounds(x: number, y: number, margin = 64): boolean {
+export function isOutOfBounds(x: number, y: number, margin = 0): boolean {
     return x < -margin || x > PLAY_AREA_W + margin ||
            y < -margin || y > PLAY_AREA_H + margin;
 }

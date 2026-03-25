@@ -172,8 +172,8 @@ export class Enemy {
     // --- Factory methods ---
 
     /** Light Fighter: 10 armor, speed 10, 32 frames, enemyBlaster, ~32px */
-    static createLightFighter(x: number, y: number): Enemy {
-        return new Enemy(x, y, LIGHT_FIGHTER, 'lightfighter', new LightFighterAI(), 32, 32);
+    static createLightFighter(x: number, y: number, wavePosition = 0): Enemy {
+        return new Enemy(x, y, LIGHT_FIGHTER, 'lightfighter', new LightFighterAI(wavePosition), 32, 32);
     }
 
     /** Heavy Fighter: 30 armor, speed 12, 32 frames, enemyBlaster, ~32px */
@@ -186,9 +186,9 @@ export class Enemy {
         return new Enemy(x, y, GUNSHIP, 'gunship', new GunshipAI(), 64, 64);
     }
 
-    static createByType(type: EnemyType, x: number, y: number): Enemy {
+    static createByType(type: EnemyType, x: number, y: number, wavePosition = 0): Enemy {
         switch (type) {
-            case 'lightfighter': return Enemy.createLightFighter(x, y);
+            case 'lightfighter': return Enemy.createLightFighter(x, y, wavePosition);
             case 'fighterb': return Enemy.createFighterB(x, y);
             case 'gunship': return Enemy.createGunship(x, y);
             case 'frigate': return Enemy.createGunship(x, y); // frigate uses gunship as base for now
