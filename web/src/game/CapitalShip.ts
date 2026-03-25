@@ -712,17 +712,6 @@ export class CapitalShip {
             ctx.lineWidth = 1;
             ctx.strokeRect(wx, wy, comp.width, comp.height);
         }
-
-        // Armor bar when damaged and alive
-        if (comp.alive && comp.armor < comp.maxArmor) {
-            const barW = Math.min(comp.width, 64);
-            const fill = comp.armor / comp.maxArmor;
-            const barX = wx + (comp.width - barW) / 2;
-            ctx.fillStyle = '#300';
-            ctx.fillRect(barX, wy - 5, barW, 3);
-            ctx.fillStyle = fill > 0.5 ? '#0f0' : fill > 0.25 ? '#ff0' : '#f00';
-            ctx.fillRect(barX, wy - 5, barW * fill, 3);
-        }
     }
 
     private drawTurret(ctx: CanvasRenderingContext2D, turret: FrigateTurret): void {

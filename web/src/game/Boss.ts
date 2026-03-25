@@ -1210,15 +1210,8 @@ export class Boss {
                 this.drawFallbackOrb(ctx, orb.x + 32, orb.y + 32, i + 1);
             }
 
-            // Armor bar
-            if (orb.armor < orb.maxArmor) {
-                const fill = orb.armor / orb.maxArmor;
-                ctx.fillStyle = '#300';
-                ctx.fillRect(orb.x, orb.y - 6, orb.width, 3);
-                ctx.fillStyle = fill > 0.5 ? '#0f0' : fill > 0.25 ? '#ff0' : '#f00';
-                ctx.fillRect(orb.x, orb.y - 6, orb.width * fill, 3);
+            // Armor bar — not in original C++ (removed)
             }
-        }
 
         // Outer turrets
         this.drawTurretSet(ctx, this.outerTurretAIs);
@@ -1230,39 +1223,6 @@ export class Boss {
 
         // Boss shield — rendered via drawEnergyEffects() as additive purple glow
         // (C++ uses OpenGL textured quad with additive blending, not a sprite)
-
-        // Center orb armor bar (in Final state)
-        if (this.centerOrb.damageable && !this.centerOrb.destroyed && this.centerOrb.armor < this.centerOrb.maxArmor) {
-            const fill = this.centerOrb.armor / this.centerOrb.maxArmor;
-            ctx.fillStyle = '#300';
-            ctx.fillRect(this.centerOrb.x, this.centerOrb.y - 6, this.centerOrb.width, 3);
-            ctx.fillStyle = fill > 0.5 ? '#0f0' : fill > 0.25 ? '#ff0' : '#f00';
-            ctx.fillRect(this.centerOrb.x, this.centerOrb.y - 6, this.centerOrb.width * fill, 3);
-        }
-
-        // Turret armor bars
-        for (const ai of this.outerTurretAIs) {
-            if (ai.destroyed || ai.armor >= ai.maxArmor) continue;
-            const fill = ai.armor / ai.maxArmor;
-            const tx = this.x + ai.offsetX;
-            const ty = this.y + ai.offsetY;
-            ctx.fillStyle = '#300';
-            ctx.fillRect(tx, ty - 6, 64, 3);
-            ctx.fillStyle = fill > 0.5 ? '#0f0' : fill > 0.25 ? '#ff0' : '#f00';
-            ctx.fillRect(tx, ty - 6, 64 * fill, 3);
-        }
-        if (this.state === BossState.Final) {
-            for (const ai of this.uTurretAIs) {
-                if (ai.destroyed || ai.armor >= ai.maxArmor) continue;
-                const fill = ai.armor / ai.maxArmor;
-                const tx = this.x + ai.offsetX;
-                const ty = this.y + ai.offsetY;
-                ctx.fillStyle = '#300';
-                ctx.fillRect(tx, ty - 6, 64, 3);
-                ctx.fillStyle = fill > 0.5 ? '#0f0' : fill > 0.25 ? '#ff0' : '#f00';
-                ctx.fillRect(tx, ty - 6, 64 * fill, 3);
-            }
-        }
 
         // Hit flash — subtle glow at hit component center (not a white rectangle)
         if (this.hitFlashTimer > 0 && this.hitFlashComp) {
