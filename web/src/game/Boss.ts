@@ -26,10 +26,10 @@ import { Explosion, ChainExplosion } from './Explosion';
 const BOSS_START_X = 245;
 const BOSS_START_Y = -600;
 const BOSS_HOVER_Y = -50;           // C++: boss stops at y=-50
-const BOSS_DESCENT_SPEED = 50;      // px/s (C++ ~60px/s due to nLastMove drift)
+const BOSS_DESCENT_SPEED = 10;      // px/s (C++: 1px per 100ms = 10px/s)
 const BOSS_WAIT_TIME = 110_000;     // ms before boss enters
 const BOSS_MUSIC_TIME = 96_000;     // ms before boss music starts
-const MORPH_TICK_MS = 10;           // ms per 1px morph step (C++ is 100ms but feels too slow)
+const MORPH_TICK_MS = 100;          // ms per 1px morph step (C++: 100ms per pixel)
 
 const ORB_FRAME_COUNT = 33;         // orb00–orb32
 const ORB_ANIM_SPEED = 60;          // ms per frame
@@ -313,6 +313,7 @@ export class Boss {
     private levelTimeMs = 0;
     private nowMs = 0;
     private deathExplosion: ChainExplosion;
+    private deathTimer = 0;
     private hitFlashTimer = 0;
     private pendingProjectiles: Projectile[] = [];
     private orbCount = 4;
@@ -531,6 +532,30 @@ export class Boss {
         if (this.state === BossState.Dying) {
             this.deathExplosion.update(dt, this.assets);
             this.updateComponentExplosions(dt);
+            this.deathTimer += dt;
+
+            // C++ GameManager: random explosions for 10 seconds (first 10 of 11-sec window)
+            // 40% chance per frame of MakeExplosions at random position across boss
+            // 2% chance per frame of destroy_orb (5 explosion clusters)
+            const framesThisTick = Math.max(1, Math.round(dt * 60));
+            if (this.deathTimer < 10.0) {
+                for (let f = 0; f < framesThisTick; f++) {
+                    if (Math.random() > 0.6) {
+                        const ex = this.x - 100 + Math.random() * 300;
+                        const ey = this.y + Math.random() * 150;
+                        this.spawnExplosion(ex, ey, 'big');
+                    }
+                    if (Math.random() > 0.98) {
+                        // destroy_orb: 5 explosion clusters at random position
+                        const ox = this.x - 100 + Math.random() * 300;
+                        const oy = this.y + Math.random() * 150;
+                        for (const [dx, dy] of [[32,32],[96,32],[62,32],[96,62],[32,62]]) {
+                            this.spawnExplosion(ox + dx, oy + dy, 'big');
+                        }
+                    }
+                }
+            }
+
             if (this.deathExplosion.finished) {
                 this.alive = false;
                 this.state = BossState.Dead;
@@ -1068,6 +1093,7 @@ export class Boss {
     private beginDeathSequence(): void {
         this.state = BossState.Dying;
         this.stateTimer = 0;
+        this.deathTimer = 0;
 
         // Destroy all U-turrets (C++: set_damageable(false), destroyed frame)
         for (const ai of this.uTurretAIs) {
@@ -1078,6 +1104,19 @@ export class Boss {
             const ty = this.y + ai.offsetY + 32;
             this.spawnExplosion(tx, ty, 'big');
         }
+
+        // Stop all outer turrets firing (mark destroyed so they show destroyed sprite)
+        for (const ai of this.outerTurretAIs) {
+            if (!ai.destroyed) {
+                ai.destroyed = true;
+                ai.comp.destroyed = true;
+                ai.comp.damageable = false;
+            }
+        }
+
+        // Mark center node as destroyed (swaps to node1Dest sprite)
+        this.centerNode.destroyed = true;
+        this.centerNode.damageable = false;
 
         const cx = this.centerNode.x + this.centerNode.width / 2;
         const cy = this.centerNode.y + this.centerNode.height / 2;
@@ -1154,11 +1193,7 @@ export class Boss {
     // ---------------------------------------------------------------
 
     draw(ctx: CanvasRenderingContext2D, _assets: AssetLoader | null): void {
-        if (this.state === BossState.Dying || this.state === BossState.Dead) {
-            this.deathExplosion.draw(ctx);
-            this.drawComponentExplosions(ctx);
-            return;
-        }
+        if (this.state === BossState.Dead) return;
         if (this.state === BossState.Waiting) return;
 
         // Back to front: connectors → U-components → platforms → nodes → orbs → turrets → shield
@@ -1168,8 +1203,9 @@ export class Boss {
             if (!conn.destroyed) this.drawComp(ctx, conn, '#556');
         }
 
-        // U-components (only visible during morph/final, matching C++ visibility)
-        if (this.state === BossState.Morph1 || this.state === BossState.Morph2 || this.state === BossState.Final) {
+        // U-components (visible during morph/final/dying)
+        if (this.state === BossState.Morph1 || this.state === BossState.Morph2 ||
+            this.state === BossState.Final || this.state === BossState.Dying) {
             for (const u of this.uComponents) this.drawComp(ctx, u, '#446');
         }
 
@@ -1216,8 +1252,9 @@ export class Boss {
         // Outer turrets
         this.drawTurretSet(ctx, this.outerTurretAIs);
 
-        // U-turrets (only visible in morph/final states)
-        if (this.state === BossState.Morph1 || this.state === BossState.Morph2 || this.state === BossState.Final) {
+        // U-turrets (visible in morph/final/dying states)
+        if (this.state === BossState.Morph1 || this.state === BossState.Morph2 ||
+            this.state === BossState.Final || this.state === BossState.Dying) {
             this.drawTurretSet(ctx, this.uTurretAIs);
         }
 
@@ -1244,6 +1281,11 @@ export class Boss {
 
         // Component explosions (on top of everything)
         this.drawComponentExplosions(ctx);
+
+        // Death explosion chain (on top of everything during Dying state)
+        if (this.state === BossState.Dying) {
+            this.deathExplosion.draw(ctx);
+        }
     }
 
     render(ctx: CanvasRenderingContext2D): void {
@@ -1253,7 +1295,14 @@ export class Boss {
     // --- Draw helpers ---
 
     private drawComp(ctx: CanvasRenderingContext2D, comp: BossComponent, color: string): void {
-        if (comp.destroyed) return; // C++: set_visible(false) — destroyed components vanish
+        if (comp.destroyed) {
+            // C++ center node swaps to destroyed sprite (node1Dest); others vanish
+            if (comp.destroyedSprite) {
+                comp.destroyedSprite.drawAt(ctx, comp.x, comp.y);
+                return;
+            }
+            return;
+        }
         if (comp.sprite) {
             comp.sprite.drawAt(ctx, comp.x, comp.y);
         } else {
@@ -1528,11 +1577,16 @@ export class Boss {
 
     private drawTurretSet(ctx: CanvasRenderingContext2D, turrets: BossTurretAI[]): void {
         for (const ai of turrets) {
-            // C++: destroyed turrets are set_visible(false)  not drawn at all
-            if (ai.destroyed) continue;
-
             const tx = this.x + ai.offsetX;
             const ty = this.y + ai.offsetY;
+
+            if (ai.destroyed) {
+                // C++: destroyed turrets show gun_turretDest (frame 32)
+                if (this.turretSprites.length >= 33) {
+                    ctx.drawImage(this.turretSprites[32], tx, ty);
+                }
+                continue;
+            }
 
             if (this.turretSprites.length >= 32) {
                 const frameIdx = Math.max(0, Math.min(31, ai.frame));

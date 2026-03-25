@@ -25,6 +25,7 @@ export enum GameState {
     LevelComplete,
     GameOver,
     Victory,
+    Aftermath,
     OptionsMenu,
     BriefingSubmenu,
     Backstory,
@@ -72,6 +73,7 @@ export class GameManager {
     private playerDiedLastLevel = false; // death message in ready room
     private briefingScrollY = 0;
     private briefingScrollStart = 0;
+    private aftermathY = 600; // C++ aftermath scroll position (600 → -550)
     private menuHoverIndex = -1;  // tracks which menu button is hovered
     private optionsSaveTooltip = '';  // tooltip for save/load feedback
     private optionsSaveTooltipTimer = 0;
@@ -214,6 +216,9 @@ export class GameManager {
             case GameState.Victory:
                 this.updateVictory();
                 break;
+            case GameState.Aftermath:
+                this.updateAftermath(dt);
+                break;
             case GameState.OptionsMenu:
                 this.updateOptionsMenu();
                 break;
@@ -265,6 +270,9 @@ export class GameManager {
                 break;
             case GameState.Victory:
                 this.renderVictory();
+                break;
+            case GameState.Aftermath:
+                this.renderAftermath();
                 break;
             case GameState.OptionsMenu:
                 this.renderOptionsMenu();
@@ -721,11 +729,10 @@ export class GameManager {
         if (levelDef?.hasBoss) {
             if (this.boss && this.boss.isDefeated()) {
                 this.stopGameplaySounds();
-                if (this.level >= LEVELS.length - 1) {
-                    this.state = GameState.Victory;
-                } else {
-                    this.state = GameState.LevelComplete;
-                }
+                // C++: lower boss music to 50%, transition to aftermath scrolling
+                try { this.audio.setMusicVolume(0.5); } catch { /* skip */ }
+                this.state = GameState.Aftermath;
+                this.aftermathY = 600;
                 this.stateTimer = 0;
             }
         } else {
@@ -1124,6 +1131,41 @@ export class GameManager {
             ctx.font = '24px XenoFont, monospace';
             ctx.fillText('GAME OVER', 400, 290);
             ctx.textAlign = 'left';
+        }
+    }
+
+    // ========== State: Aftermath (C++ GUI::Aftermath_GUI) ==========
+
+    private updateAftermath(dt: number): void {
+        this.stateTimer += dt;
+        this.starField.update(dt);
+
+        // C++ scrolls aftermath from y=600 to y=-550 at rate: i = 600 - (elapsed_ms / 60)
+        // That's ~1 pixel per frame at 60fps = ~60 px/s
+        this.aftermathY = 600 - (this.stateTimer * 1000 / 60);
+
+        // ESC or SPACE to skip
+        if (this.input.isKeyPressed(Input.ESCAPE) || this.input.isKeyPressed(Input.SPACE) ||
+            this.aftermathY <= -550) {
+            this.state = GameState.Victory;
+            this.stateTimer = 0;
+            try { this.audio.setMusicVolume(1.0); } catch { /* skip */ }
+        }
+    }
+
+    private renderAftermath(): void {
+        const ctx = this.canvas.ctx;
+        // Black background
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, 800, 600);
+
+        // Starfield scrolling behind
+        this.starField.draw(ctx);
+
+        // Aftermath graphic scrolling upward
+        const img = this.assets.tryGetImage('aftermath');
+        if (img) {
+            ctx.drawImage(img, 0, this.aftermathY);
         }
     }
 
