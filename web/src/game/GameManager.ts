@@ -432,7 +432,7 @@ export class GameManager {
         const inRight = mx >= 601 && mx <= 800 && my >= 0 && my <= 540;
 
         // Zone hover labels (appear on hover)
-        ctx.font = '18px XenoFont, monospace';
+        ctx.font = '20px XenoFont, monospace';
         ctx.textAlign = 'center';
         if (inLeft) {
             ctx.fillStyle = '#0f0';
@@ -450,7 +450,7 @@ export class GameManager {
 
         // "NEW!" label near customization — C++ GUI.cpp:206-209
         if (this.hasNewCustomization && !inLeft) {
-            ctx.font = '18px XenoFont, monospace';
+            ctx.font = '20px XenoFont, monospace';
             ctx.fillStyle = '#0f0';
             ctx.textAlign = 'center';
             ctx.fillText('NEW!', 114, 340);
@@ -458,7 +458,7 @@ export class GameManager {
 
         // Notification labels — hide when hovering over the briefing CRT
         if (this.levelBriefed <= this.level && !inCenter) {
-            ctx.font = '18px XenoFont, monospace';
+            ctx.font = '20px XenoFont, monospace';
             ctx.fillStyle = '#0f0';
             ctx.fillText('New Level Briefing Available!', 300, 206);
         }
@@ -468,7 +468,7 @@ export class GameManager {
         ctx.fillRect(0, 550, 800, 50);
 
         // Dynamic tooltip text — large font matching original
-        ctx.font = '26px XenoFont, monospace';
+        ctx.font = '28px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.textAlign = 'center';
 
@@ -1230,7 +1230,7 @@ export class GameManager {
         ctx.fillStyle = inButton ? 'rgb(70,85,70)' : 'rgb(51,64,51)';
         ctx.fillRect(200, yCenter - 33, 400, 33);
         ctx.fillStyle = '#0f0';
-        ctx.font = '20px XenoFont, monospace';
+        ctx.font = '22px XenoFont, monospace';
         ctx.textAlign = 'center';
         ctx.fillText(text, 400, yCenter - 8);
         ctx.textAlign = 'left';
@@ -1248,7 +1248,7 @@ export class GameManager {
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 550, 800, 50);
         ctx.fillStyle = '#0f0';
-        ctx.font = '20px XenoFont, monospace';
+        ctx.font = '22px XenoFont, monospace';
         ctx.textAlign = 'center';
         ctx.fillText(text, 400, 580);
         ctx.textAlign = 'left';
@@ -1317,6 +1317,11 @@ export class GameManager {
                 // Quit to system — reload page
                 window.location.reload();
             }
+            // Debug button (small, bottom-right of CRT area)
+            if (mx >= 700 && mx <= 790 && my >= 510 && my <= 540) {
+                this.audio.playSound('MenuSelect');
+                this.debugMenuOpen = true;
+            }
         }
     }
 
@@ -1356,6 +1361,20 @@ export class GameManager {
             tooltipText = this.optionsSaveTooltip;
         }
 
+        // Small "Debug" button — bottom-right of CRT area, above tooltip bar
+        const dbgHover = mx >= 700 && mx <= 790 && my >= 510 && my <= 540;
+        ctx.fillStyle = dbgHover ? 'rgba(0,255,100,0.2)' : 'rgba(0,255,100,0.07)';
+        ctx.fillRect(700, 510, 90, 30);
+        ctx.strokeStyle = dbgHover ? 'rgba(0,255,100,0.5)' : 'rgba(0,255,100,0.15)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(700, 510, 90, 30);
+        ctx.fillStyle = dbgHover ? '#0f0' : 'rgba(0,255,100,0.5)';
+        ctx.font = '14px XenoFont, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('Debug', 745, 530);
+        ctx.textAlign = 'left';
+        if (dbgHover) tooltipText = 'Open the debug menu';
+
         this.drawMenuTooltipBar(ctx, tooltipText);
     }
 
@@ -1392,10 +1411,12 @@ export class GameManager {
                 this.audio.playSound('MenuSelect');
                 this.state = GameState.Backstory;
                 this.briefingScrollStart = performance.now();
+                this.briefingScrollY = 600;
             } else if (newHover === 1) {
                 this.audio.playSound('MenuSelect');
                 this.state = GameState.LevelBriefing;
                 this.briefingScrollStart = performance.now();
+                this.briefingScrollY = 600;
                 this.levelBriefed = this.level + 1;
             } else if (newHover === 2) {
                 this.audio.playSound('MenuSelect');
@@ -1543,7 +1564,7 @@ export class GameManager {
         ctx.fillStyle = inDone ? 'rgb(70,85,70)' : 'rgb(51,64,51)';
         ctx.fillRect(680, 540, 120, 60);
         ctx.fillStyle = '#0f0';
-        ctx.font = '14px XenoFont, monospace';
+        ctx.font = '16px XenoFont, monospace';
         ctx.textAlign = 'center';
         ctx.fillText('Done', 740, 575);
         ctx.textAlign = 'left';
@@ -2713,6 +2734,13 @@ export class GameManager {
                     ctx.fillText('ON', bx + bw - 10, by + bh / 2 + 5);
                 }
             }
+
+            // Hint text at bottom of overlay
+            ctx.font = '10px monospace';
+            ctx.fillStyle = 'rgba(0,255,100,0.4)';
+            ctx.textAlign = 'center';
+            ctx.fillText('Double-click/tap top-left', W / 2, H - 28);
+            ctx.fillText('corner to toggle this menu', W / 2, H - 16);
         }
 
         ctx.restore();
