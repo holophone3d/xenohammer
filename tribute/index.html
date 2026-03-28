@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XenoHammer — A Tribute</title>
+<style>
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: #0a0a0f;
+  color: #c8c8d0;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+a { color: #4af; text-decoration: none; }
+a:hover { color: #8cf; text-decoration: underline; }
+
+/* ── Starfield Background ── */
+.stars {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: -1;
+  background:
+    radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(1px 1px at 30% 60%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(1px 1px at 50% 10%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1px 1px at 70% 80%, rgba(255,255,255,0.3), transparent),
+    radial-gradient(1px 1px at 90% 40%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(1.5px 1.5px at 15% 85%, rgba(100,180,255,0.4), transparent),
+    radial-gradient(1px 1px at 85% 15%, rgba(255,200,100,0.3), transparent),
+    radial-gradient(1px 1px at 45% 45%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1px 1px at 65% 35%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(1px 1px at 25% 75%, rgba(255,255,255,0.3), transparent);
+  background-size: 200px 200px;
+}
+
+/* ── Layout ── */
+.container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+section { padding: 80px 0; }
+h2 {
+  font-size: 1.8rem; color: #fff; margin-bottom: 32px;
+  border-bottom: 2px solid #1a3a1a; padding-bottom: 12px;
+  text-transform: uppercase; letter-spacing: 2px;
+}
+h3 { font-size: 1.2rem; color: #8f8; margin-bottom: 8px; }
+
+/* ── Hero ── */
+.hero {
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center;
+  background: radial-gradient(ellipse at 50% 30%, rgba(0,40,20,0.4), transparent 70%);
+}
+.hero-title {
+  font-size: clamp(2.5rem, 8vw, 5rem); font-weight: 900;
+  letter-spacing: 6px; text-transform: uppercase;
+  background: linear-gradient(135deg, #0f0, #4af, #0f0);
+  background-size: 200% 200%;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 4s ease-in-out infinite;
+}
+@keyframes shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.hero-sub {
+  font-size: 1.1rem; color: #8a8; margin: 16px 0 8px;
+  font-style: italic;
+}
+.hero-tagline {
+  font-size: 0.95rem; color: #667; margin-bottom: 40px;
+}
+.hero-quote {
+  font-size: 0.85rem; color: #5a5; font-style: italic;
+  margin-bottom: 48px; max-width: 500px;
+}
+.btn-play {
+  display: inline-block; padding: 18px 64px;
+  font-size: 1.4rem; font-weight: 700; letter-spacing: 4px;
+  text-transform: uppercase; color: #0a0a0f;
+  background: linear-gradient(135deg, #0f0, #0c0);
+  border: 2px solid #0f0; border-radius: 8px;
+  box-shadow: 0 0 30px rgba(0,255,0,0.2), inset 0 0 20px rgba(0,255,0,0.1);
+  transition: all 0.3s;
+  text-decoration: none;
+}
+.btn-play:hover {
+  background: linear-gradient(135deg, #2f2, #0f0);
+  box-shadow: 0 0 50px rgba(0,255,0,0.4), inset 0 0 30px rgba(0,255,0,0.15);
+  transform: translateY(-2px);
+  text-decoration: none; color: #0a0a0f;
+}
+.nav-links {
+  margin-top: 32px; display: flex; gap: 32px;
+  font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;
+}
+
+/* ── About ── */
+.about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+.about-grid p { color: #aab; }
+.feature-list { list-style: none; }
+.feature-list li {
+  padding: 6px 0; color: #aab;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.feature-list li::before { content: '▸ '; color: #0f0; }
+
+/* ── Team ── */
+.team-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; }
+.team-card {
+  background: rgba(20,30,20,0.5); border: 1px solid #1a3a1a;
+  border-radius: 8px; padding: 24px; text-align: center;
+}
+.team-card .name { font-size: 1.1rem; color: #fff; font-weight: 600; }
+.team-card .role { font-size: 0.85rem; color: #8f8; margin-top: 4px; }
+
+/* ── Screenshots ── */
+.screenshot-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.screenshot-grid img {
+  width: 100%; border-radius: 6px;
+  border: 1px solid #1a3a1a;
+  transition: transform 0.3s, box-shadow 0.3s;
+  cursor: pointer;
+}
+.screenshot-grid img:hover {
+  transform: scale(1.03);
+  box-shadow: 0 0 20px rgba(0,255,0,0.15);
+}
+.screenshot-grid .caption {
+  font-size: 0.8rem; color: #667; margin-top: 4px; text-align: center;
+}
+
+/* ── Archives ── */
+.archive-card {
+  background: rgba(15,20,25,0.6); border: 1px solid #1a2a3a;
+  border-radius: 8px; padding: 28px; margin-bottom: 24px;
+}
+.archive-card .source-tag {
+  display: inline-block; font-size: 0.7rem; text-transform: uppercase;
+  letter-spacing: 1px; padding: 3px 10px; border-radius: 3px;
+  margin-bottom: 12px;
+}
+.tag-primary { background: rgba(255,60,60,0.15); color: #f66; border: 1px solid #622; }
+.tag-event { background: rgba(255,160,0,0.12); color: #fa0; border: 1px solid #642; }
+.tag-press { background: rgba(0,180,255,0.12); color: #4bf; border: 1px solid #246; }
+.tag-academic { background: rgba(255,255,0,0.1); color: #cc0; border: 1px solid #553; }
+.tag-ecosystem { background: rgba(100,255,100,0.1); color: #8f8; border: 1px solid #353; }
+.archive-card h3 { margin-bottom: 12px; }
+.archive-card blockquote {
+  border-left: 3px solid #1a3a3a; padding: 12px 16px;
+  margin: 16px 0; background: rgba(0,0,0,0.2);
+  color: #99a; font-style: italic; border-radius: 0 4px 4px 0;
+}
+.archive-card .source-link {
+  display: inline-block; margin-top: 12px;
+  font-size: 0.85rem; color: #4af;
+}
+.archive-card .meta {
+  font-size: 0.8rem; color: #556; margin-top: 8px;
+}
+.archive-img {
+  max-width: 100%; border-radius: 4px; margin: 16px 0;
+  border: 1px solid #1a3a1a;
+}
+
+/* ── Tech ── */
+.tech-badges { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+.tech-badge {
+  padding: 6px 16px; border-radius: 20px; font-size: 0.85rem;
+  background: rgba(0,60,30,0.3); border: 1px solid #1a3a1a; color: #8f8;
+}
+
+/* ── Footer ── */
+footer {
+  padding: 40px 0; text-align: center;
+  border-top: 1px solid #1a1a1a; color: #445; font-size: 0.85rem;
+}
+footer .cactaur-img {
+  width: 80px; border-radius: 50%; margin-bottom: 16px;
+  border: 2px solid #1a3a1a; opacity: 0.7;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .about-grid { grid-template-columns: 1fr; }
+  .hero-title { letter-spacing: 3px; }
+  .btn-play { padding: 14px 40px; font-size: 1.2rem; }
+  .nav-links { flex-direction: column; gap: 16px; }
+}
+
+/* ── Lightbox ── */
+.lightbox {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.92); z-index: 100;
+  align-items: center; justify-content: center; cursor: pointer;
+}
+.lightbox.active { display: flex; }
+.lightbox img { max-width: 95%; max-height: 90vh; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<div class="stars"></div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="this.classList.remove('active')">
+  <img id="lightbox-img" src="" alt="Enlarged screenshot">
+</div>
+
+<!-- ═══════════ HERO ═══════════ -->
+<section class="hero">
+  <div class="hero-title">XenoHammer</div>
+  <div class="hero-sub">Codename: XenoHammerGL</div>
+  <div class="hero-tagline">A top-down space shooter &middot; Georgia Tech &middot; 2001</div>
+  <div class="hero-quote">
+    &ldquo;Hands down, the most stunning visuals ever seen in a ClanLib powered game!&rdquo; — Cactaur
+  </div>
+  <a href="../web/dist/index.html" class="btn-play">▶ Play</a>
+  <nav class="nav-links">
+    <a href="#about">About</a>
+    <a href="#screenshots">Screenshots</a>
+    <a href="#archives">Archives</a>
+    <a href="#team">Team</a>
+  </nav>
+</section>
+
+<!-- ═══════════ ABOUT ═══════════ -->
+<section id="about">
+  <div class="container">
+    <h2>About the Game</h2>
+    <div class="about-grid">
+      <div>
+        <p>XenoHammer is a top-down 2D space combat arcade shooter, originally developed in C++ by four Georgia Institute of Technology seniors in just <strong>2.5 months</strong> as a senior project and résumé piece. It was powered by the ClanLib game libraries with OpenGL enhancements.</p>
+        <br>
+        <p>The game was selected for the <strong>2002 IGF Student Showcase</strong> at the Game Developers Conference in San Jose, CA — one of only 10 student games chosen from 31 entries worldwide.</p>
+        <br>
+        <p>This tribute site preserves the history of XenoHammer and hosts a fully playable <strong>modern web rewrite</strong> in TypeScript/Canvas, faithful to the original.</p>
+      </div>
+      <div>
+        <h3>Features</h3>
+        <ul class="feature-list">
+          <li>1 campaign to save Earth from destruction</li>
+          <li>3 frenzied levels + massive final boss</li>
+          <li>5 unique enemies with different AI</li>
+          <li>Original heart-pounding synchronized soundtrack</li>
+          <li>High quality pre-rendered sprites (POV-Ray, 3ds Max)</li>
+          <li>OpenGL real-time lighting &amp; particle effects</li>
+          <li>Advanced particle system with physics-based explosions</li>
+          <li>Customizable ship with weapon &amp; power management</li>
+          <li>Mission briefings, ship specs &amp; backstory</li>
+        </ul>
+        <div class="tech-badges">
+          <span class="tech-badge">C++</span>
+          <span class="tech-badge">ClanLib</span>
+          <span class="tech-badge">OpenGL</span>
+          <span class="tech-badge">Ogg Vorbis</span>
+          <span class="tech-badge">POV-Ray</span>
+          <span class="tech-badge">3ds Max</span>
+          <span class="tech-badge">SourceSafe</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ SCREENSHOTS ═══════════ -->
+<section id="screenshots">
+  <div class="container">
+    <h2>Original Game Screenshots</h2>
+    <p style="color:#667; margin-bottom:24px;">From the original C++/ClanLib/OpenGL version, circa 2001–2002.</p>
+    <div class="screenshot-grid">
+      <div>
+        <img src="../assets/reference_screenshots/01_ready_room_default.png"
+             alt="Ready Room" onclick="showLightbox(this)">
+        <div class="caption">Ready Room — Main Hub</div>
+      </div>
+      <div>
+        <img src="../assets/reference_screenshots/08_ship_customization.png"
+             alt="Ship Customization" onclick="showLightbox(this)">
+        <div class="caption">Ship Customization</div>
+      </div>
+      <div>
+        <img src="../assets/reference_screenshots/07_ship_specifications.png"
+             alt="Ship Specifications" onclick="showLightbox(this)">
+        <div class="caption">Ship Specifications</div>
+      </div>
+      <div>
+        <img src="../assets/reference_screenshots/05_briefing_options_menu.png"
+             alt="Briefing &amp; Options" onclick="showLightbox(this)">
+        <div class="caption">Briefing / Options Menu</div>
+      </div>
+      <div>
+        <img src="../assets/reference_screenshots/09_level1_intro.png"
+             alt="Level 1 Intro" onclick="showLightbox(this)">
+        <div class="caption">Level 1 Intro Animation</div>
+      </div>
+      <div>
+        <img src="../assets/reference_screenshots/10_gameplay_combat.png"
+             alt="Gameplay Combat" onclick="showLightbox(this)">
+        <div class="caption">Gameplay — Combat</div>
+      </div>
+      <div>
+        <img src="../assets/reference_screenshots/06_briefing_lore_text.png"
+             alt="Backstory Briefing" onclick="showLightbox(this)">
+        <div class="caption">Scrolling Backstory</div>
+      </div>
+      <div>
+        <img src="archives/images/gdc_xeno_screenshot.jpg"
+             alt="GDC 2002 Screenshot" onclick="showLightbox(this)">
+        <div class="caption">GDC 2002 — Enlarged Screenshot</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ ARCHIVES ═══════════ -->
+<section id="archives">
+  <div class="container">
+    <h2>Archives</h2>
+    <p style="color:#667; margin-bottom:32px;">
+      Everything we could find about XenoHammer across the internet, preserved here with original source links.
+    </p>
+
+    <!-- GDC 2002 -->
+    <div class="archive-card">
+      <span class="source-tag tag-event">GDC 2002</span>
+      <h3>GameDev.net — GDC 2002 Student Showcase Coverage</h3>
+      <p>A detailed hands-on writeup by Mason McCuskey of Spin Studios, who visited each student showcase booth at GDC 2002 in San Jose.</p>
+      <blockquote>
+        Xenohammer is a great implementation of your classic retro top-view space shooter. You've all played these games — you fly up the screen and shoot enemies that come down.<br><br>
+        The graphics in Xenohammer are pretty impressive. I especially like the explosions, which are simulated using physics: if a ship blows up when it's moving right the momentum of that movement will also carry the explosion right. It's a great effect that, when combined with some good artwork and particle system code, creates a nice explosion.<br><br>
+        Xenohammer was developed by seniors at the Georgia Institute of Technology as a resume piece, designed to help them look for a game job. It took only two and a half months to create.<br><br>
+        <strong>What Went Right:</strong> The short schedule and motivation of the team were a powerful combination in getting a high-quality game out quickly.<br><br>
+        <strong>What Went Wrong:</strong> If they did it over again, the development team would choose to do full 3D instead of just 2D in 3D.
+      </blockquote>
+      <p class="meta">
+        <strong>Team:</strong> 3 coders (Brian Smith, Chris Haire, Jason Shelton) + 1 artist (Roger Norris)<br>
+        <strong>Coded using:</strong> C++, ClanLIB game libraries<br>
+        <strong>Dev time:</strong> 2.5 months<br>
+        <strong>Tools:</strong> SourceSafe, POV Ray, 3D Studio Max, Ogg Vorbis
+      </p>
+      <a class="source-link" href="https://web.archive.org/web/20030210020947/http://archive.gamedev.net/archive/columns/events/gdc2002/view5d70.html?SectionID=27" target="_blank">🔗 Source: archive.gamedev.net via Wayback Machine</a>
+    </div>
+
+    <!-- IGF 2002 -->
+    <div class="archive-card">
+      <span class="source-tag tag-event">IGF 2002</span>
+      <h3>Independent Games Festival — 2002 Student Showcase Selections</h3>
+      <p>Official announcement of the 10 student games selected for the IGF Student Showcase at GDC 2002, chosen by the Seattle chapter of the IGDA from a pool of 31 entries.</p>
+      <blockquote>
+        <strong>Xenohammer</strong><br>
+        Developed by B. Smith, C. Haire, J. Shelton, R. Norris, M. Andrew<br>
+        School: Georgia Institute of Technology
+      </blockquote>
+      <p style="color:#aab;">XenoHammer was one of ten games selected alongside titles from DigiPen, University of Waterloo, and other institutions. The showcase took place at GDC 2002 in San Jose, California.</p>
+      <a class="source-link" href="https://www.gamedeveloper.com/game-platforms/igf-announces-2002-student-showcase-selections" target="_blank">🔗 Source: gamedeveloper.com (formerly Gamasutra)</a>
+    </div>
+
+    <!-- Original Dev Site -->
+    <div class="archive-card">
+      <span class="source-tag tag-primary">Original Website</span>
+      <h3>saberx88.tripod.com — Official XenoHammer Dev Site</h3>
+      <p>The original Tripod-hosted website for XenoHammer, created by the development team. Archived via the Wayback Machine.</p>
+      <blockquote>
+        This site is dedicated to the development and playing of the worlds latest and greatest over head shooter XenoHammer. XenoHammer is powered by the awesome ClanLib game libraries.<br><br>
+        <strong>2002 IGF Student Showcase Selections!</strong><br>
+        That's right folks XenoHammer has made it into the IGF conference as a student showcase selection!
+      </blockquote>
+      <p style="color:#aab; margin-top:12px;">The site announced the alpha release as "Codename XenoHammerGL" on November 20th, 2001, featuring:</p>
+      <ul class="feature-list" style="margin-top:8px;">
+        <li>1 campaign to save Earth from imminent destruction</li>
+        <li>3 frenzied levels, culminating in a fierce battle with a massive final boss</li>
+        <li>5 unique enemies, each with different AI</li>
+        <li>Original heart-pounding soundtrack synchronized with the action</li>
+        <li>High Quality pre-rendered sprites</li>
+        <li>OpenGL used for real-time lighting and particle effects</li>
+      </ul>
+      <p class="meta" style="margin-top:16px;">
+        Copyright 2001 — Cult of Cactaur<br>
+        Web Design: Jason Shelton · Game Sprites: Roger Norris · Music: Mike Andrew
+      </p>
+      <a class="source-link" href="https://web.archive.org/web/20021124172252/http://saberx88.tripod.com/" target="_blank">🔗 Source: saberx88.tripod.com via Wayback Machine</a>
+    </div>
+
+    <!-- Team Page -->
+    <div class="archive-card">
+      <span class="source-tag tag-primary">Original Website</span>
+      <h3>saberx88.tripod.com/team.htm — Development Team</h3>
+      <p>The team page from the original site, listing all four Georgia Tech seniors and their responsibilities.</p>
+      <blockquote>
+        Our Development team consists of Four Georgia Institute of Technology Seniors.<br><br>
+        &bull; <strong>Brian Smith</strong> — Engine Design<br>
+        &bull; <strong>Chris Haire</strong> — Saving/Loading, Sound, Music, Level Design<br>
+        &bull; <strong>Jason Shelton</strong> — GUI Design and GUI Artwork, Level Design<br>
+        &bull; <strong>Roger Norris</strong> — Artwork and Animations, AI, Level Design
+      </blockquote>
+      <a class="source-link" href="https://web.archive.org/web/20030724054536/http://saberx88.tripod.com/team.htm" target="_blank">🔗 Source: saberx88.tripod.com/team.htm via Wayback Machine</a>
+    </div>
+
+    <!-- Course Slides -->
+    <div class="archive-card">
+      <span class="source-tag tag-academic">Academic</span>
+      <h3>IAT 410 Course Slides — Simon Fraser University</h3>
+      <p>A course on Video Game Design and Programming at SFU lists XenoHammer as a "Past Winning Game" from the IGF Student Showcase, used as an example to inspire students.</p>
+      <blockquote>
+        <strong>Past Winning Games:</strong><br>
+        XenoHammer — IGF Student Showcase 2002<br>
+        DOGgone CATastrophe — IGF Student Showcase 2003<br>
+        KubeKombat — IGF Student Showcase 2004<br>
+        Growbot — IGF Student Showcase 2004<br>
+        TeamRobot — IGF Student Showcase 2005
+      </blockquote>
+      <p style="color:#aab;">Course taught by Chris Shaw, Ph.D. The slides encouraged students to submit their games to the IGF competition, with $500 travel stipends and a $2,500 Best Student Game award at GDC.</p>
+      <a class="source-link" href="https://www.slideserve.com/sylviacampbell/iat-410-video-game-design-and-programming-powerpoint-ppt-presentation" target="_blank">🔗 Source: slideserve.com (IAT 410 presentation)</a>
+    </div>
+
+    <!-- Georgia Tech Repository -->
+    <div class="archive-card">
+      <span class="source-tag tag-academic">Academic</span>
+      <h3>Georgia Tech Repository — XenoHammer Video Game</h3>
+      <p>A PDF document in the Georgia Tech digital repository that references "XenoHammer Video Game," confirming the project's presence in the university's academic records.</p>
+      <a class="source-link" href="https://repository.gatech.edu/server/api/core/bitstreams/4bd33c0d-8d42-4169-8aca-50210a301ba5/content" target="_blank">🔗 Source: repository.gatech.edu (PDF)</a>
+    </div>
+
+    <!-- GameDev.net Forum -->
+    <div class="archive-card">
+      <span class="source-tag tag-ecosystem">Dev Community</span>
+      <h3>GameDev.net Forums — ClanLib Discussion</h3>
+      <p>A forum thread on GameDev.net comparing game libraries (Allegro, ClanLib, PLib) where XenoHammer is mentioned as a ClanLib-powered game, confirming the project's visibility in the indie game development community of the early 2000s.</p>
+      <p class="meta">Note: The original thread is no longer accessible (403 error) and was not captured by the Wayback Machine.</p>
+      <a class="source-link" href="https://www.gamedev.net/forums/topic/82450-allegro-clanlib-or-plib/" target="_blank">🔗 Source: gamedev.net/forums (unavailable)</a>
+    </div>
+
+    <!-- ClanLib Ecosystem -->
+    <div class="archive-card">
+      <span class="source-tag tag-ecosystem">Engine Ecosystem</span>
+      <h3>ClanLib NEWS / Debian Sources</h3>
+      <p>The ClanLib game engine's changelog, hosted on Debian Sources, documents the evolution of the engine that powered XenoHammer. ClanLib was a cross-platform C++ game library featuring sprite rendering, sound mixing, input handling, GUI components, and OpenGL integration — the foundation on which XenoHammer was built.</p>
+      <p class="meta">XenoHammer used ClanLib 0.6.x (circa 2001), with OpenGL extensions for particle effects, dynamic lighting, and shield rendering.</p>
+      <a class="source-link" href="https://sources.debian.org/src/clanlib/1.0~svn3827-2/NEWS" target="_blank">🔗 Source: sources.debian.org (ClanLib changelog)</a>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════ TEAM ═══════════ -->
+<section id="team">
+  <div class="container">
+    <h2>The Team</h2>
+    <p style="color:#667; margin-bottom:32px;">
+      Developed by <strong style="color:#8f8;">Cult of Cactaur</strong> — four Georgia Institute of Technology seniors, class of 2002.
+    </p>
+    <div class="team-grid">
+      <div class="team-card">
+        <div class="name">Brian Smith</div>
+        <div class="role">Engine Design</div>
+      </div>
+      <div class="team-card">
+        <div class="name">Chris Haire</div>
+        <div class="role">Sound, Music, Saving/Loading, Level Design</div>
+      </div>
+      <div class="team-card">
+        <div class="name">Jason Shelton</div>
+        <div class="role">GUI Design &amp; Artwork, Level Design</div>
+      </div>
+      <div class="team-card">
+        <div class="name">Roger Norris</div>
+        <div class="role">Art, Animations, AI, Level Design</div>
+      </div>
+      <div class="team-card">
+        <div class="name">Mike Andrew</div>
+        <div class="role">Music &amp; Soundtrack</div>
+      </div>
+    </div>
+
+    <div style="text-align:center; margin-top:48px;">
+      <img src="archives/images/cactaur_logo.jpg" alt="Cult of Cactaur"
+           style="width:120px; border-radius:8px; border:2px solid #1a3a1a; opacity:0.8;">
+      <p style="color:#556; font-size:0.85rem; margin-top:8px;">Cult of Cactaur</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ FOOTER ═══════════ -->
+<footer>
+  <div class="container">
+    <p style="margin-bottom:12px;">
+      <a href="../web/dist/index.html" class="btn-play" style="font-size:1rem; padding:12px 40px;">▶ Play XenoHammer</a>
+    </p>
+    <p style="margin-top:24px;">
+      XenoHammer &copy; 2001 Cult of Cactaur — Georgia Institute of Technology<br>
+      Game sprites &copy; Roger Norris · Music &copy; Mike Andrew · Web design &copy; Jason Shelton
+    </p>
+    <p style="margin-top:12px;">
+      Tribute site &amp; web rewrite &copy; 2026 · All original content preserved with source attribution.
+    </p>
+  </div>
+</footer>
+
+<script>
+function showLightbox(img) {
+  const lb = document.getElementById('lightbox');
+  document.getElementById('lightbox-img').src = img.src;
+  lb.classList.add('active');
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('lightbox').classList.remove('active');
+});
+</script>
+
+</body>
+</html>
