@@ -94,6 +94,7 @@ export class GameManager {
     // C++ Sound.cpp:81-100 — two-phase fire sound (single shot → looping rapid fire)
     private playerFireSound: SoundInstance | null = null;
     private playerRapidFireActive = false;
+    private newGamePlusRound = 0; // how many times the player has looped through all levels
 
     constructor(canvasId: string) {
         this.canvas = new GameCanvas(canvasId);
@@ -478,20 +479,20 @@ export class GameManager {
         } else if (inCenter) {
             tooltip = 'Click here to See Briefings, Save, Load, or Quit';
         } else if (inRight) {
-            if (this.level === 0 && this.levelBriefed < 1) {
+            const ngPrefix = this.newGamePlusRound > 0
+                ? `[NG+${this.newGamePlusRound}] ` : '';
+            if (this.level === 0 && this.levelBriefed < 1 && this.newGamePlusRound === 0) {
                 tooltip = 'Recon has new info see the level briefing.';
             } else if (this.level === 0) {
-                tooltip = 'Launch into the Outer Earth Sector';
-            } else if (this.level === 1 && this.levelBriefed < 2) {
+                tooltip = `${ngPrefix}Launch into the Outer Earth Sector`;
+            } else if (this.level === 1 && this.levelBriefed < 2 && this.newGamePlusRound === 0) {
                 tooltip = 'Recon has new info see the level briefing.';
             } else if (this.level === 1) {
-                tooltip = 'Penetrate the Outer Defense Matrix';
-            } else if (this.level === 2 && this.levelBriefed < 3) {
+                tooltip = `${ngPrefix}Penetrate the Outer Defense Matrix`;
+            } else if (this.level === 2 && this.levelBriefed < 3 && this.newGamePlusRound === 0) {
                 tooltip = 'Recon has new info see the level briefing.';
             } else if (this.level === 2) {
-                tooltip = 'Destroy the Nexus Core';
-            } else {
-                tooltip = 'You Have Completed the Mission!';
+                tooltip = `${ngPrefix}Destroy the Nexus Core`;
             }
         } else if (this.playerDiedLastLevel) {
             // C++ GUI.cpp:201-202: death message replaces default when no zone hovered
@@ -545,6 +546,16 @@ export class GameManager {
         this.engineSound.setVolume(0.1);
 
         this.state = GameState.Playing;
+    }
+
+    /** Advance to next level. If all levels complete, loop back with harder difficulty. */
+    private advanceLevel(): void {
+        this.level++;
+        if (this.level >= LEVELS.length) {
+            this.level = 0;
+            this.newGamePlusRound++;
+            this.difficulty = Math.min(3, this.difficulty + 1);
+        }
     }
 
     private updatePlaying(dt: number): void {
@@ -1094,7 +1105,7 @@ export class GameManager {
 
     private updateLevelComplete(dt: number): void {
         // C++: when timer expires, immediately return to Ready Room (no hold screen)
-        this.level++;
+        this.advanceLevel();
         this.state = GameState.ReadyRoom;
     }
 
@@ -1143,7 +1154,7 @@ export class GameManager {
         if (this.input.isKeyPressed(Input.ESCAPE) || this.aftermathY <= -550) {
             // C++: aftermath returns directly to Ready Room, no Victory screen.
             // levelNum is incremented, score/kills preserved.
-            this.level++;
+            this.advanceLevel();
             this.state = GameState.ReadyRoom;
             this.stateTimer = 0;
             this.audio.stopMusic();
@@ -2400,7 +2411,7 @@ export class GameManager {
         ) {
             // Skip back to Ready Room from any menu/scroll screen
             if (this.state === GameState.Aftermath) {
-                this.level++;
+                this.advanceLevel();
             }
             this.state = GameState.ReadyRoom;
             this.stateTimer = 0;

@@ -36,6 +36,7 @@ export class TouchControls {
     private cfgEl!: HTMLElement;
     private cfgLabel!: HTMLElement;
     private escEl!: HTMLElement;
+    private fullscreenEl: HTMLElement | null = null; // iOS "Add to Home Screen" prompt button
 
     // D-pad joystick state — track by touch identifier
     private dpadTouchId: number | null = null;
@@ -193,6 +194,7 @@ export class TouchControls {
         this.layoutNub(dpadSize);
         this.layoutArrows(dpadSize);
         this.scaleLabelFonts(fireSize, cfgSize, escSize);
+        this.layoutFullscreenButton(w * 0.22, dpadTop, dpadSize);
     }
 
     private layoutLandscape(): void {
@@ -236,6 +238,10 @@ export class TouchControls {
         this.layoutNub(dpadSize);
         this.layoutArrows(dpadSize);
         this.scaleLabelFonts(fireSize, cfgSize, escSize);
+
+        const dpadCx = margin + dpadSize / 2;
+        const dpadTopY = h - margin - dpadSize;
+        this.layoutFullscreenButton(dpadCx, dpadTopY, dpadSize);
     }
 
     private layoutArrows(dpadSize: number): void {
@@ -271,6 +277,19 @@ export class TouchControls {
         if (this.cfgLabel) this.cfgLabel.style.fontSize = `${Math.round(cfgSize * 0.36)}px`;
         const escLabel = this.escEl.querySelector('span') as HTMLElement;
         if (escLabel) escLabel.style.fontSize = `${Math.round(Math.max(escSize * 0.4, 11))}px`;
+    }
+
+    /** Position the iOS fullscreen prompt button above the D-pad. */
+    private layoutFullscreenButton(dpadCx: number, dpadTop: number, dpadSize: number): void {
+        if (!this.fullscreenEl) return;
+        const btnW = dpadSize * 0.8;
+        const btnH = dpadSize * 0.22;
+        this.fullscreenEl.style.left = `${dpadCx - btnW / 2}px`;
+        this.fullscreenEl.style.top = `${dpadTop - btnH - dpadSize * 0.08}px`;
+        this.fullscreenEl.style.width = `${btnW}px`;
+        this.fullscreenEl.style.height = `${btnH}px`;
+        const label = this.fullscreenEl.querySelector('span') as HTMLElement;
+        if (label) label.style.fontSize = `${Math.round(btnH * 0.5)}px`;
     }
 
     private positionCircle(el: HTMLElement, cx: number, cy: number, r: number): void {
@@ -319,6 +338,115 @@ export class TouchControls {
         // ESC button — always visible
         this.escEl = this.makeCircle('rgba(80,80,80,0.45)', 'rgba(200,200,200,0.5)');
         this.addLabel(this.escEl, 'ESC', true);
+
+        // iOS Safari (not standalone) — show "Fullscreen" prompt button
+        if (this.isIOSSafariNotStandalone() && !localStorage.getItem('xh_fs_dismissed')) {
+            this.fullscreenEl = document.createElement('div');
+            Object.assign(this.fullscreenEl.style, {
+                position: 'absolute',
+                borderRadius: '6px',
+                background: 'rgba(0,180,80,0.55)',
+                border: '2px solid rgba(0,255,120,0.7)',
+                pointerEvents: 'auto',
+                textAlign: 'center',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+            });
+            const label = document.createElement('span');
+            label.textContent = '⛶ Fullscreen';
+            Object.assign(label.style, {
+                fontWeight: 'bold',
+                fontFamily: 'sans-serif',
+                color: 'rgba(255,255,255,0.85)',
+                pointerEvents: 'none',
+                whiteSpace: 'nowrap',
+            });
+            this.fullscreenEl.appendChild(label);
+            this.container.appendChild(this.fullscreenEl);
+            this.fullscreenEl.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.showFullscreenInstructions();
+            }, { passive: false });
+            this.fullscreenEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.showFullscreenInstructions();
+            });
+        }
+    }
+
+    private isIOSSafariNotStandalone(): boolean {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isStandalone = (navigator as any).standalone === true ||
+            window.matchMedia('(display-mode: standalone)').matches;
+        return isIOS && !isStandalone;
+    }
+
+    private showFullscreenInstructions(): void {
+        // Remove the button after tapping
+        if (this.fullscreenEl) {
+            this.fullscreenEl.remove();
+            this.fullscreenEl = null;
+        }
+
+        const overlay = document.createElement('div');
+        Object.assign(overlay.style, {
+            position: 'fixed',
+            top: '0', left: '0', right: '0', bottom: '0',
+            background: 'rgba(0,0,0,0.85)',
+            zIndex: '9999',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '2rem',
+            color: '#fff',
+            fontFamily: 'sans-serif',
+            textAlign: 'center',
+        });
+
+        overlay.innerHTML = `
+            <div style="max-width:360px">
+                <div style="font-size:3rem;margin-bottom:1rem">📱</div>
+                <h2 style="font-size:1.3rem;color:#0f6;margin-bottom:1rem">Play Fullscreen</h2>
+                <p style="font-size:0.95rem;color:#ccc;line-height:1.6;margin-bottom:1.5rem">
+                    For the best experience without browser bars:
+                </p>
+                <div style="text-align:left;font-size:0.9rem;color:#eee;line-height:2">
+                    <p>1. Tap <strong>Share</strong> <span style="font-size:1.2rem">⬆</span> in Safari</p>
+                    <p>2. Scroll down, tap <strong>"Add to Home Screen"</strong></p>
+                    <p>3. Tap <strong>Add</strong></p>
+                    <p>4. Launch from your home screen 🚀</p>
+                </div>
+                <button id="xh-fs-dismiss" style="margin-top:1.5rem;padding:0.7rem 2rem;background:#0f6;color:#000;border:none;border-radius:6px;font-size:1rem;font-weight:bold;cursor:pointer">Got it!</button>
+                <p style="margin-top:1rem;font-size:0.75rem;color:#666">
+                    <a id="xh-fs-dontshow" href="#" style="color:#666;text-decoration:underline">Don't show again</a>
+                </p>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        overlay.querySelector('#xh-fs-dismiss')!.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            overlay.remove();
+        });
+        overlay.querySelector('#xh-fs-dismiss')!.addEventListener('click', () => {
+            overlay.remove();
+        });
+        overlay.querySelector('#xh-fs-dontshow')!.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            try { localStorage.setItem('xh_fs_dismissed', '1'); } catch {}
+            overlay.remove();
+        });
+        overlay.querySelector('#xh-fs-dontshow')!.addEventListener('click', (e) => {
+            e.preventDefault();
+            try { localStorage.setItem('xh_fs_dismissed', '1'); } catch {}
+            overlay.remove();
+        });
     }
 
     private makeCircle(bg: string, border: string): HTMLElement {
