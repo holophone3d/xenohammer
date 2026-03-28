@@ -174,11 +174,9 @@ export class TouchControls {
         this.positionCircle(this.fireEl, w * 0.78, h * 0.5, fireSize / 2);
         this.positionCircle(this.cfgEl, cfgCx, h * 0.5, cfgSize / 2);
 
-        // ESC above MODE — same vertical distance as landscape
-        // Landscape: modeFireGap = margin*0.6, escGap = modeFireGap*2
-        const modeFireGap = pad * 0.6;
-        const escGap = modeFireGap * 2;
-        const escCy = h * 0.5 - cfgSize / 2 - escSize / 2 - escGap;
+        // ESC above MODE — bottom of ESC aligns with top of dpad
+        const dpadTop = h * 0.5 - dpadSize / 2;
+        const escCy = dpadTop - escSize;  // escBottom = escCy + escSize = dpadTop
         const escD = escSize * 2;
         this.escEl.style.width = `${escD}px`;
         this.escEl.style.height = `${escD}px`;
@@ -570,15 +568,13 @@ export class TouchControls {
             const escSize = cfgSize * 0.5;
 
             const cfgCx = left + cw * 0.50;
-            const cfgCy = top + ch * 0.5;
-            const pad = ch * 0.08;
-            const modeFireGap = pad * 0.6;
-            const escCy = cfgCy - cfgSize / 2 - escSize / 2 - modeFireGap * 2;
+            const dpadTop = top + ch * 0.5 - dpadSize / 2;
+            const escCy = dpadTop - escSize;
 
             return {
                 dCx: left + cw * 0.22, dCy: top + ch * 0.5, dR: dpadSize / 2,
                 fCx: left + cw * 0.78, fCy: top + ch * 0.5, fR: fireSize / 2,
-                cCx: cfgCx, cCy: cfgCy, cR: cfgSize / 2,
+                cCx: cfgCx, cCy: top + ch * 0.5, cR: cfgSize / 2,
                 eCx: cfgCx, eCy: escCy, eR: escSize,
             };
         }
