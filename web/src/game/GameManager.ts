@@ -2034,7 +2034,7 @@ export class GameManager {
     private drawCustPowerBars(ctx: CanvasRenderingContext2D): void {
         if (!this.player) return;
         const setting = this.player.powerPlant.getSetting();
-        const W = 14, H = 6; // C_BAR_WIDTH, reduced height to fit within diagram
+        const W = 14, H = 7; // C_BAR_WIDTH, bar height
 
         // All bar positions from Console.h customization constants
         const bars: Array<{x: number, y: number, count: number}> = [
