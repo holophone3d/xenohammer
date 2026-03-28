@@ -1820,7 +1820,7 @@ export class GameManager {
                 const anglesLeft = [90, 135, 180, 225, 270];
                 const anglesRight = [90, 45, 0, 315, 270];
                 const angles = sel === 1 ? anglesLeft : anglesRight;
-                const yPos = [350, 392, 434, 476, 518];
+                const yPos = [310, 352, 394, 436, 478];
                 for (let i = 0; i < 5; i++) {
                     if (my >= yPos[i] && my <= yPos[i] + 32) {
                         this.audio.playSound('MenuSelect');
@@ -2020,8 +2020,8 @@ export class GameManager {
         ctx.strokeRect(0.5, 0.5, 799, 39);           // Stats bar
         ctx.strokeRect(0.5, 41.5, 511, 259);          // Ship diagram
         if (sel >= 0 && sel < this.custSystemZones.length) {
-            ctx.strokeRect(0.5, 301.5, 511, 198);     // Info panel
-            ctx.strokeRect(0.5, 500.5, 511, 99);      // Touch arrow zone
+            ctx.strokeRect(0.5, 301.5, 511, 228);     // Info panel (301→530)
+            ctx.strokeRect(0.5, 530.5, 511, 69);      // Touch arrow zone (530→600)
         } else {
             ctx.strokeRect(0.5, 301.5, 511, 298);     // Full info panel (All mode)
         }
@@ -2094,10 +2094,10 @@ export class GameManager {
                 ctx.fillText('Already Researched', 110, 390);
                 ctx.fillText('cost = ', 160, 420);
                 ctx.fillText('n/a', 240, 420);
-                // Turret angle panel at (450, 350)
+                // Turret angle panel at (450, 310)
                 const panelKey = sel === 1 ? 'turret_pannel_left' : 'turret_pannel_right';
                 const panel = this.assets.tryGetImage(panelKey);
-                if (panel) ctx.drawImage(panel, 450, 350);
+                if (panel) ctx.drawImage(panel, 450, 310);
                 // Selector highlight at current angle
                 this.renderTurretAngleSelector(ctx, sel);
             } else {
@@ -2175,7 +2175,7 @@ export class GameManager {
         const anglesLeft = [90, 135, 180, 225, 270];
         const anglesRight = [90, 45, 0, 315, 270];
         const angles = sel === 1 ? anglesLeft : anglesRight;
-        const yPos = [350, 392, 434, 476, 518];
+        const yPos = [310, 352, 394, 436, 478];
         const idx = angles.indexOf(angle);
         if (idx >= 0) {
             const selector = this.assets.tryGetImage('turret_selector');
