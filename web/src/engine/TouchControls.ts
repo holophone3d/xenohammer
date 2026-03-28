@@ -167,22 +167,22 @@ export class TouchControls {
         const dpadSize = Math.min(h - pad * 2, w * 0.33);
         const fireSize = Math.min(h - pad * 2, w * 0.18);
         const cfgSize = Math.min(h * 0.45, w * 0.10);
-        const escSize = Math.min(cfgSize, 36);
+        const escSize = cfgSize * 0.65;
 
+        const cfgCx = w * 0.50;
         this.positionCircle(this.dpadBg, w * 0.22, h * 0.5, dpadSize / 2);
         this.positionCircle(this.fireEl, w * 0.78, h * 0.5, fireSize / 2);
-        this.positionCircle(this.cfgEl, w * 0.50, h * 0.5, cfgSize / 2);
+        this.positionCircle(this.cfgEl, cfgCx, h * 0.5, cfgSize / 2);
 
-        // ESC above FIRE — same spacing logic as landscape
-        const fireCy = h * 0.5;
-        const escGap = pad * 0.8;
-        const escCy = fireCy - fireSize / 2 - escSize / 2 - escGap;
+        // ESC above MODE, gap = 2× the gap between MODE edge and FIRE edge
+        const modeFireGap = (w * 0.78 - fireSize / 2) - (cfgCx + cfgSize / 2);
+        const escGap = modeFireGap * 2;
+        const escCy = h * 0.5 - cfgSize / 2 - escSize / 2 - escGap;
         const escD = escSize * 2;
-        const fireCx = w * 0.78;
         this.escEl.style.width = `${escD}px`;
         this.escEl.style.height = `${escD}px`;
         this.escEl.style.borderRadius = '6px';
-        this.escEl.style.left = `${fireCx - escSize}px`;
+        this.escEl.style.left = `${cfgCx - escSize}px`;
         this.escEl.style.top = `${escCy - escSize}px`;
 
         this.layoutNub(dpadSize);
@@ -203,7 +203,7 @@ export class TouchControls {
         const dpadSize = Math.min(h * 0.52, w * 0.16);
         const fireSize = Math.min(h * 0.40, w * 0.12);
         const cfgSize = Math.min(h * 0.22, w * 0.06);
-        const escSize = cfgSize;
+        const escSize = cfgSize * 0.65;
 
         const margin = h * 0.08;
         this.positionCircle(this.dpadBg, margin + dpadSize / 2,
@@ -217,8 +217,9 @@ export class TouchControls {
         const cfgCy = fireCy - fireSize / 2 - cfgSize / 2 - margin * 0.6;
         this.positionCircle(this.cfgEl, fireCx, cfgCy, cfgSize / 2);
 
-        // ESC above MODE — double gap, square button
-        const escGap = margin * 0.8;
+        // ESC above MODE — gap = 2× MODE-to-FIRE gap, centered over MODE
+        const modeFireGap = (fireCy - fireSize / 2) - (cfgCy + cfgSize / 2);
+        const escGap = modeFireGap * 2;
         const escCy = cfgCy - cfgSize / 2 - escSize / 2 - escGap;
         const escD = escSize * 2;
         this.escEl.style.width = `${escD}px`;
@@ -539,12 +540,13 @@ export class TouchControls {
             const dpadSize = Math.min(h * 0.52, w * 0.16);
             const fireSize = Math.min(h * 0.40, w * 0.12);
             const cfgSize = Math.min(h * 0.22, w * 0.06);
-            const escSize = cfgSize;
+            const escSize = cfgSize * 0.65;
 
             const fireCx = w - margin - fireSize / 2;
             const fireCy = h - margin - fireSize / 2;
             const cfgCy = fireCy - fireSize / 2 - cfgSize / 2 - margin * 0.6;
-            const escCy = cfgCy - cfgSize / 2 - escSize / 2 - margin * 0.8;
+            const modeFireGap = (fireCy - fireSize / 2) - (cfgCy + cfgSize / 2);
+            const escCy = cfgCy - cfgSize / 2 - escSize / 2 - modeFireGap * 2;
 
             return {
                 dCx: margin + dpadSize / 2,
@@ -552,7 +554,7 @@ export class TouchControls {
                 dR: dpadSize / 2,
                 fCx: fireCx, fCy: fireCy, fR: fireSize / 2,
                 cCx: fireCx, cCy: cfgCy, cR: cfgSize / 2,
-                eCx: fireCx, eCy: escCy, eR: escSize / 2,
+                eCx: fireCx, eCy: escCy, eR: escSize,
             };
         } else {
             const cr = this.container.getBoundingClientRect();
@@ -564,19 +566,19 @@ export class TouchControls {
             const dpadSize = Math.min(ch * 0.84, cw * 0.33);
             const fireSize = Math.min(ch * 0.84, cw * 0.18);
             const cfgSize = Math.min(ch * 0.45, cw * 0.10);
-            const escSize = Math.min(cfgSize, 36);
+            const escSize = cfgSize * 0.65;
 
+            const cfgCx = left + cw * 0.50;
+            const cfgCy = top + ch * 0.5;
             const fireCx2 = left + cw * 0.78;
-            const fireCy2 = top + ch * 0.5;
-            const pad = ch * 0.08;
-            const escGap = pad * 0.8;
-            const escCy2 = fireCy2 - fireSize / 2 - escSize / 2 - escGap;
+            const modeFireGap = (fireCx2 - fireSize / 2) - (cfgCx + cfgSize / 2);
+            const escCy = cfgCy - cfgSize / 2 - escSize / 2 - modeFireGap * 2;
 
             return {
                 dCx: left + cw * 0.22, dCy: top + ch * 0.5, dR: dpadSize / 2,
-                fCx: fireCx2, fCy: fireCy2, fR: fireSize / 2,
-                cCx: left + cw * 0.50, cCy: top + ch * 0.5, cR: cfgSize / 2,
-                eCx: fireCx2, eCy: escCy2, eR: escSize,
+                fCx: fireCx2, fCy: top + ch * 0.5, fR: fireSize / 2,
+                cCx: cfgCx, cCy: cfgCy, cR: cfgSize / 2,
+                eCx: cfgCx, eCy: escCy, eR: escSize,
             };
         }
     }
