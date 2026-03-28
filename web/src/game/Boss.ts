@@ -1189,7 +1189,7 @@ export class Boss {
     }
 
     getComponentRects(): Array<{ rect: Rect; component: BossComponent }> {
-        if (this.state === BossState.Waiting || this.state === BossState.Entering ||
+        if (this.state === BossState.Waiting ||
             this.state === BossState.Dying  || this.state === BossState.Dead) {
             return [];
         }
@@ -1475,83 +1475,105 @@ export class Boss {
         }
 
         // --- Center connector points (C++: white 30×30, warningAlpha) ---
-        // Center point 1 (between nodes 0-1): visible if either orb 0 or 1 alive
-        const cp1x = bx + 12, cp1y = by + 148;
+        // These anchor at the center node edges pointing toward each connector
+        const cnLeft  = this.connectors[0]; // UL connector
+        const cnHoriz = this.connectors[1]; // H connector
+        const cnRight = this.connectors[2]; // UR connector
+
+        // Center platform edge points — aligned with connector directions
+        const cp1x = bx + 12, cp1y = by + 148;   // left edge of center node → UL connector
+        const cp2x = bx + 148, cp2y = by + 148;  // right edge of center node → UR connector
+
         if (!this.outerOrbs[0].destroyed || !this.outerOrbs[1].destroyed) {
             this.drawGlow(ctx, cp1x, cp1y, 30, 30, 1.0, 1.0, 1.0, this.warningAlpha);
         }
-        // Center point 2 (between nodes 2-3): visible if either orb 2 or 3 alive
-        const cp2x = bx + 148, cp2y = by + 148;
         if (!this.outerOrbs[2].destroyed || !this.outerOrbs[3].destroyed) {
             this.drawGlow(ctx, cp2x, cp2y, 30, 30, 1.0, 1.0, 1.0, this.warningAlpha);
         }
 
-        // --- Connector beams (C++: purple 0.4/0.15/1.0, warningAlpha*0.5, bar.bmp texture) ---
-        // C++ passes center point FIRST, node SECOND — critical for offset direction
+        // --- Energy beams: center → through connectors → to outer orbs ---
+        // These represent shield power flowing from center to outer orbs via the structural connectors.
         const beamAlpha = this.warningAlpha * 0.5;
-        // Center point 1 → Node1
+
+        // Center → UL connector center → outer orb 0
         if (!this.outerOrbs[0].destroyed) {
-            const n1x = bx + NODE_OFFSETS[0].x + 128;
-            const n1y = by + NODE_OFFSETS[0].y + 64 - 10;
-            this.drawBeam(ctx, cp1x, cp1y + 16, n1x, n1y, 60, 0.4, 0.15, 1.0, beamAlpha);
+            const orbX = this.outerOrbs[0].x + 32;
+            const orbY = this.outerOrbs[0].y + 32;
+            const connCX = cnLeft.destroyed ? orbX : cnLeft.x + cnLeft.width / 2;
+            const connCY = cnLeft.destroyed ? orbY : cnLeft.y + cnLeft.height / 2;
+            this.drawBeam(ctx, cp1x, cp1y, connCX, connCY, 40, 0.4, 0.15, 1.0, beamAlpha);
+            if (!cnLeft.destroyed) {
+                this.drawBeam(ctx, connCX, connCY, orbX, orbY, 35, 0.4, 0.15, 1.0, beamAlpha * 0.8);
+            }
         }
-        // Center point 1 → Node2
+        // Center → UL connector center → outer orb 1
         if (!this.outerOrbs[1].destroyed) {
-            const n2x = bx + NODE_OFFSETS[1].x + 64;
-            const n2y = by + NODE_OFFSETS[1].y;
-            this.drawBeam(ctx, cp1x, cp1y, n2x, n2y, 40, 0.4, 0.15, 1.0, beamAlpha);
+            const orbX = this.outerOrbs[1].x + 32;
+            const orbY = this.outerOrbs[1].y + 32;
+            const connCX = cnLeft.destroyed ? orbX : cnLeft.x + cnLeft.width / 2;
+            const connCY = cnLeft.destroyed ? orbY : cnLeft.y + cnLeft.height / 2;
+            this.drawBeam(ctx, cp1x, cp1y, connCX, connCY, 40, 0.4, 0.15, 1.0, beamAlpha);
+            if (!cnLeft.destroyed) {
+                this.drawBeam(ctx, connCX, connCY, orbX, orbY, 35, 0.4, 0.15, 1.0, beamAlpha * 0.8);
+            }
         }
-        // Center point 2 → Node3
+        // Center → UR connector center → outer orb 2
         if (!this.outerOrbs[2].destroyed) {
-            const n3x = bx + NODE_OFFSETS[2].x + 64;
-            const n3y = by + NODE_OFFSETS[2].y;
-            this.drawBeam(ctx, cp2x, cp2y, n3x, n3y, 40, 0.4, 0.15, 1.0, beamAlpha);
+            const orbX = this.outerOrbs[2].x + 32;
+            const orbY = this.outerOrbs[2].y + 32;
+            const connCX = cnRight.destroyed ? orbX : cnRight.x + cnRight.width / 2;
+            const connCY = cnRight.destroyed ? orbY : cnRight.y + cnRight.height / 2;
+            this.drawBeam(ctx, cp2x, cp2y, connCX, connCY, 40, 0.4, 0.15, 1.0, beamAlpha);
+            if (!cnRight.destroyed) {
+                this.drawBeam(ctx, connCX, connCY, orbX, orbY, 35, 0.4, 0.15, 1.0, beamAlpha * 0.8);
+            }
         }
-        // Center point 2 → Node4
+        // Center → UR connector center → outer orb 3
         if (!this.outerOrbs[3].destroyed) {
-            const n4x = bx + NODE_OFFSETS[3].x;
-            const n4y = by + NODE_OFFSETS[3].y + 64 - 10;
-            this.drawBeam(ctx, cp2x, cp2y + 16, n4x, n4y, 60, 0.4, 0.15, 1.0, beamAlpha);
+            const orbX = this.outerOrbs[3].x + 32;
+            const orbY = this.outerOrbs[3].y + 32;
+            const connCX = cnRight.destroyed ? orbX : cnRight.x + cnRight.width / 2;
+            const connCY = cnRight.destroyed ? orbY : cnRight.y + cnRight.height / 2;
+            this.drawBeam(ctx, cp2x, cp2y, connCX, connCY, 40, 0.4, 0.15, 1.0, beamAlpha);
+            if (!cnRight.destroyed) {
+                this.drawBeam(ctx, connCX, connCY, orbX, orbY, 35, 0.4, 0.15, 1.0, beamAlpha * 0.8);
+            }
         }
 
-        // --- 4 outer node connector points (C++: white 30×30, warningAlpha) ---
-        if (!this.outerOrbs[0].destroyed) {
-            this.drawGlow(ctx, bx + NODE_OFFSETS[0].x + 128, by + NODE_OFFSETS[0].y + 64, 30, 30, 1.0, 1.0, 1.0, this.warningAlpha);
+        // --- Connector center glow points (white, where energy passes through) ---
+        if (!cnLeft.destroyed && (!this.outerOrbs[0].destroyed || !this.outerOrbs[1].destroyed)) {
+            this.drawGlow(ctx, cnLeft.x + cnLeft.width / 2, cnLeft.y + cnLeft.height / 2, 25, 25, 1.0, 1.0, 1.0, this.warningAlpha);
         }
-        if (!this.outerOrbs[1].destroyed) {
-            this.drawGlow(ctx, bx + NODE_OFFSETS[1].x + 64, by + NODE_OFFSETS[1].y, 30, 30, 1.0, 1.0, 1.0, this.warningAlpha);
+        if (!cnRight.destroyed && (!this.outerOrbs[2].destroyed || !this.outerOrbs[3].destroyed)) {
+            this.drawGlow(ctx, cnRight.x + cnRight.width / 2, cnRight.y + cnRight.height / 2, 25, 25, 1.0, 1.0, 1.0, this.warningAlpha);
         }
-        if (!this.outerOrbs[2].destroyed) {
-            this.drawGlow(ctx, bx + NODE_OFFSETS[2].x + 64, by + NODE_OFFSETS[2].y, 30, 30, 1.0, 1.0, 1.0, this.warningAlpha);
-        }
-        if (!this.outerOrbs[3].destroyed) {
-            this.drawGlow(ctx, bx + NODE_OFFSETS[3].x, by + NODE_OFFSETS[3].y + 64, 30, 30, 1.0, 1.0, 1.0, this.warningAlpha);
+        // H connector glow (bottom, between orbs 1-2)
+        if (!cnHoriz.destroyed && !this.outerOrbs[1].destroyed && !this.outerOrbs[2].destroyed) {
+            this.drawGlow(ctx, cnHoriz.x + cnHoriz.width / 2, cnHoriz.y + cnHoriz.height / 2, 20, 20, 1.0, 1.0, 1.0, this.warningAlpha);
         }
 
-        // --- 3 glowy bars (C++: blue 0/0/1, bossAlpha, between node pairs) ---
-        // Left bar: Node1→Node2 (only when both orbs alive)
+        // --- Outer orb connector points (white glow at each living orb) ---
+        for (let i = 0; i < 4; i++) {
+            if (!this.outerOrbs[i].destroyed) {
+                this.drawGlow(ctx, this.outerOrbs[i].x + 32, this.outerOrbs[i].y + 32, 25, 25, 1.0, 1.0, 1.0, this.warningAlpha);
+            }
+        }
+
+        // --- 3 glowy bars between node pairs (blue energy flowing along structural connectors) ---
+        // Left bar: Node0→Node1 (along UL connector)
         if (!this.outerOrbs[0].destroyed && !this.outerOrbs[1].destroyed) {
-            const lx1 = bx + NODE_OFFSETS[0].x + 104;
-            const ly1 = by + NODE_OFFSETS[0].y + 104 + 16;
-            const lx2 = bx + NODE_OFFSETS[1].x + 26;
-            const ly2 = by + NODE_OFFSETS[1].y + 26 - 16;
-            this.drawBeam(ctx, lx1, ly1, lx2, ly2, 60, 0.0, 0.0, 1.0, this.bossAlpha);
+            const orbA = this.outerOrbs[0], orbB = this.outerOrbs[1];
+            this.drawBeam(ctx, orbA.x + 32, orbA.y + 32, orbB.x + 32, orbB.y + 32, 50, 0.0, 0.0, 1.0, this.bossAlpha);
         }
-        // Right bar: Node3→Node4 (mirrors left)
+        // Right bar: Node3→Node2 (along UR connector)
         if (!this.outerOrbs[2].destroyed && !this.outerOrbs[3].destroyed) {
-            const rx1 = bx + NODE_OFFSETS[3].x + 26;
-            const ry1 = by + NODE_OFFSETS[3].y + 104 + 16;
-            const rx2 = bx + NODE_OFFSETS[2].x + 104;
-            const ry2 = by + NODE_OFFSETS[2].y + 26 - 16;
-            this.drawBeam(ctx, rx1, ry1, rx2, ry2, 60, 0.0, 0.0, 1.0, this.bossAlpha);
+            const orbA = this.outerOrbs[3], orbB = this.outerOrbs[2];
+            this.drawBeam(ctx, orbA.x + 32, orbA.y + 32, orbB.x + 32, orbB.y + 32, 50, 0.0, 0.0, 1.0, this.bossAlpha);
         }
-        // Center bar: Node2→Node3 (horizontal, use drawBeam like C++ degenerate triangle strip)
+        // Center bar: Node1→Node2 (along H connector)
         if (!this.outerOrbs[1].destroyed && !this.outerOrbs[2].destroyed) {
-            const cx1 = bx + NODE_OFFSETS[1].x + 128;
-            const cy1 = by + NODE_OFFSETS[1].y + 65;
-            const cx2 = bx + NODE_OFFSETS[2].x + 0;
-            const cy2 = by + NODE_OFFSETS[2].y + 65;
-            this.drawBeam(ctx, cx1, cy1, cx2, cy2, 25, 0.0, 0.0, 1.0, this.bossAlpha);
+            const orbA = this.outerOrbs[1], orbB = this.outerOrbs[2];
+            this.drawBeam(ctx, orbA.x + 32, orbA.y + 32, orbB.x + 32, orbB.y + 32, 25, 0.0, 0.0, 1.0, this.bossAlpha);
         }
 
         // --- U-arm red lights (C++: red 20×20, bossAlpha, only when all orbs destroyed) ---
