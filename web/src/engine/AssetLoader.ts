@@ -59,7 +59,7 @@ export class AssetLoader {
 
     /**
      * Load a sequence of numbered sprite frames.
-     * Files are expected as: `${basePath}/${prefix}00.png`, `${prefix}01.png`, etc.
+     * Files are expected as: `${basePath}/${prefix}00.webp`, `${prefix}01.webp`, etc.
      * Each frame is also stored individually as "${prefix}XX" in the image map.
      */
     async loadSpriteFrames(
@@ -71,7 +71,7 @@ export class AssetLoader {
         for (let i = 0; i < count; i++) {
             const num = i.toString().padStart(2, '0');
             const id = `${prefix}${num}`;
-            const url = `${basePath}/${prefix}${num}.png`;
+            const url = `${basePath}/${prefix}${num}.webp`;
             promises.push(this.loadImage(id, url));
         }
         return Promise.all(promises);
@@ -79,7 +79,7 @@ export class AssetLoader {
 
     /**
      * Load a manifest.json and batch-load all graphics entries.
-     * Manifest format: { "graphics": { "assetId": "path/to/file.png", ... } }
+     * Manifest format: { "graphics": { "assetId": "path/to/file.webp", ... } }
      */
     async loadManifest(manifestUrl: string, basePath: string): Promise<void> {
         const response = await fetch(manifestUrl);
