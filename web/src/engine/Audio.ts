@@ -1,10 +1,15 @@
 /**
  * Audio manager using HTML5 Audio elements.
- * Safari fully supports this API  Web Audio decodeAudioData fails on Safari
- * for many formats. HTML Audio is universally reliable.
- * 
- * SFX: Pre-load Audio elements, clone for overlapping playback.
- * Music: Single Audio element per track with loop support.
+ *
+ * iOS Safari quirk: the browser's media session stays locked until an
+ * original (non-cloned) HTMLAudioElement.play() is called inside a
+ * user-gesture call stack. Silent buffers and cloned elements do NOT
+ * unlock the session — it must be a real preloaded music element that
+ * is played then paused. After that, all audio (HTML5 and Web Audio)
+ * works for the rest of the page session.
+ *
+ * Call primeIOSAudio() synchronously from the first meaningful user
+ * gesture (e.g. "Start Game" click) to activate the media session.
  */
 
 export interface SoundInstance {
@@ -19,6 +24,50 @@ export class AudioManager {
     private activeSounds: SoundInstance[] = [];
     private musicVolume = 0.5;
     private sfxVolume = 0.7;
+    private iosPrimed = false;
+
+    /**
+     * Unlock the iOS media session by briefly playing a real preloaded
+     * music element. Must be called synchronously from a user gesture
+     * (touch/click handler). Safe to call multiple times — only the
+     * first call has any effect.
+     */
+    primeIOSAudio(): void {
+        if (this.iosPrimed) return;
+        this.iosPrimed = true;
+
+        // Grab any loaded music element (original, not cloned)
+        const music = this.musicElements.values().next().value as HTMLAudioElement | undefined;
+        if (!music) {
+            console.warn('[Audio] primeIOSAudio: no music loaded yet');
+            this.iosPrimed = false;
+            return;
+        }
+
+        const savedVolume = music.volume;
+        const savedTime = music.currentTime;
+        const savedLoop = music.loop;
+
+        music.volume = 0.001;
+        music.loop = false;
+
+        music.play().then(() => {
+            // Pause after a short delay — iOS needs at least one audio
+            // frame to actually activate the media session
+            setTimeout(() => {
+                music.pause();
+                music.currentTime = savedTime;
+                music.volume = savedVolume;
+                music.loop = savedLoop;
+                console.log('[Audio] iOS media session primed');
+            }, 50);
+        }).catch(e => {
+            console.warn('[Audio] iOS prime failed:', e);
+            music.volume = savedVolume;
+            music.loop = savedLoop;
+            this.iosPrimed = false;
+        });
+    }
 
     /** Load a sound effect for low-latency playback. */
     async loadSound(id: string, url: string): Promise<void> {

@@ -341,6 +341,8 @@ export class GameManager {
         if (this.input.isMousePressed() ||
             this.input.isKeyPressed(Input.SPACE) ||
             this.input.isKeyPressed(Input.ENTER)) {
+            // Prime iOS audio session (must be in user-gesture call stack)
+            this.audio.primeIOSAudio();
             try { this.audio.playSound('Space', true); } catch { /* skip */ }
             this.started = true;
             this.state = GameState.ReadyRoom;
