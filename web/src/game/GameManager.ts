@@ -117,8 +117,8 @@ export class GameManager {
             console.warn('Failed to load manifest, continuing without assets:', e);
         }
 
-        // Load sounds (all converted to OGG/Opus)
-        const soundFiles = [
+        // Load sounds and music in parallel (tracked in progress bar)
+        const soundFiles: [string, string][] = [
             ['Space', 'sounds/Space.mp3'],
             ['PlayerGun1', 'sounds/PlayerGun1.mp3'],
             ['PlayerGun2', 'sounds/PlayerGun2.mp3'],
@@ -129,21 +129,23 @@ export class GameManager {
             ['ShipEngine', 'sounds/ShipEngine.mp3'],
             ['MenuChange', 'sounds/MenuChange.mp3'],
             ['MenuSelect', 'sounds/MenuSelect.mp3'],
+            ['BossNear1', 'sounds/BossNear1.mp3'],
         ];
-        for (const [id, path] of soundFiles) {
-            await this.audio.loadSound(id, `assets/${path}`);
-        }
-
-        // Load music tracks (OGG/Vorbis — kept as-is, already compressed)
-        const musicFiles = [
+        const musicFiles: [string, string][] = [
             ['Level2', 'sounds/Level2.mp3'],
             ['bossTEST', 'sounds/bossTEST.mp3'],
         ];
-        for (const [id, path] of musicFiles) {
-            await this.audio.loadMusic(id, `assets/${path}`);
-        }
-        // BossNear1 is a sound effect, not music
-        await this.audio.loadSound('BossNear1', 'assets/sounds/BossNear1.mp3');
+        const audioTotal = soundFiles.length + musicFiles.length;
+        this.assets.addPending(audioTotal);
+
+        await Promise.all([
+            ...soundFiles.map(([id, path]) =>
+                this.audio.loadSound(id, `assets/${path}`).finally(() => this.assets.markLoaded())
+            ),
+            ...musicFiles.map(([id, path]) =>
+                this.audio.loadMusic(id, `assets/${path}`).finally(() => this.assets.markLoaded())
+            ),
+        ]);
 
         // Cache explosion frames
         this.smallExpFrames = Explosion.loadFrames(this.assets, 'small');

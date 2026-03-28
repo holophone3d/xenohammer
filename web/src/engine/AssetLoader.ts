@@ -57,6 +57,16 @@ export class AssetLoader {
         return this.loadedCount / this.totalCount;
     }
 
+    /** Register N upcoming loads so getProgress() includes them. */
+    addPending(count: number): void {
+        this.totalCount += count;
+    }
+
+    /** Mark one pending load as complete. */
+    markLoaded(): void {
+        this.loadedCount++;
+    }
+
     /**
      * Load a sequence of numbered sprite frames.
      * Files are expected as: `${basePath}/${prefix}00.webp`, `${prefix}01.webp`, etc.
