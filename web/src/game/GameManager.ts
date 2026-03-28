@@ -1724,6 +1724,31 @@ export class GameManager {
             return;
         }
 
+        // Large touch arrow overlays
+        const AW = GameManager.CUST_ARROW_W;
+        const AH = GameManager.CUST_ARROW_H;
+        const AY = GameManager.CUST_ARROW_Y;
+        const LX = GameManager.CUST_ARROW_LEFT_X;
+        const RX = GameManager.CUST_ARROW_RIGHT_X;
+        // Left arrow: increase rate (c1++, c2--)
+        if (mx >= LX && mx <= LX + AW && my >= AY && my <= AY + AH) {
+            this.audio.playSound('MenuSelect');
+            if (setting[zone.c1] < maxCell && setting[zone.c2] > 1) {
+                setting[zone.c1]++;
+                setting[zone.c2]--;
+            }
+            return;
+        }
+        // Right arrow: increase power (c2++, c1--)
+        if (mx >= RX && mx <= RX + AW && my >= AY && my <= AY + AH) {
+            this.audio.playSound('MenuSelect');
+            if (setting[zone.c2] < maxCell && setting[zone.c1] > 1) {
+                setting[zone.c2]++;
+                setting[zone.c1]--;
+            }
+            return;
+        }
+
         // Buy Power Pod (300-364, 460-492) — affects ALL 3 settings
         if (mx >= 300 && mx <= 364 && my >= 460 && my <= 492) {
             this.audio.playSound('MenuSelect');
@@ -1966,6 +1991,8 @@ export class GameManager {
         // 8. Bottom-left info panel (0,301 → 512,600)
         if (sel >= 0 && sel < this.custSystemZones.length && this.player) {
             this.renderCustWeaponInfo(ctx, sel);
+            // Large touch-friendly arrow overlays for adjusting power
+            this.renderCustTouchArrows(ctx, sel);
         } else {
             // No system selected: draw cust_start image at (0,300)
             const custStart = this.assets.tryGetImage('cust_start');
@@ -2081,6 +2108,47 @@ export class GameManager {
         ctx.fillText('cost = ', 160, 480);
         ctx.fillText('1', 240, 480);
         if (buyBtn) ctx.drawImage(buyBtn, 300, 460);
+    }
+
+    // Touch-friendly large arrow overlays for power adjustment
+    private static readonly CUST_ARROW_W = 70;
+    private static readonly CUST_ARROW_H = 100;
+    private static readonly CUST_ARROW_Y = 380;
+    private static readonly CUST_ARROW_LEFT_X = 10;
+    private static readonly CUST_ARROW_RIGHT_X = 430;
+
+    private renderCustTouchArrows(ctx: CanvasRenderingContext2D, sel: number): void {
+        const mouse = this.input.getMousePos();
+        const AW = GameManager.CUST_ARROW_W;
+        const AH = GameManager.CUST_ARROW_H;
+        const AY = GameManager.CUST_ARROW_Y;
+        const LX = GameManager.CUST_ARROW_LEFT_X;
+        const RX = GameManager.CUST_ARROW_RIGHT_X;
+
+        const hoverL = mouse.x >= LX && mouse.x <= LX + AW && mouse.y >= AY && mouse.y <= AY + AH;
+        const hoverR = mouse.x >= RX && mouse.x <= RX + AW && mouse.y >= AY && mouse.y <= AY + AH;
+
+        const label = sel <= 4 ? ['◀ Rate', 'Power ▶'] : ['◀ Shield', 'Speed ▶'];
+
+        // Left arrow (increase c1 / rate)
+        ctx.fillStyle = hoverL ? 'rgba(0,255,0,0.25)' : 'rgba(0,255,0,0.10)';
+        ctx.fillRect(LX, AY, AW, AH);
+        ctx.strokeStyle = hoverL ? 'rgba(0,255,0,0.8)' : 'rgba(0,255,0,0.35)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(LX, AY, AW, AH);
+        ctx.fillStyle = hoverL ? '#0f0' : 'rgba(0,255,0,0.6)';
+        ctx.font = '14px XenoFont, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(label[0], LX + AW / 2, AY + AH / 2 + 5);
+
+        // Right arrow (increase c2 / power)
+        ctx.fillStyle = hoverR ? 'rgba(0,255,0,0.25)' : 'rgba(0,255,0,0.10)';
+        ctx.fillRect(RX, AY, AW, AH);
+        ctx.strokeStyle = hoverR ? 'rgba(0,255,0,0.8)' : 'rgba(0,255,0,0.35)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(RX, AY, AW, AH);
+        ctx.fillStyle = hoverR ? '#0f0' : 'rgba(0,255,0,0.6)';
+        ctx.fillText(label[1], RX + AW / 2, AY + AH / 2 + 5);
     }
 
     private renderTurretAngleSelector(ctx: CanvasRenderingContext2D, sel: number): void {
