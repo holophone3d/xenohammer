@@ -1335,7 +1335,7 @@ export class GameManager {
             // Debug button (top-left of CRT area)
             if (mx >= 10 && mx <= 160 && my >= 10 && my <= 50) {
                 this.audio.playSound('MenuSelect');
-                this.debugMenuOpen = true;
+                this.setDebugMenuOpen(true);
             }
         }
     }
@@ -2463,6 +2463,17 @@ export class GameManager {
     private debugLastClickX = 0;
     private debugLastClickY = 0;
 
+    private setDebugMenuOpen(open: boolean): void {
+        if (open === this.debugMenuOpen) return;
+        this.debugMenuOpen = open;
+        if (open && this.state === GameState.Playing) {
+            this.audio.pauseMusic();
+            this.audio.stopAllSounds();
+        } else if (!open && this.state === GameState.Playing && !this.paused) {
+            this.audio.resumeMusic();
+        }
+    }
+
     private readonly DEBUG_CORNER_W = 160;  // ~20% of 800
     private readonly DEBUG_CORNER_H = 120;  // ~20% of 600
     private readonly DEBUG_DOUBLE_TAP_MS = 400;
@@ -2475,7 +2486,7 @@ export class GameManager {
         if (this.input.isKeyPressed('`')) {
             const now = performance.now();
             if (now - this.debugLastTapTime < this.DEBUG_DOUBLE_TAP_MS) {
-                this.debugMenuOpen = !this.debugMenuOpen;
+                this.setDebugMenuOpen(!this.debugMenuOpen);
                 this.debugKeyDebounce = 15;
                 this.debugLastTapTime = 0;
                 return;
@@ -2489,7 +2500,7 @@ export class GameManager {
             if (pos.x < this.DEBUG_CORNER_W && pos.y < this.DEBUG_CORNER_H) {
                 const now = performance.now();
                 if (now - this.debugLastClickTime < this.DEBUG_DOUBLE_TAP_MS) {
-                    this.debugMenuOpen = !this.debugMenuOpen;
+                    this.setDebugMenuOpen(!this.debugMenuOpen);
                     this.debugKeyDebounce = 15;
                     this.debugLastClickTime = 0;
                     return;
@@ -2520,7 +2531,7 @@ export class GameManager {
             if (this.player) this.player.powerPlant.resourceUnits += 10;
             this.debugKeyDebounce = 15;
         } else if (this.input.isKeyPressed('Escape')) {
-            this.debugMenuOpen = false;
+            this.setDebugMenuOpen(false);
             this.debugKeyDebounce = 15;
         }
 
@@ -2532,7 +2543,7 @@ export class GameManager {
                 this.debugExecOption(hit);
             } else if (hit === -2 || pos.x > this.DEBUG_OVERLAY_W) {
                 // Close button or click outside overlay closes it
-                this.debugMenuOpen = false;
+                this.setDebugMenuOpen(false);
                 this.debugKeyDebounce = 15;
             }
         }
@@ -2540,7 +2551,7 @@ export class GameManager {
 
     private debugExec(fn: () => void): void {
         fn();
-        this.debugMenuOpen = false;
+        this.setDebugMenuOpen(false);
         this.debugKeyDebounce = 15;
     }
 
@@ -2773,7 +2784,7 @@ export class GameManager {
         } else {
             this.touchControls.forceMode(mode);
         }
-        this.debugMenuOpen = false;
+        this.setDebugMenuOpen(false);
         this.debugKeyDebounce = 15;
     }
 
