@@ -297,18 +297,18 @@
     "XenoStart": "graphics/XenoStart.png"
   },
   "sounds": {
-    "AlienWeapon1": "sounds/AlienWeapon1.wav",
-    "AlienWeapon5": "sounds/AlienWeapon5.wav",
-    "BossNear1": "sounds/BossNear1.wav",
+    "AlienWeapon1": "sounds/AlienWeapon1.ogg",
+    "AlienWeapon5": "sounds/AlienWeapon5.ogg",
+    "BossNear1": "sounds/BossNear1.ogg",
     "bossTEST": "sounds/bossTEST.ogg",
-    "CoinCollected": "sounds/CoinCollected.wav",
-    "ExploMini1": "sounds/ExploMini1.wav",
+    "CoinCollected": "sounds/CoinCollected.ogg",
+    "ExploMini1": "sounds/ExploMini1.ogg",
     "Level2": "sounds/Level2.ogg",
-    "MenuChange": "sounds/MenuChange.wav",
-    "MenuSelect": "sounds/MenuSelect.wav",
-    "PlayerGun1": "sounds/PlayerGun1.wav",
-    "PlayerGun2": "sounds/PlayerGun2.wav",
-    "ShipEngine": "sounds/ShipEngine.wav",
-    "Space": "sounds/Space.wav"
+    "MenuChange": "sounds/MenuChange.ogg",
+    "MenuSelect": "sounds/MenuSelect.ogg",
+    "PlayerGun1": "sounds/PlayerGun1.ogg",
+    "PlayerGun2": "sounds/PlayerGun2.ogg",
+    "ShipEngine": "sounds/ShipEngine.ogg",
+    "Space": "sounds/Space.ogg"
   }
 }
