@@ -142,16 +142,16 @@ export class ParticleSystem {
             if (!p.active) continue;
 
             const alpha = Math.max(0, Math.min(1, p.life));
-            const r = Math.round(p.r * 255);
-            const g = Math.round(p.g * 255);
-            const b = Math.round(p.b * 255);
+            const r = Math.min(255, Math.round(p.r * 255));
+            const g = Math.min(255, Math.round(p.g * 255));
+            const b = Math.min(255, Math.round(p.b * 255));
 
-            // C++ 33×33 textured quad but visible glow area is smaller.
-            // Use 8px radius for a subtle engine glow matching the reference.
-            const radius = 8;
+            // C++ 33×33 textured quad (±16.5px). Use 14px radius for visible glow core.
+            const radius = 14;
             const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius);
             grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
-            grad.addColorStop(0.4, `rgba(${r},${g},${b},${alpha * 0.5})`);
+            grad.addColorStop(0.3, `rgba(${r},${g},${b},${alpha * 0.6})`);
+            grad.addColorStop(0.7, `rgba(${r},${g},${b},${alpha * 0.15})`);
             grad.addColorStop(1, 'rgba(0,0,0,0)');
             ctx.fillStyle = grad;
             ctx.fillRect(p.x - radius, p.y - radius, radius * 2, radius * 2);

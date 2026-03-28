@@ -67,18 +67,21 @@ export class Explosion {
     draw(ctx: CanvasRenderingContext2D): void {
         if (this._finished || this.currentFrame < 0) return;
 
-        // Additive glow behind explosion — original uses glColor4f(5,2,0,0.15) + additive
+        // Additive glow behind explosion — C++ uses glColor4f(5,2,0,0.15) with additive blend.
+        // The overbright color (5.0 red) creates intense hot-core glow with additive blending.
         const frameIdx = Math.max(0, this.currentFrame);
         const progress = frameIdx / (this.frames.length || FRAME_COUNT);
-        const glowAlpha = 0.15 * (1 - progress);
+        const glowAlpha = 0.25 * (1 - progress * 0.7);
         if (glowAlpha > 0.01) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
-            const glowR = this.fallbackSize * (0.5 + progress * 0.5);
+            // Glow radius scales with explosion size — larger than the sprite for bloom
+            const glowR = this.fallbackSize * (0.8 + progress * 0.6);
             const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, glowR);
-            grad.addColorStop(0, `rgba(255,180,0,${glowAlpha * 2})`);
-            grad.addColorStop(0.5, `rgba(255,100,0,${glowAlpha})`);
-            grad.addColorStop(1, 'rgba(255,50,0,0)');
+            grad.addColorStop(0, `rgba(255,220,80,${glowAlpha * 3})`);
+            grad.addColorStop(0.3, `rgba(255,140,0,${glowAlpha * 1.5})`);
+            grad.addColorStop(0.6, `rgba(255,60,0,${glowAlpha * 0.5})`);
+            grad.addColorStop(1, 'rgba(255,20,0,0)');
             ctx.fillStyle = grad;
             ctx.fillRect(this.x - glowR, this.y - glowR, glowR * 2, glowR * 2);
             ctx.restore();

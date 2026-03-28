@@ -618,17 +618,18 @@ export class GameManager {
             }
 
             // Dual engine flames (C++ make_CapShipEngine: two exhaust points at x+40, x+57)
-            // Color: R=G=tempVal(0-2 clamped), B=1.0 (blue/cyan); fade 0.003-0.103/frame
+            // Color: R=G=tempVal(0-2), B=1.0 (blue/cyan); fade 0.003-0.103/frame
+            // C++ angle: -10+Random(20) = -10° to +10° from UP (exhaust behind ship)
             for (const engineOffX of [40, 57]) {
-                const tempVal = Math.min(1.0, Math.random() * 2);
+                const tempVal = Math.random() * 2; // C++ allows > 1.0 for overbright additive
                 const cppFade = (Math.random() * 100) / 1000 + 0.003;
                 const fadePerSec = cppFade * 60;
-                const angleDeg = 170 + Math.random() * 20; // -10° to +10° from downward
+                const angleDeg = -10 + Math.random() * 20; // -10° to +10° from UP
                 const angleRad = (angleDeg * Math.PI) / 180;
                 this.particles.emit(ship.x + engineOffX, ship.y, 1, {
                     color: { r: tempVal, g: tempVal, b: 1.0 },
-                    speed: 1 + Math.random() * 2,
-                    life: 1.0,
+                    speed: 3 + Math.random() * 5,
+                    life: 1.0,   // C++ intensity = 1.0f for frigates
                     fade: fadePerSec,
                     direction: angleRad,
                     spread: 0,
@@ -972,8 +973,8 @@ export class GameManager {
     private renderPlaying(): void {
         const ctx = this.canvas.ctx;
 
-        // Starfield background
-        this.starField.draw(ctx);
+        // Starfield background (Earth/Moon visible only on Level 1)
+        this.starField.draw(ctx, this.level === 0);
 
         // Clip to play area
         ctx.save();
@@ -1154,8 +1155,8 @@ export class GameManager {
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, 800, 600);
 
-        // Starfield scrolling behind
-        this.starField.draw(ctx);
+        // Starfield scrolling behind (no Earth/Moon — aftermath is deep space)
+        this.starField.draw(ctx, false);
 
         // Aftermath graphic scrolling upward
         const img = this.assets.tryGetImage('aftermath');
