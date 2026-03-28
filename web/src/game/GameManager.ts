@@ -116,16 +116,16 @@ export class GameManager {
 
         // Load sounds (all converted to OGG/Opus)
         const soundFiles = [
-            ['Space', 'sounds/Space.ogg'],
-            ['PlayerGun1', 'sounds/PlayerGun1.ogg'],
-            ['PlayerGun2', 'sounds/PlayerGun2.ogg'],
-            ['AlienWeapon1', 'sounds/AlienWeapon1.ogg'],
-            ['AlienWeapon5', 'sounds/AlienWeapon5.ogg'],
-            ['ExploMini1', 'sounds/ExploMini1.ogg'],
-            ['CoinCollected', 'sounds/CoinCollected.ogg'],
-            ['ShipEngine', 'sounds/ShipEngine.ogg'],
-            ['MenuChange', 'sounds/MenuChange.ogg'],
-            ['MenuSelect', 'sounds/MenuSelect.ogg'],
+            ['Space', 'sounds/Space.mp3'],
+            ['PlayerGun1', 'sounds/PlayerGun1.mp3'],
+            ['PlayerGun2', 'sounds/PlayerGun2.mp3'],
+            ['AlienWeapon1', 'sounds/AlienWeapon1.mp3'],
+            ['AlienWeapon5', 'sounds/AlienWeapon5.mp3'],
+            ['ExploMini1', 'sounds/ExploMini1.mp3'],
+            ['CoinCollected', 'sounds/CoinCollected.mp3'],
+            ['ShipEngine', 'sounds/ShipEngine.mp3'],
+            ['MenuChange', 'sounds/MenuChange.mp3'],
+            ['MenuSelect', 'sounds/MenuSelect.mp3'],
         ];
         for (const [id, path] of soundFiles) {
             try { await this.audio.loadSound(id, `/assets/${path}`); } catch { /* skip */ }
@@ -133,14 +133,14 @@ export class GameManager {
 
         // Load music tracks (OGG/Vorbis — kept as-is, already compressed)
         const musicFiles = [
-            ['Level2', 'sounds/Level2.ogg'],
-            ['bossTEST', 'sounds/bossTEST.ogg'],
+            ['Level2', 'sounds/Level2.mp3'],
+            ['bossTEST', 'sounds/bossTEST.mp3'],
         ];
         for (const [id, path] of musicFiles) {
             try { await this.audio.loadMusic(id, `/assets/${path}`); } catch { /* skip */ }
         }
         // BossNear1 is a sound effect, not music
-        try { await this.audio.loadSound('BossNear1', '/assets/sounds/BossNear1.ogg'); } catch { /* skip */ }
+        try { await this.audio.loadSound('BossNear1', '/assets/sounds/BossNear1.mp3'); } catch { /* skip */ }
 
         // Cache explosion frames
         this.smallExpFrames = Explosion.loadFrames(this.assets, 'small');
@@ -525,7 +525,7 @@ export class GameManager {
             this.boss.loadSprites(this.assets);
         }
 
-        // Start level music — original uses Level2.ogg for ALL levels
+        // Start level music — original uses Level2.mp3 for ALL levels
         this.audio.stopMusic();
         try { this.audio.playMusic('Level2', true); this.musicPlaying = 'Level2'; } catch { /* skip */ }
 
