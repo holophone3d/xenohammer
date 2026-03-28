@@ -81,6 +81,7 @@ export class GameManager {
     private optionsSaveTooltipTimer = 0;
     private custSelectedSystem: number = -1; // -1=none, 0=noseBlaster, 1=leftTurret, 2=rightTurret, 3=leftMissile, 4=rightMissile, 5=engine
     private custHoverSystem: number = -1;
+    private custHoverDone = false;
     private custStatusMsg = '';
     private custStatusTimer = 0;
     // Demo projectiles for live ship preview in customization
@@ -1658,6 +1659,13 @@ export class GameManager {
             }
         }
 
+        // Done button hover sound
+        const inDone = mx >= 517 && mx <= 800 && my >= 553 && my <= 600;
+        if (inDone && !this.custHoverDone) {
+            this.audio.playSound('MenuChange');
+        }
+        this.custHoverDone = inDone;
+
         if (!this.input.isMousePressed()) return;
         if (!this.player) return;
 
@@ -2015,19 +2023,28 @@ export class GameManager {
         }
 
         // 12. Green panel border lines — drawn last so they're always on top
+        // Uniform 5px gap between all adjacent panels; outer edges flush to screen.
+        // Right panels left edge = 517 (aligned with exit button).
+        // Left panels right edge = 512. Gap = 5px.
         ctx.strokeStyle = '#0f0';
         ctx.lineWidth = 1;
-        ctx.strokeRect(0.5, 0.5, 799, 39);           // Stats bar
-        ctx.strokeRect(0.5, 41.5, 511, 259);          // Ship diagram
+        // Stats bar: (0,0)→(800,40)
+        ctx.strokeRect(0.5, 0.5, 799, 39);
+        // Ship diagram: (0,45)→(512,300)  [5px gap from stats bottom=40]
+        ctx.strokeRect(0.5, 45.5, 511, 254);
         if (sel >= 0 && sel < this.custSystemZones.length) {
-            ctx.strokeRect(0.5, 301.5, 511, 228);     // Info panel (301→530)
-            ctx.strokeRect(0.5, 530.5, 511, 69);      // Touch arrow zone (530→600)
+            // Info panel: (0,305)→(512,529)  [5px gap from diagram bottom=300]
+            ctx.strokeRect(0.5, 305.5, 511, 223);
+            // Touch arrow zone: (0,534)→(512,600)  [5px gap from info bottom=529]
+            ctx.strokeRect(0.5, 534.5, 511, 65);
         } else {
-            ctx.strokeRect(0.5, 301.5, 511, 298);     // Full info panel (All mode)
+            // Full info panel (All mode): (0,305)→(512,600)
+            ctx.strokeRect(0.5, 305.5, 511, 294);
         }
-        ctx.strokeRect(512.5, 41.5, 287, 153);        // User Settings
-        ctx.strokeRect(512.5, 195.5, 287, 357);       // Ship Demo
-        ctx.strokeRect(517.5, 553.5, 282, 46);        // Exit button
+        // User Settings: (517,45)→(800,193)  [5px gap from stats bottom=40]
+        ctx.strokeRect(517.5, 45.5, 282, 147);
+        // Ship Demo: (517,198)→(800,553)  [5px gap from settings bottom=193]
+        ctx.strokeRect(517.5, 198.5, 282, 354);
     }
 
     /** Draw power cell bars on the ship diagram at C_* positions from Console.h */
@@ -2129,8 +2146,8 @@ export class GameManager {
     // Touch-friendly large arrow overlays for power adjustment
     // Each button spans half the info panel width (0→512), aligned to bottom
     private static readonly CUST_ARROW_W = 252;
-    private static readonly CUST_ARROW_H = 70;
-    private static readonly CUST_ARROW_Y = 530;
+    private static readonly CUST_ARROW_H = 63;
+    private static readonly CUST_ARROW_Y = 535;
     private static readonly CUST_ARROW_LEFT_X = 2;
     private static readonly CUST_ARROW_RIGHT_X = 258;
 
