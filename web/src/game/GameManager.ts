@@ -2238,7 +2238,7 @@ export class GameManager {
             ctx.font = '18px XenoFont, monospace';
             ctx.fillStyle = '#0f0';
             ctx.textAlign = 'center';
-            const shieldCenterX = 750;
+            const shieldCenterX = 760;
             ctx.fillText('Shields', shieldCenterX, 345);
 
             // Shield bar: centered under text, fills upward from y=545
