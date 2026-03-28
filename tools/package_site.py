@@ -4,13 +4,13 @@ Package the XenoHammer tribute site + playable game into a single deployable fol
 
 Output structure:
   site/
-  ├── index.html               (tribute - entry point)
-  ├── archives/                 (archived Tripod/external content)
-  ├── screenshots/              (reference screenshots for tribute gallery)
-  └── play/                     (the game)
+  ├── index.html               (tribute landing page)
+  ├── archives/                (archived Tripod/external content)
+  ├── screenshots/             (reference screenshots for tribute gallery)
+  └── play/                    (the game - fully self-contained)
       ├── index.html
       ├── favicon.ico
-      └── assets/               (game assets: graphics, sounds, fonts, JS)
+      └── assets/              (game assets: graphics, sounds, fonts, JS)
 
 Usage:
   cd xenohammer_2026
@@ -41,13 +41,13 @@ def clean():
 
 
 def build_game():
-    """Build the web game with relative base path."""
+    """Build the web game."""
     if SKIP_BUILD:
         print('Skipping game build (--skip-build)')
         return
-    print('Building game with base="./" ...')
+    print('Building game...')
     result = subprocess.run(
-        ['npx', 'vite', 'build', '--base', './'],
+        ['npx', 'vite', 'build'],
         cwd=WEB_DIR, shell=True, capture_output=True, text=True
     )
     if result.returncode != 0:

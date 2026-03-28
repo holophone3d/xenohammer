@@ -111,7 +111,7 @@ export class GameManager {
 
         // Load manifest (all graphics)
         try {
-            await this.assets.loadManifest('/assets/manifest.json', '/assets');
+            await this.assets.loadManifest('assets/manifest.json', 'assets');
         } catch (e) {
             console.warn('Failed to load manifest, continuing without assets:', e);
         }
@@ -130,7 +130,7 @@ export class GameManager {
             ['MenuSelect', 'sounds/MenuSelect.mp3'],
         ];
         for (const [id, path] of soundFiles) {
-            try { await this.audio.loadSound(id, `/assets/${path}`); } catch { /* skip */ }
+            try { await this.audio.loadSound(id, `assets/${path}`); } catch { /* skip */ }
         }
 
         // Load music tracks (OGG/Vorbis — kept as-is, already compressed)
@@ -139,10 +139,10 @@ export class GameManager {
             ['bossTEST', 'sounds/bossTEST.mp3'],
         ];
         for (const [id, path] of musicFiles) {
-            try { await this.audio.loadMusic(id, `/assets/${path}`); } catch { /* skip */ }
+            try { await this.audio.loadMusic(id, `assets/${path}`); } catch { /* skip */ }
         }
         // BossNear1 is a sound effect, not music
-        try { await this.audio.loadSound('BossNear1', '/assets/sounds/BossNear1.mp3'); } catch { /* skip */ }
+        try { await this.audio.loadSound('BossNear1', 'assets/sounds/BossNear1.mp3'); } catch { /* skip */ }
 
         // Cache explosion frames
         this.smallExpFrames = Explosion.loadFrames(this.assets, 'small');
