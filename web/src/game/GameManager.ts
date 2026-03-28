@@ -738,11 +738,8 @@ export class GameManager {
         } else {
             if (this.waveManager.isTimeUp()) {
                 this.stopGameplaySounds();
-                if (this.level >= LEVELS.length - 1) {
-                    this.state = GameState.Victory;
-                } else {
-                    this.state = GameState.LevelComplete;
-                }
+                // C++: all non-boss levels return to Ready Room via LevelComplete
+                this.state = GameState.LevelComplete;
                 this.stateTimer = 0;
             }
         }
@@ -1144,12 +1141,14 @@ export class GameManager {
         // That's ~1 pixel per frame at 60fps = ~60 px/s
         this.aftermathY = 600 - (this.stateTimer * 1000 / 60);
 
-        // ESC or SPACE to skip
-        if (this.input.isKeyPressed(Input.ESCAPE) || this.input.isKeyPressed(Input.SPACE) ||
-            this.aftermathY <= -550) {
-            this.state = GameState.Victory;
+        // C++: exit_button (ESC) to skip, or auto-complete when scroll done
+        if (this.input.isKeyPressed(Input.ESCAPE) || this.aftermathY <= -550) {
+            // C++: aftermath returns directly to Ready Room, no Victory screen.
+            // levelNum is incremented, score/kills preserved.
+            this.level++;
+            this.state = GameState.ReadyRoom;
             this.stateTimer = 0;
-            try { this.audio.setMusicVolume(1.0); } catch { /* skip */ }
+            try { this.audio.stopMusic(); } catch { /* skip */ }
         }
     }
 
