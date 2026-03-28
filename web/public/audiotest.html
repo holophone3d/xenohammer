@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head><title>Safari Audio Test</title>
+<style>
+  body { font-family: monospace; background: #111; color: #0f0; padding: 20px; }
+  button { font-size: 18px; padding: 10px 20px; margin: 5px; cursor: pointer; }
+  #log { white-space: pre-wrap; margin-top: 20px; border: 1px solid #333; padding: 10px; max-height: 400px; overflow-y: auto; }
+</style>
+</head>
+<body>
+<h2>Safari Audio Debug</h2>
+
+<h3>Test 1: HTML5 Audio element</h3>
+<button onclick="testHtml5()">Play MP3 via &lt;audio&gt;</button>
+
+<h3>Test 2: Web Audio API (eager context)</h3>
+<button onclick="testWebAudioEager()">Play MP3 via Web Audio (eager ctx)</button>
+
+<h3>Test 3: Web Audio API (context on click)</h3>
+<button onclick="testWebAudioOnClick()">Play MP3 via Web Audio (new ctx)</button>
+
+<h3>Test 4: Web Audio API (pre-fetched, play on click)</h3>
+<button onclick="prefetch()">Step A: Pre-fetch MP3</button>
+<button onclick="playPrefetched()">Step B: Play pre-fetched</button>
+
+<div id="log"></div>
+
+<script>
+const SFX_URL = '/assets/sounds/PlayerGun1.mp3';
+const MUSIC_URL = '/assets/sounds/Level2.mp3';
+
+function log(msg) {
+  const el = document.getElementById('log');
+  el.textContent += new Date().toLocaleTimeString() + ' ' + msg + '\n';
+  el.scrollTop = el.scrollHeight;
+  console.log(msg);
+}
+
+// Test 1: Plain HTML5 Audio
+function testHtml5() {
+  log('--- HTML5 Audio test ---');
+  const audio = new Audio(SFX_URL);
+  audio.oncanplaythrough = () => log('  canplaythrough fired');
+  audio.onerror = (e) => log('  ERROR: ' + audio.error?.message);
+  audio.onplay = () => log('  playing!');
+  const p = audio.play();
+  if (p) p.then(() => log('  play() resolved')).catch(e => log('  play() rejected: ' + e.message));
+}
+
+// Test 2: Web Audio with eagerly created context
+let eagerCtx = null;
+try {
+  eagerCtx = new (window.AudioContext || window.webkitAudioContext)();
+  log('Eager AudioContext state: ' + eagerCtx.state);
+  eagerCtx.onstatechange = () => log('Eager ctx state -> ' + eagerCtx.state);
+} catch(e) {
+  log('Eager AudioContext FAILED: ' + e.message);
+}
+
+async function testWebAudioEager() {
+  log('--- Web Audio eager test ---');
+  log('  ctx state: ' + eagerCtx.state);
+  try {
+    await eagerCtx.resume();
+    log('  after resume: ' + eagerCtx.state);
+  } catch(e) {
+    log('  resume failed: ' + e.message);
+  }
+  try {
+    const resp = await fetch(SFX_URL);
+    log('  fetch status: ' + resp.status);
+    const ab = await resp.arrayBuffer();
+    log('  arrayBuffer size: ' + ab.byteLength);
+    const buf = await eagerCtx.decodeAudioData(ab);
+    log('  decoded: ' + buf.duration.toFixed(2) + 's, ' + buf.numberOfChannels + 'ch');
+    const src = eagerCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(eagerCtx.destination);
+    src.start(0);
+    log('  started playback!');
+  } catch(e) {
+    log('  ERROR: ' + e.message);
+  }
+}
+
+// Test 3: Create context fresh on click
+async function testWebAudioOnClick() {
+  log('--- Web Audio new-ctx test ---');
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    log('  new ctx state: ' + ctx.state);
+    await ctx.resume();
+    log('  after resume: ' + ctx.state);
+    const resp = await fetch(SFX_URL);
+    const ab = await resp.arrayBuffer();
+    const buf = await ctx.decodeAudioData(ab);
+    log('  decoded: ' + buf.duration.toFixed(2) + 's');
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
+    log('  started playback!');
+  } catch(e) {
+    log('  ERROR: ' + e.message);
+  }
+}
+
+// Test 4: Pre-fetch then play
+let prefetchedBuffer = null;
+async function prefetch() {
+  log('--- Pre-fetch test (step A) ---');
+  try {
+    const resp = await fetch(SFX_URL);
+    const ab = await resp.arrayBuffer();
+    log('  fetched ' + ab.byteLength + ' bytes');
+    // Try decode on eager context
+    prefetchedBuffer = await eagerCtx.decodeAudioData(ab);
+    log('  decoded: ' + prefetchedBuffer.duration.toFixed(2) + 's (ctx state: ' + eagerCtx.state + ')');
+    log('  Now click "Step B" to play');
+  } catch(e) {
+    log('  ERROR: ' + e.message);
+  }
+}
+
+function playPrefetched() {
+  log('--- Pre-fetch test (step B) ---');
+  if (!prefetchedBuffer) { log('  No buffer! Click Step A first'); return; }
+  try {
+    eagerCtx.resume().then(() => {
+      log('  ctx state after resume: ' + eagerCtx.state);
+      const src = eagerCtx.createBufferSource();
+      src.buffer = prefetchedBuffer;
+      src.connect(eagerCtx.destination);
+      src.start(0);
+      log('  started playback!');
+    });
+  } catch(e) {
+    log('  ERROR: ' + e.message);
+  }
+}
+
+log('User agent: ' + navigator.userAgent);
+log('AudioContext available: ' + !!(window.AudioContext || window.webkitAudioContext));
+log('Page loaded. Click a button to test.');
+</script>
+</body>
+</html>
