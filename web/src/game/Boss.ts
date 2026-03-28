@@ -661,6 +661,9 @@ export class Boss {
             this.state = BossState.Morph1;
             this.morphTickAccum = 0;
             this.stateTimer = 0;
+            // Make U-components and their turrets damageable as they descend
+            for (const u of this.uComponents) u.damageable = true;
+            for (const ai of this.uTurretAIs) ai.comp.damageable = true;
         }
 
         this.updateTurretFiring(dt, playerX, playerY);
@@ -1075,9 +1078,22 @@ export class Boss {
             return comp.collisionMask[localY * comp.maskWidth + localX] > 0;
         };
 
-        // 1. Boss shield — HIGHEST PRIORITY (catches bullets on opaque rim pixels,
-        //    transparent center lets bullets pass through to internal components)
-        if (check(this.bossShield)) return this.bossShield;
+        // 1. Boss shield — HIGHEST PRIORITY
+        //    When shield is active, treat as solid circle (sprite has transparent center)
+        if (!this.bossShield.destroyed && this.bossShield.damageable) {
+            const inAABB = hitX >= this.bossShield.x && hitX <= this.bossShield.x + this.bossShield.width &&
+                           hitY >= this.bossShield.y && hitY <= this.bossShield.y + this.bossShield.height;
+            if (inAABB && this.shieldActive) {
+                // Solid circle check — radius = half width (128px)
+                const cx = this.bossShield.x + this.bossShield.width / 2;
+                const cy = this.bossShield.y + this.bossShield.height / 2;
+                const dx = hitX - cx, dy = hitY - cy;
+                const r = this.bossShield.width / 2;
+                if (dx * dx + dy * dy <= r * r) return this.bossShield;
+            } else if (check(this.bossShield)) {
+                return this.bossShield;
+            }
+        }
 
         // 2. Center orb (64x64 win condition)
         if (check(this.centerOrb)) return this.centerOrb;
@@ -1095,11 +1111,13 @@ export class Boss {
         for (const conn of this.connectors) {
             if (check(conn)) return conn;
         }
-        // 7. U-turrets (only in Final state)
-        if (this.state === BossState.Final) {
-            for (const ai of this.uTurretAIs) {
-                if (!ai.destroyed && check(ai.comp)) return ai.comp;
-            }
+        // 7. U-components (144×288 arms — hittable during Morph1/Morph2/Final)
+        for (const u of this.uComponents) {
+            if (check(u)) return u;
+        }
+        // 8. U-turrets (hittable once arms are visible)
+        for (const ai of this.uTurretAIs) {
+            if (!ai.destroyed && check(ai.comp)) return ai.comp;
         }
 
         return null;
@@ -1524,11 +1542,10 @@ export class Boss {
         }
 
         // --- U-arm red lights (C++: red 20×20, bossAlpha, only when all orbs destroyed) ---
+        // C++ draws one light per arm: LeftU at x+96, RightU at x+43 (asymmetric — mirror images)
         if (this.orbCount <= 0) {
-            for (const u of this.uComponents) {
-                this.drawGlow(ctx, u.x + 96, u.y + 281, 20, 20, 1.0, 0.0, 0.0, this.bossAlpha);
-                this.drawGlow(ctx, u.x + 43, u.y + 281, 20, 20, 1.0, 0.0, 0.0, this.bossAlpha);
-            }
+            this.drawGlow(ctx, this.uComponents[0].x + 96, this.uComponents[0].y + 281, 20, 20, 1.0, 0.0, 0.0, this.bossAlpha);
+            this.drawGlow(ctx, this.uComponents[1].x + 43, this.uComponents[1].y + 281, 20, 20, 1.0, 0.0, 0.0, this.bossAlpha);
         }
 
         ctx.restore();
