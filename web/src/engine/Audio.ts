@@ -119,15 +119,16 @@ export class AudioManager {
 
     /** Play a loaded sound effect via Web Audio. */
     playSound(id: string, loop = false, volumeScale = 1.0): SoundInstance {
+        const ctx = this.ensureContext();
         const buffer = this.sfxBuffers.get(id);
-        if (!buffer || !this.ctx) return AudioManager.nullInstance();
+        if (!buffer) return AudioManager.nullInstance();
 
-        const source = this.ctx.createBufferSource();
+        const source = ctx.createBufferSource();
         source.buffer = buffer;
         source.loop = loop;
 
         // Per-sound volume via a gain node
-        const gain = this.ctx.createGain();
+        const gain = ctx.createGain();
         gain.gain.value = Math.min(1, this.sfxVolume * volumeScale);
         source.connect(gain);
         gain.connect(this.sfxGain);
