@@ -2273,27 +2273,47 @@ export class GameManager {
 
         if (!this.debugMenuOpen) return;
 
-        // 1 = Frigate, 2 = Boss (entering), 3 = God mode
+        // 1-7 debug options
         if (this.input.isKeyPressed('1')) {
-            this.debugSpawnFrigate();
+            this.debugJumpToLevel(0);
             this.debugMenuOpen = false;
             this.debugKeyDebounce = 15;
         } else if (this.input.isKeyPressed('2')) {
-            this.debugSpawnBoss();
+            this.debugJumpToLevel(1);
             this.debugMenuOpen = false;
             this.debugKeyDebounce = 15;
         } else if (this.input.isKeyPressed('3')) {
-            this.debugActive = !this.debugActive;
-            if (this.player) this.player.godMode = this.debugActive;
+            this.debugSpawnFrigate();
+            this.debugMenuOpen = false;
             this.debugKeyDebounce = 15;
         } else if (this.input.isKeyPressed('4')) {
+            this.debugJumpToLevel(2);
+            this.debugMenuOpen = false;
+            this.debugKeyDebounce = 15;
+        } else if (this.input.isKeyPressed('5')) {
+            this.debugSpawnBoss();
+            this.debugMenuOpen = false;
+            this.debugKeyDebounce = 15;
+        } else if (this.input.isKeyPressed('6')) {
+            this.debugActive = !this.debugActive;
+            if (this.player) {
+                this.player.godMode = this.debugActive;
+                if (this.debugActive) this.debugMaxPower();
+            }
+            this.debugKeyDebounce = 15;
+        } else if (this.input.isKeyPressed('7')) {
             if (this.player) this.player.powerPlant.resourceUnits += 10;
             this.debugKeyDebounce = 15;
         }
     }
 
+    private debugJumpToLevel(levelIndex: number): void {
+        console.log(`[DEBUG] Jump to level ${levelIndex + 1}`);
+        this.startLevel(levelIndex);
+    }
+
     private debugSpawnFrigate(): void {
-        console.log('[DEBUG] Spawning Frigate encounter');
+        console.log('[DEBUG] Spawning Frigate encounter (no fighters)');
         this.level = 1;
         if (this.player) {
             this.player.resetForLevel();
@@ -2310,6 +2330,7 @@ export class GameManager {
         this.stateTimer = 0;
         this.particles.clear();
         this.waveManager.startLevel(1);
+        this.waveManager.suppressAllWaves(); // No fighter waves
 
         const ship = new CapitalShip(275, -300);
         ship.loadSprites(this.assets);
@@ -2358,6 +2379,19 @@ export class GameManager {
         this.state = GameState.Playing;
     }
 
+    private debugMaxPower(): void {
+        if (!this.player) return;
+        const max = this.player.powerPlant.maxPowerPerCell;
+        for (const s of this.player.powerPlant.settings) {
+            s.blasterCell1 = max; s.blasterCell2 = max;
+            s.leftTurretCell1 = max; s.leftTurretCell2 = max;
+            s.rightTurretCell1 = max; s.rightTurretCell2 = max;
+            s.leftMissileCell1 = max; s.leftMissileCell2 = max;
+            s.rightMissileCell1 = max; s.rightMissileCell2 = max;
+            s.shipPowerCell1 = max; s.shipPowerCell2 = max;
+        }
+    }
+
     private renderDebugHint(): void {
         const ctx = this.canvas.ctx;
         ctx.save();
@@ -2371,16 +2405,19 @@ export class GameManager {
         }
         if (this.debugMenuOpen) {
             ctx.fillStyle = 'rgba(0,0,0,0.85)';
-            ctx.fillRect(2, 28, 170, 74);
+            ctx.fillRect(2, 28, 210, 130);
             ctx.fillStyle = '#0f0';
             ctx.font = '12px monospace';
-            ctx.fillText('1: Spawn Frigate', 8, 44);
-            ctx.fillText('2: Spawn Boss', 8, 58);
-            ctx.fillText('3: Toggle God Mode', 8, 72);
-            ctx.fillText('4: +10 RUs', 8, 86);
+            ctx.fillText('1: Level 1', 8, 44);
+            ctx.fillText('2: Level 2', 8, 58);
+            ctx.fillText('3: Level 2 Mini-Boss', 8, 72);
+            ctx.fillText('4: Level 3', 8, 86);
+            ctx.fillText('5: Level 3 Boss', 8, 100);
+            ctx.fillText('6: God Mode + Max Power', 8, 114);
+            ctx.fillText('7: +10 RUs', 8, 128);
             if (this.debugActive) {
                 ctx.fillStyle = '#ff0';
-                ctx.fillText('(ON)', 150, 72);
+                ctx.fillText('(ON)', 186, 114);
             }
         }
         ctx.restore();
