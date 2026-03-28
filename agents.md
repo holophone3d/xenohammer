@@ -53,6 +53,21 @@ The game is LOCKED to 800×600 internal resolution. The canvas uses CSS `transfo
 
 ### Weapons: Turrets use discrete 8-angle lookup table (NOT trig). Blaster always fires straight up. Missiles home after 50px travel. Enemy blaster angle = 0 (not 180).
 
+### Weapon Power System (CRITICAL)
+Each weapon has TWO power cells: cell1 controls fire rate, cell2 controls damage/sprite.
+- `effectiveDelay = baseDelay / getPowerMUX(cell1)`
+- `actualDamage = baseDamage × getPowerMUX(cell2)`
+- Default cells: (1,1) → 1.5× multiplier for both rate and damage
+- ALL weapons (player AND enemy) use this system — enemies get default PowerPlant(1,1)
+- Gunship overrides cell2=2 for 2.0× cannon damage
+- Boss turrets: cell1=1, cell2=4 → 1.5× rate, 3.0× damage (hardcoded 45)
+
+### Boss Turret Dual Timing
+Boss turrets have TWO independent timing gates:
+1. **TurretAI fireRate** (AI cooldown, e.g., 60ms for sweeping)
+2. **Weapon ready_to_fire** = BLASTER_DELAY / getPowerMUX(cell1) ≈ 67ms
+Both must pass for a projectile to spawn. Regular enemies have long AI intervals (400ms+) so only the AI gate matters.
+
 ### Player Banking: Frame 0 = banked RIGHT, Frame 8 = center, Frame 16 = banked LEFT. Moving RIGHT → frame-- ; Moving LEFT → frame++.
 
 ## Key C++ Source Files (for reference)
@@ -78,6 +93,10 @@ The game is LOCKED to 800×600 internal resolution. The canvas uses CSS `transfo
 - Correct bullet directions (turret lookup, enemy angle=0)
 - Music (Level2.ogg) and sound effects
 - Puppeteer automated testing
+- Weapon power cell system (cell1=rate, cell2=damage) with getPowerMUX multipliers
+- Boss fight: all phases, shield collision (solid circle), turret AI with dual timing gates
+- Boss cascade destruction, death sequence, U-arm deployment
+- Debug menu: level jumps, god mode, +10 RUs
 
 ## What's Missing / Needs Fixing
 
