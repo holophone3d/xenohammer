@@ -167,13 +167,20 @@ export class TouchControls {
         const dpadSize = Math.min(h - pad * 2, w * 0.33);
         const fireSize = Math.min(h - pad * 2, w * 0.18);
         const cfgSize = Math.min(h * 0.45, w * 0.10);
-        const escSize = cfgSize;
+        const escSize = Math.min(cfgSize, 36);
 
         this.positionCircle(this.dpadBg, w * 0.22, h * 0.5, dpadSize / 2);
         this.positionCircle(this.fireEl, w * 0.78, h * 0.5, fireSize / 2);
-        this.positionCircle(this.cfgEl, w * 0.58, h * 0.5, cfgSize / 2);
-        // ESC to the left of MODE
-        this.positionCircle(this.escEl, w * 0.45, h * 0.5, escSize / 2);
+        this.positionCircle(this.cfgEl, w * 0.50, h * 0.5, cfgSize / 2);
+        // ESC floats above bar at top-right of viewport (square)
+        const escD = escSize * 2;
+        const escMargin = 8;
+        const containerTop = window.innerHeight - h;
+        this.escEl.style.width = `${escD}px`;
+        this.escEl.style.height = `${escD}px`;
+        this.escEl.style.borderRadius = '6px';
+        this.escEl.style.left = `${w - escD - escMargin}px`;
+        this.escEl.style.top = `${-(containerTop) + escMargin}px`;
 
         this.layoutNub(dpadSize);
         this.layoutArrows(dpadSize);
@@ -207,9 +214,15 @@ export class TouchControls {
         const cfgCy = fireCy - fireSize / 2 - cfgSize / 2 - margin * 0.6;
         this.positionCircle(this.cfgEl, fireCx, cfgCy, cfgSize / 2);
 
-        // ESC above MODE
-        const escCy = cfgCy - cfgSize / 2 - escSize / 2 - margin * 0.4;
-        this.positionCircle(this.escEl, fireCx, escCy, escSize / 2);
+        // ESC above MODE — double gap, square button
+        const escGap = margin * 0.8;
+        const escCy = cfgCy - cfgSize / 2 - escSize / 2 - escGap;
+        const escD = escSize * 2;
+        this.escEl.style.width = `${escD}px`;
+        this.escEl.style.height = `${escD}px`;
+        this.escEl.style.borderRadius = '6px';
+        this.escEl.style.left = `${fireCx - escSize}px`;
+        this.escEl.style.top = `${escCy - escSize}px`;
 
         this.layoutNub(dpadSize);
         this.layoutArrows(dpadSize);
@@ -528,7 +541,7 @@ export class TouchControls {
             const fireCx = w - margin - fireSize / 2;
             const fireCy = h - margin - fireSize / 2;
             const cfgCy = fireCy - fireSize / 2 - cfgSize / 2 - margin * 0.6;
-            const escCy = cfgCy - cfgSize / 2 - escSize / 2 - margin * 0.4;
+            const escCy = cfgCy - cfgSize / 2 - escSize / 2 - margin * 0.8;
 
             return {
                 dCx: margin + dpadSize / 2,
@@ -548,13 +561,15 @@ export class TouchControls {
             const dpadSize = Math.min(ch * 0.84, cw * 0.33);
             const fireSize = Math.min(ch * 0.84, cw * 0.18);
             const cfgSize = Math.min(ch * 0.45, cw * 0.10);
-            const escSize = cfgSize;
+            const escSize = Math.min(cfgSize, 36);
+            const escMargin = 8;
 
             return {
                 dCx: left + cw * 0.22, dCy: top + ch * 0.5, dR: dpadSize / 2,
                 fCx: left + cw * 0.78, fCy: top + ch * 0.5, fR: fireSize / 2,
-                cCx: left + cw * 0.58, cCy: top + ch * 0.5, cR: cfgSize / 2,
-                eCx: left + cw * 0.45, eCy: top + ch * 0.5, eR: escSize / 2,
+                cCx: left + cw * 0.50, cCy: top + ch * 0.5, cR: cfgSize / 2,
+                // ESC at top-right of viewport
+                eCx: w - escSize - escMargin, eCy: escSize + escMargin, eR: escSize,
             };
         }
     }
