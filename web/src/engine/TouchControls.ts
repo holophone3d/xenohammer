@@ -150,7 +150,7 @@ export class TouchControls {
 
         // Config
         this.cfgEl = this.makeCircle('rgba(0,40,80,0.45)', 'rgba(0,130,255,0.55)');
-        this.cfgLabel = this.addLabel(this.cfgEl, 'Q', true);
+        this.cfgLabel = this.addLabel(this.cfgEl, 'MODE', true);
     }
 
     private makeCircle(bg: string, border: string): HTMLElement {
@@ -243,7 +243,7 @@ export class TouchControls {
                     this.configIndex = (this.configIndex + 1) % 3;
                     this.input.queueVirtualPress(
                         [Input.KEY_Q, Input.KEY_W, Input.KEY_E][this.configIndex]);
-                    this.cfgLabel.textContent = ['Q', 'W', 'E'][this.configIndex];
+                    this.cfgLabel.textContent = ['MODE 1', 'MODE 2', 'MODE 3'][this.configIndex];
                     break;
                 }
             }

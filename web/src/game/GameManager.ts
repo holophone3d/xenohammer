@@ -261,6 +261,11 @@ export class GameManager {
                 break;
         }
 
+        // ESC during gameplay → return to Ready Room
+        if (!this.debugMenuOpen && this.state === GameState.Playing && this.input.isKeyPressed('Escape')) {
+            this.returnToReadyRoom();
+        }
+
         this.handleDebugKeys();
         this.input.endFrame();
     }
@@ -2266,7 +2271,7 @@ export class GameManager {
     private debugActive = false;
     private debugMenuOpen = false;
     private debugKeyDebounce = 0;
-    private debugLastTapTime = 0;       // for double-tap ' key
+    private debugLastTapTime = 0;       // for double-tap ` key
     private debugLastClickTime = 0;     // for double-click / double-tap in corner
     private debugLastClickX = 0;
     private debugLastClickY = 0;
@@ -2279,8 +2284,8 @@ export class GameManager {
         this.debugKeyDebounce = Math.max(0, this.debugKeyDebounce - 1);
         if (this.debugKeyDebounce > 0) return;
 
-        // Double-tap apostrophe (') toggles debug overlay
-        if (this.input.isKeyPressed("'")) {
+        // Double-tap backtick (`) toggles debug overlay
+        if (this.input.isKeyPressed('`')) {
             const now = performance.now();
             if (now - this.debugLastTapTime < this.DEBUG_DOUBLE_TAP_MS) {
                 this.debugMenuOpen = !this.debugMenuOpen;
@@ -2337,8 +2342,8 @@ export class GameManager {
             const hit = this.debugHitTestOverlay(pos.x, pos.y);
             if (hit >= 0) {
                 this.debugExecOption(hit);
-            } else if (pos.x > this.DEBUG_OVERLAY_W) {
-                // Click outside overlay closes it
+            } else if (hit === -2 || pos.x > this.DEBUG_OVERLAY_W) {
+                // Close button or click outside overlay closes it
                 this.debugMenuOpen = false;
                 this.debugKeyDebounce = 15;
             }
@@ -2368,6 +2373,7 @@ export class GameManager {
             case 4: this.debugExec(() => this.debugSpawnBoss()); break;
             case 5: this.debugToggleGodMode(); this.debugKeyDebounce = 15; break;
             case 6: this.debugExec(() => { if (this.player) this.player.powerPlant.resourceUnits += 10; }); break;
+            case 7: this.debugExec(() => this.returnToReadyRoom()); break;
         }
     }
 
@@ -2386,10 +2392,19 @@ export class GameManager {
         '5  Boss Fight',
         '6  God Mode + Max Power',
         '7  +10 RUs',
+        'ESC  Ready Room',
     ];
 
     private debugHitTestOverlay(mx: number, my: number): number {
         if (mx > this.DEBUG_OVERLAY_W) return -1;
+        // Close button (✕) — top right of panel
+        const closeBtnX = this.DEBUG_OVERLAY_W - 36;
+        const closeBtnY = 8;
+        const closeBtnSize = 28;
+        if (mx >= closeBtnX && mx <= closeBtnX + closeBtnSize &&
+            my >= closeBtnY && my <= closeBtnY + closeBtnSize) {
+            return -2; // close button
+        }
         for (let i = 0; i < this.DEBUG_OPTIONS.length; i++) {
             const by = this.DEBUG_BTN_Y0 + i * (this.DEBUG_BTN_H + this.DEBUG_BTN_PAD);
             if (mx >= this.DEBUG_BTN_X && mx <= this.DEBUG_OVERLAY_W - this.DEBUG_BTN_X &&
@@ -2398,6 +2413,20 @@ export class GameManager {
             }
         }
         return -1;
+    }
+
+    private returnToReadyRoom(): void {
+        this.audio.stopMusic();
+        if (this.engineSound) { this.engineSound.stop(); this.engineSound = null; }
+        if (this.playerFireSound) { this.playerFireSound.stop(); this.playerFireSound = null; }
+        this.enemies = [];
+        this.projectiles = [];
+        this.gameExplosions = [];
+        this.gamePowerUps = [];
+        this.capitalShips = [];
+        this.boss = null;
+        this.particles.clear();
+        this.state = GameState.ReadyRoom;
     }
 
     private debugJumpToLevel(levelIndex: number): void {
@@ -2519,11 +2548,24 @@ export class GameManager {
             ctx.textAlign = 'left';
             ctx.fillText('DEBUG MENU', 14, 32);
 
-            // Close hint
-            ctx.font = '10px monospace';
-            ctx.fillStyle = 'rgba(255,255,255,0.3)';
-            ctx.textAlign = 'right';
-            ctx.fillText('ESC / tap outside', W - 10, 32);
+            // Close button (✕) — top right of panel
+            const closeBtnX = W - 36;
+            const closeBtnY = 8;
+            const closeBtnSize = 28;
+            const mousePos = this.input.getMousePos();
+            const closeHover = mousePos.x >= closeBtnX && mousePos.x <= closeBtnX + closeBtnSize &&
+                               mousePos.y >= closeBtnY && mousePos.y <= closeBtnY + closeBtnSize;
+            ctx.fillStyle = closeHover ? 'rgba(255,80,80,0.3)' : 'rgba(255,255,255,0.08)';
+            ctx.fillRect(closeBtnX, closeBtnY, closeBtnSize, closeBtnSize);
+            ctx.strokeStyle = closeHover ? 'rgba(255,80,80,0.6)' : 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(closeBtnX, closeBtnY, closeBtnSize, closeBtnSize);
+            ctx.font = 'bold 16px monospace';
+            ctx.fillStyle = closeHover ? '#f66' : 'rgba(255,255,255,0.5)';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('✕', closeBtnX + closeBtnSize / 2, closeBtnY + closeBtnSize / 2);
+            ctx.textBaseline = 'alphabetic';
 
             // Buttons
             const mouse = this.input.getMousePos();
