@@ -1,6 +1,7 @@
 /**
- * Audio manager: Web Audio API for sound effects, HTML5 Audio for music.
- * Supports multiple named music tracks and tracking of active sound instances.
+ * Audio manager: Web Audio API for sound effects and music.
+ * Safari-compatible: defers AudioContext creation and audio decoding
+ * until the first user gesture to satisfy autoplay policies.
  */
 
 export interface SoundInstance {
@@ -11,51 +12,97 @@ export interface SoundInstance {
 
 export class AudioManager {
     private audioCtx: AudioContext | null = null;
+    // Raw ArrayBuffers stored before user gesture; decoded on unlock
+    private rawBuffers: Map<string, ArrayBuffer> = new Map();
     private sounds: Map<string, AudioBuffer> = new Map();
+    private rawMusicBuffers: Map<string, ArrayBuffer> = new Map();
     private _musicBuffers: Map<string, AudioBuffer> = new Map();
     private _musicSources: Map<string, { source: AudioBufferSourceNode; gain: GainNode }> = new Map();
     private activeSounds: SoundInstance[] = [];
     private musicVolume = 0.5;
     private sfxVolume = 0.7;
-    private _userInteracted = false;
-    private _pendingResumes: (() => void)[] = [];
+    private _unlocked = false;
+    private _pendingPlays: (() => void)[] = [];
 
     constructor() {
-        // Listen for first user interaction to unlock audio
-        const unlock = () => {
-            this._userInteracted = true;
-            if (this.audioCtx && this.audioCtx.state === 'suspended') {
-                this.audioCtx.resume();
+        const unlock = async () => {
+            if (this._unlocked) return;
+            this._unlocked = true;
+
+            // Create AudioContext inside user gesture — required by Safari
+            if (!this.audioCtx) {
+                this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
             }
-            // Resume any pending music
-            for (const fn of this._pendingResumes) fn();
-            this._pendingResumes = [];
+            if (this.audioCtx.state === 'suspended') {
+                await this.audioCtx.resume();
+            }
+
+            // Decode all buffered audio now that context is active
+            await this.decodeAllPending();
+
+            // Fire any pending play calls
+            for (const fn of this._pendingPlays) fn();
+            this._pendingPlays = [];
+
             document.removeEventListener('click', unlock);
             document.removeEventListener('keydown', unlock);
+            document.removeEventListener('touchstart', unlock);
         };
-        document.addEventListener('click', unlock, { once: false });
-        document.addEventListener('keydown', unlock, { once: false });
+        document.addEventListener('click', unlock);
+        document.addEventListener('keydown', unlock);
+        document.addEventListener('touchstart', unlock);
     }
 
-    private ensureContext(): AudioContext {
-        if (!this.audioCtx) {
-            this.audioCtx = new AudioContext();
+    private async decodeAllPending(): Promise<void> {
+        if (!this.audioCtx) return;
+        const ctx = this.audioCtx;
+
+        // Decode SFX
+        for (const [id, raw] of this.rawBuffers) {
+            if (!this.sounds.has(id)) {
+                try {
+                    const buf = await ctx.decodeAudioData(raw);
+                    this.sounds.set(id, buf);
+                } catch (e) {
+                    console.warn(`SFX decode failed: ${id}`, e);
+                }
+            }
         }
-        if (this.audioCtx.state === 'suspended') {
+        this.rawBuffers.clear();
+
+        // Decode music
+        for (const [id, raw] of this.rawMusicBuffers) {
+            if (!this._musicBuffers.has(id)) {
+                try {
+                    const buf = await ctx.decodeAudioData(raw);
+                    this._musicBuffers.set(id, buf);
+                } catch (e) {
+                    console.warn(`Music decode failed: ${id}`, e);
+                }
+            }
+        }
+        this.rawMusicBuffers.clear();
+    }
+
+    private getContext(): AudioContext | null {
+        if (this.audioCtx && this.audioCtx.state === 'suspended') {
             this.audioCtx.resume();
         }
         return this.audioCtx;
     }
 
-    /** Load a sound effect into memory for low-latency playback. */
+    /** Fetch and store a sound effect. Decoded on first user gesture. */
     async loadSound(id: string, url: string): Promise<void> {
         try {
             const response = await fetch(url);
             const arrayBuffer = await response.arrayBuffer();
-            // Defer AudioContext creation — store raw buffer, decode on first play
-            const ctx = this.ensureContext();
-            const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-            this.sounds.set(id, audioBuffer);
+
+            if (this._unlocked && this.audioCtx) {
+                const audioBuffer = await this.audioCtx.decodeAudioData(arrayBuffer);
+                this.sounds.set(id, audioBuffer);
+            } else {
+                this.rawBuffers.set(id, arrayBuffer);
+            }
         } catch {
             // Sound loading failed — skip silently
         }
@@ -64,12 +111,11 @@ export class AudioManager {
     /** Play a loaded sound effect. Returns a handle to stop it. */
     playSound(id: string, loop = false, volumeScale = 1.0): SoundInstance {
         const buffer = this.sounds.get(id);
-        if (!buffer) {
-            console.warn(`Sound "${id}" not loaded`);
+        const ctx = this.getContext();
+        if (!buffer || !ctx) {
             return AudioManager.nullInstance();
         }
 
-        const ctx = this.ensureContext();
         const source = ctx.createBufferSource();
         const gainNode = ctx.createGain();
 
@@ -103,33 +149,37 @@ export class AudioManager {
         return instance;
     }
 
-    /** Load a named music track via Web Audio API (supports OGG in all contexts). */
+    /** Fetch and store a music track. Decoded on first user gesture. */
     async loadMusic(id: string, url: string): Promise<void> {
         try {
             const response = await fetch(url);
             const arrayBuffer = await response.arrayBuffer();
-            const ctx = this.ensureContext();
-            const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-            this._musicBuffers.set(id, audioBuffer);
+
+            if (this._unlocked && this.audioCtx) {
+                const audioBuffer = await this.audioCtx.decodeAudioData(arrayBuffer);
+                this._musicBuffers.set(id, audioBuffer);
+            } else {
+                this.rawMusicBuffers.set(id, arrayBuffer);
+            }
         } catch (e) {
             console.warn(`Music "${id}" load failed:`, e);
         }
     }
 
-    /** Play a named music track via Web Audio API. */
+    /** Play a named music track. */
     playMusic(id: string, loop = true, volume?: number): void {
-        const buffer = this._musicBuffers.get(id);
-        if (!buffer) {
-            console.warn(`Music "${id}" not loaded`);
-            return;
-        }
         const doPlay = () => {
-            // Stop any currently playing music source for this id
+            const buffer = this._musicBuffers.get(id);
+            const ctx = this.getContext();
+            if (!buffer || !ctx) {
+                console.warn(`Music "${id}" not ready`);
+                return;
+            }
+            // Stop any currently playing source for this id
             const existing = this._musicSources.get(id);
             if (existing) {
                 try { existing.source.stop(); } catch { /* already stopped */ }
             }
-            const ctx = this.ensureContext();
             const source = ctx.createBufferSource();
             const gainNode = ctx.createGain();
             source.buffer = buffer;
@@ -140,10 +190,10 @@ export class AudioManager {
             source.start(0);
             this._musicSources.set(id, { source, gain: gainNode });
         };
-        if (this._userInteracted) {
+        if (this._unlocked) {
             doPlay();
         } else {
-            this._pendingResumes.push(doPlay);
+            this._pendingPlays.push(doPlay);
         }
     }
 
