@@ -2443,6 +2443,25 @@ export class GameManager {
     escToReadyRoom(): void {
         if (this.state === GameState.Playing) {
             this.returnToReadyRoom();
+        } else if (
+            this.state === GameState.Aftermath ||
+            this.state === GameState.Backstory ||
+            this.state === GameState.LevelBriefing ||
+            this.state === GameState.ShipSpecs ||
+            this.state === GameState.OptionsMenu ||
+            this.state === GameState.BriefingSubmenu ||
+            this.state === GameState.DifficultyScreen ||
+            this.state === GameState.ShipCustomization ||
+            this.state === GameState.LevelComplete ||
+            this.state === GameState.Victory
+        ) {
+            // Skip back to Ready Room from any menu/scroll screen
+            if (this.state === GameState.Aftermath) {
+                this.level++;
+            }
+            this.state = GameState.ReadyRoom;
+            this.stateTimer = 0;
+            try { this.audio.stopMusic(); } catch { /* skip */ }
         }
     }
 

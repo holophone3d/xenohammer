@@ -114,7 +114,12 @@ export class TouchControls {
 
     setActive(gameplay: boolean): void {
         this._active = gameplay;
-        this.container.style.opacity = gameplay ? '1' : '0.35';
+        if (!this._initialized) return;
+        // Dim dpad/fire when not in gameplay, but keep ESC always visible
+        this.dpadBg.style.opacity = gameplay ? '1' : '0.35';
+        this.fireEl.style.opacity = gameplay ? '1' : '0.35';
+        this.cfgEl.style.opacity = gameplay ? '1' : '0.35';
+        this.escEl.style.opacity = '1';
         if (!gameplay) {
             this.input.setVirtualKey(Input.LEFT, false);
             this.input.setVirtualKey(Input.RIGHT, false);

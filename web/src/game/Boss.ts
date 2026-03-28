@@ -409,6 +409,9 @@ export class Boss {
                 U_TURRET_OFFSETS[i].x, U_TURRET_OFFSETS[i].y, turretArmor));
 
         this.deathExplosion = new ChainExplosion();
+
+        // Initialize component positions so they're correct on the first render frame
+        this.updateComponentPositions();
     }
 
     // ---------------------------------------------------------------

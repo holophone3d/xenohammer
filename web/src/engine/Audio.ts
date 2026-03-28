@@ -25,6 +25,12 @@ export class AudioManager {
     // HTML5 Audio for music (streaming)
     private musicElements: Map<string, HTMLAudioElement> = new Map();
 
+    // Web Audio music buffers for gapless looping
+    private musicBuffers: Map<string, AudioBuffer> = new Map();
+    private musicSource: AudioBufferSourceNode | null = null;
+    private musicGain: GainNode | null = null;
+    private activeMusicId: string | null = null;
+
     private activeSounds: SoundInstance[] = [];
     private musicVolume = 0.5;
     private sfxVolume = 0.7;
@@ -153,9 +159,10 @@ export class AudioManager {
         return inst;
     }
 
-    /** Load a music track as HTML5 Audio (streaming). */
+    /** Load a music track as both HTML5 Audio (iOS primer) and Web Audio buffer (gapless loop). */
     async loadMusic(id: string, url: string): Promise<void> {
         try {
+            // HTML5 Audio — needed for iOS media session priming
             const audio = new Audio(url);
             audio.preload = 'auto';
             await new Promise<void>((resolve, reject) => {
@@ -165,26 +172,81 @@ export class AudioManager {
             });
             audio.volume = this.musicVolume;
             this.musicElements.set(id, audio);
+
+            // Web Audio buffer — gapless looping, no MP3 encoder gap
+            try {
+                const ctx = this.ensureContext();
+                const resp = await fetch(url);
+                const arrayBuf = await resp.arrayBuffer();
+                const audioBuf = await ctx.decodeAudioData(arrayBuf);
+                this.musicBuffers.set(id, audioBuf);
+            } catch (e) {
+                console.warn(`Music "${id}" Web Audio buffer load failed, will use HTML5 fallback:`, e);
+            }
         } catch (e) {
             console.warn(`Music "${id}" load failed:`, e);
         }
     }
 
-    /** Play a named music track via HTML5 Audio. */
+    /** Play a named music track. Uses Web Audio for gapless looping, HTML5 Audio as fallback. */
     playMusic(id: string, loop = true, volume?: number): void {
+        this.stopMusicSource();
+        const vol = volume !== undefined ? Math.max(0, Math.min(1, volume)) : this.musicVolume;
+
+        // Prefer Web Audio buffer for gapless looping
+        const buffer = this.musicBuffers.get(id);
+        const ctx = this.ctx;
+        if (buffer && ctx) {
+            try {
+                const source = ctx.createBufferSource();
+                source.buffer = buffer;
+                source.loop = loop;
+                const gain = ctx.createGain();
+                gain.gain.value = vol;
+                source.connect(gain);
+                gain.connect(ctx.destination);
+                source.start(0);
+                this.musicSource = source;
+                this.musicGain = gain;
+                this.activeMusicId = id;
+                return;
+            } catch (e) {
+                console.warn(`Music "${id}" Web Audio play failed, falling back to HTML5:`, e);
+            }
+        }
+
+        // Fallback: HTML5 Audio
         const audio = this.musicElements.get(id);
         if (!audio) {
             console.warn(`Music "${id}" not loaded`);
             return;
         }
         audio.loop = loop;
-        audio.volume = volume !== undefined ? Math.max(0, Math.min(1, volume)) : this.musicVolume;
+        audio.volume = vol;
         audio.currentTime = 0;
         audio.play().catch(e => console.warn(`Music "${id}" play failed:`, e));
+        this.activeMusicId = id;
+    }
+
+    /** Stop the currently playing Web Audio music source. */
+    private stopMusicSource(): void {
+        if (this.musicSource) {
+            try { this.musicSource.stop(); } catch { /* already stopped */ }
+            this.musicSource.disconnect();
+            this.musicSource = null;
+        }
+        if (this.musicGain) {
+            this.musicGain.disconnect();
+            this.musicGain = null;
+        }
     }
 
     /** Stop a specific music track, or all tracks if no id provided. */
     stopMusic(id?: string): void {
+        // Stop Web Audio source
+        this.stopMusicSource();
+        this.activeMusicId = null;
+
         if (id !== undefined) {
             const audio = this.musicElements.get(id);
             if (audio) {
@@ -209,6 +271,11 @@ export class AudioManager {
 
     setMusicVolume(vol: number): void {
         this.musicVolume = Math.max(0, Math.min(1, vol));
+        // Update Web Audio music gain
+        if (this.musicGain) {
+            this.musicGain.gain.value = this.musicVolume;
+        }
+        // Update HTML5 fallback elements
         for (const audio of this.musicElements.values()) {
             audio.volume = this.musicVolume;
         }
