@@ -135,7 +135,19 @@ export class AudioManager {
 
         let playing = true;
         source.onended = () => { playing = false; };
-        source.start(0);
+
+        // If context is still resuming (e.g. iOS first gesture), defer start
+        if (ctx.state === 'running') {
+            source.start(0);
+        } else {
+            const onRunning = () => {
+                if (ctx.state === 'running') {
+                    source.start(0);
+                    ctx.removeEventListener('statechange', onRunning);
+                }
+            };
+            ctx.addEventListener('statechange', onRunning);
+        }
 
         const inst: SoundInstance = {
             stop() {

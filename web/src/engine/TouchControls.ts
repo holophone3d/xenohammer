@@ -92,7 +92,7 @@ export class TouchControls {
 
         const w = window.innerWidth;
         const pad = h * 0.08; // padding around elements
-        const dpadSize = Math.min(h - pad * 2, w * 0.22);
+        const dpadSize = Math.min(h - pad * 2, w * 0.33);
         const fireSize = Math.min(h - pad * 2, w * 0.18);
         const cfgSize = Math.min(h * 0.45, w * 0.10);
 
@@ -205,7 +205,7 @@ export class TouchControls {
         const w = cr.width;
 
         // Zone centers & radii (match layout percentages)
-        const dpadSize = Math.min(h * 0.84, w * 0.22);
+        const dpadSize = Math.min(h * 0.84, w * 0.33);
         const dCx = w * 0.15, dCy = h * 0.5, dR = dpadSize / 2;
         const dead = dR * 0.22;
 
