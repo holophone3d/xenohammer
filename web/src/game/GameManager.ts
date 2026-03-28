@@ -119,7 +119,6 @@ export class GameManager {
             ['Space', 'sounds/Space.wav'],
             ['PlayerGun1', 'sounds/PlayerGun1.wav'],
             ['PlayerGun2', 'sounds/PlayerGun2.wav'],
-            ['newFire', 'sounds/newFire.wav'],
             ['AlienWeapon1', 'sounds/AlienWeapon1.wav'],
             ['AlienWeapon5', 'sounds/AlienWeapon5.wav'],
             ['ExploMini1', 'sounds/ExploMini1.wav'],
