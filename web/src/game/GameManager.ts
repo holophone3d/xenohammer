@@ -110,14 +110,7 @@ export class GameManager {
     async init(): Promise<void> {
         this.state = GameState.Loading;
 
-        // Load manifest (all graphics)
-        try {
-            await this.assets.loadManifest('assets/manifest.json', 'assets');
-        } catch (e) {
-            console.warn('Failed to load manifest, continuing without assets:', e);
-        }
-
-        // Load sounds and music in parallel (tracked in progress bar)
+        // Register audio load count up front so progress bar never goes backwards
         const soundFiles: [string, string][] = [
             ['Space', 'sounds/Space.mp3'],
             ['PlayerGun1', 'sounds/PlayerGun1.mp3'],
@@ -135,9 +128,16 @@ export class GameManager {
             ['Level2', 'sounds/Level2.mp3'],
             ['bossTEST', 'sounds/bossTEST.mp3'],
         ];
-        const audioTotal = soundFiles.length + musicFiles.length;
-        this.assets.addPending(audioTotal);
+        this.assets.addPending(soundFiles.length + musicFiles.length);
 
+        // Load manifest (all graphics)
+        try {
+            await this.assets.loadManifest('assets/manifest.json', 'assets');
+        } catch (e) {
+            console.warn('Failed to load manifest, continuing without assets:', e);
+        }
+
+        // Load sounds and music in parallel
         await Promise.all([
             ...soundFiles.map(([id, path]) =>
                 this.audio.loadSound(id, `assets/${path}`).finally(() => this.assets.markLoaded())
