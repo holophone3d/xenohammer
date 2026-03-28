@@ -146,7 +146,15 @@ export class Player {
         const s = this.powerPlant.getSetting();
 
         // C++: damage multiplier = get_power_MUX(WEAPON_POWER) based on cell2
+        // C++: fire rate divisor = get_power_MUX(WEAPON_RATE) based on cell1
         // C++: sprite frame = power_cell_2 - 1
+        const cell1Values = [
+            s.blasterCell1,
+            s.leftTurretCell1,
+            s.rightTurretCell1,
+            s.leftMissileCell1,
+            s.rightMissileCell1,
+        ];
         const cell2Values = [
             s.blasterCell2,
             s.leftTurretCell2,
@@ -161,8 +169,8 @@ export class Player {
 
         for (let i = 0; i < this.weapons.length; i++) {
             const weapon = this.weapons[i];
-            const c2 = cell2Values[i];
-            weapon.powerCell2 = c2;
+            weapon.powerCell1 = cell1Values[i];
+            weapon.powerCell2 = cell2Values[i];
             const proj = weapon.fire(this.x, this.y, now, assets);
             if (proj) projectiles.push(proj);
         }

@@ -17,7 +17,8 @@ export class Weapon {
     angle: number;
     defaultAngle: number;
     powerMultiplier = 1;
-    powerCell2 = 1;  // raw cell2 value for sprite frame selection (frame = cell2 - 1)
+    powerCell1 = 1;  // fire rate cell — C++ WEAPON_RATE: delay / getPowerMUX(cell1)
+    powerCell2 = 1;  // damage/sprite cell — C++ WEAPON_POWER: damage * getPowerMUX(cell2)
     spritePrefix: string;
     spriteFrames: number;
     offsetX: number;
@@ -66,7 +67,9 @@ export class Weapon {
 
     canFire(now: number): boolean {
         if (!this.enabled) return false;
-        return now - this.lastFired >= this.fireRate;
+        // C++: rateDelay = BASE_DELAY / get_power_MUX(WEAPON_RATE)
+        const effectiveRate = this.fireRate / getPowerMUX(this.powerCell1);
+        return now - this.lastFired >= effectiveRate;
     }
 
     fire(x: number, y: number, now: number, assets: AssetLoader | null): Projectile | null {

@@ -131,7 +131,7 @@ export const WEAPONS = {
     } as WeaponConfig,
 
     enemyBlast: {
-        damage: 5,
+        damage: 15,
         fireRate: 100,
         projectileSpeed: 20,
         spritePrefix: 'enemy_',
@@ -140,7 +140,7 @@ export const WEAPONS = {
 
     enemyCannon: {
         damage: 20,
-        fireRate: 125,
+        fireRate: 250,
         projectileSpeed: 21,
         spritePrefix: 'enemy_',
         frameCount: 8,
