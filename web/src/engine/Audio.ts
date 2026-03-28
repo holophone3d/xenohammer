@@ -1,7 +1,10 @@
 /**
- * Audio manager: Web Audio API for sound effects and music.
- * Safari-compatible: defers AudioContext creation and audio decoding
- * until the first user gesture to satisfy autoplay policies.
+ * Audio manager using Web Audio API for both SFX and music.
+ * 
+ * Safari compatibility: AudioContext is created eagerly but starts suspended.
+ * decodeAudioData() works on suspended contexts in all browsers.
+ * On first user gesture we call resume() to unlock playback.
+ * Any play calls before unlock are queued and fired after resume.
  */
 
 export interface SoundInstance {
@@ -11,11 +14,8 @@ export interface SoundInstance {
 }
 
 export class AudioManager {
-    private audioCtx: AudioContext | null = null;
-    // Raw ArrayBuffers stored before user gesture; decoded on unlock
-    private rawBuffers: Map<string, ArrayBuffer> = new Map();
+    private audioCtx: AudioContext;
     private sounds: Map<string, AudioBuffer> = new Map();
-    private rawMusicBuffers: Map<string, ArrayBuffer> = new Map();
     private _musicBuffers: Map<string, AudioBuffer> = new Map();
     private _musicSources: Map<string, { source: AudioBufferSourceNode; gain: GainNode }> = new Map();
     private activeSounds: SoundInstance[] = [];
@@ -25,142 +25,81 @@ export class AudioManager {
     private _pendingPlays: (() => void)[] = [];
 
     constructor() {
-        const unlock = async () => {
+        // Create context eagerly  will be suspended until user gesture
+        this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+        const unlock = () => {
             if (this._unlocked) return;
             this._unlocked = true;
 
-            // Create AudioContext inside user gesture — required by Safari
-            if (!this.audioCtx) {
-                this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-            }
-            if (this.audioCtx.state === 'suspended') {
-                await this.audioCtx.resume();
-            }
+            // Resume the suspended context inside user gesture
+            this.audioCtx.resume().then(() => {
+                // Fire any queued play calls
+                for (const fn of this._pendingPlays) fn();
+                this._pendingPlays = [];
+            });
 
-            // Decode all buffered audio now that context is active
-            await this.decodeAllPending();
-
-            // Fire any pending play calls
-            for (const fn of this._pendingPlays) fn();
-            this._pendingPlays = [];
-
-            document.removeEventListener('click', unlock);
-            document.removeEventListener('keydown', unlock);
-            document.removeEventListener('touchstart', unlock);
+            document.removeEventListener('click', unlock, true);
+            document.removeEventListener('keydown', unlock, true);
+            document.removeEventListener('touchstart', unlock, true);
         };
-        document.addEventListener('click', unlock);
-        document.addEventListener('keydown', unlock);
-        document.addEventListener('touchstart', unlock);
+        // Use capture phase to fire before game click handlers
+        document.addEventListener('click', unlock, true);
+        document.addEventListener('keydown', unlock, true);
+        document.addEventListener('touchstart', unlock, true);
     }
 
-    private async decodeAllPending(): Promise<void> {
-        if (!this.audioCtx) return;
-        const ctx = this.audioCtx;
-
-        // Decode SFX
-        for (const [id, raw] of this.rawBuffers) {
-            if (!this.sounds.has(id)) {
-                try {
-                    const buf = await ctx.decodeAudioData(raw);
-                    this.sounds.set(id, buf);
-                } catch (e) {
-                    console.warn(`SFX decode failed: ${id}`, e);
-                }
-            }
-        }
-        this.rawBuffers.clear();
-
-        // Decode music
-        for (const [id, raw] of this.rawMusicBuffers) {
-            if (!this._musicBuffers.has(id)) {
-                try {
-                    const buf = await ctx.decodeAudioData(raw);
-                    this._musicBuffers.set(id, buf);
-                } catch (e) {
-                    console.warn(`Music decode failed: ${id}`, e);
-                }
-            }
-        }
-        this.rawMusicBuffers.clear();
-    }
-
-    private getContext(): AudioContext | null {
-        if (this.audioCtx && this.audioCtx.state === 'suspended') {
-            this.audioCtx.resume();
-        }
-        return this.audioCtx;
-    }
-
-    /** Fetch and store a sound effect. Decoded on first user gesture. */
+    /** Load a sound effect  decodes immediately (works on suspended context). */
     async loadSound(id: string, url: string): Promise<void> {
         try {
             const response = await fetch(url);
             const arrayBuffer = await response.arrayBuffer();
-
-            if (this._unlocked && this.audioCtx) {
-                const audioBuffer = await this.audioCtx.decodeAudioData(arrayBuffer);
-                this.sounds.set(id, audioBuffer);
-            } else {
-                this.rawBuffers.set(id, arrayBuffer);
-            }
-        } catch {
-            // Sound loading failed — skip silently
+            const audioBuffer = await this.audioCtx.decodeAudioData(arrayBuffer);
+            this.sounds.set(id, audioBuffer);
+        } catch (e) {
+            console.warn(`Sound "${id}" load failed:`, e);
         }
     }
 
     /** Play a loaded sound effect. Returns a handle to stop it. */
     playSound(id: string, loop = false, volumeScale = 1.0): SoundInstance {
         const buffer = this.sounds.get(id);
-        const ctx = this.getContext();
-        if (!buffer || !ctx) {
-            return AudioManager.nullInstance();
-        }
+        if (!buffer) return AudioManager.nullInstance();
 
-        const source = ctx.createBufferSource();
-        const gainNode = ctx.createGain();
+        const inst = AudioManager.makeInstance();
 
-        source.buffer = buffer;
-        source.loop = loop;
-        gainNode.gain.value = this.sfxVolume * volumeScale;
-
-        source.connect(gainNode);
-        gainNode.connect(ctx.destination);
-        source.start(0);
-
-        let playing = true;
-        const instance: SoundInstance = {
-            stop() {
-                if (playing) {
-                    source.stop();
-                    playing = false;
-                }
-            },
-            isPlaying() {
-                return playing;
-            },
-            setVolume(vol: number) {
-                gainNode.gain.value = Math.max(0, Math.min(1, vol));
-            }
+        const play = () => {
+            const source = this.audioCtx.createBufferSource();
+            const gainNode = this.audioCtx.createGain();
+            source.buffer = buffer;
+            source.loop = loop;
+            gainNode.gain.value = this.sfxVolume * volumeScale;
+            source.connect(gainNode);
+            gainNode.connect(this.audioCtx.destination);
+            source.start(0);
+            source.onended = () => { inst._playing = false; };
+            inst._source = source;
+            inst._gain = gainNode;
+            inst._playing = true;
         };
 
-        source.onended = () => { playing = false; };
-        this.activeSounds.push(instance);
+        if (this._unlocked) {
+            play();
+        } else {
+            this._pendingPlays.push(play);
+        }
 
-        return instance;
+        this.activeSounds.push(inst);
+        return inst;
     }
 
-    /** Fetch and store a music track. Decoded on first user gesture. */
+    /** Load a music track  decodes immediately. */
     async loadMusic(id: string, url: string): Promise<void> {
         try {
             const response = await fetch(url);
             const arrayBuffer = await response.arrayBuffer();
-
-            if (this._unlocked && this.audioCtx) {
-                const audioBuffer = await this.audioCtx.decodeAudioData(arrayBuffer);
-                this._musicBuffers.set(id, audioBuffer);
-            } else {
-                this.rawMusicBuffers.set(id, arrayBuffer);
-            }
+            const audioBuffer = await this.audioCtx.decodeAudioData(arrayBuffer);
+            this._musicBuffers.set(id, audioBuffer);
         } catch (e) {
             console.warn(`Music "${id}" load failed:`, e);
         }
@@ -168,25 +107,23 @@ export class AudioManager {
 
     /** Play a named music track. */
     playMusic(id: string, loop = true, volume?: number): void {
+        const buffer = this._musicBuffers.get(id);
+        if (!buffer) {
+            console.warn(`Music "${id}" not loaded`);
+            return;
+        }
         const doPlay = () => {
-            const buffer = this._musicBuffers.get(id);
-            const ctx = this.getContext();
-            if (!buffer || !ctx) {
-                console.warn(`Music "${id}" not ready`);
-                return;
-            }
-            // Stop any currently playing source for this id
             const existing = this._musicSources.get(id);
             if (existing) {
                 try { existing.source.stop(); } catch { /* already stopped */ }
             }
-            const source = ctx.createBufferSource();
-            const gainNode = ctx.createGain();
+            const source = this.audioCtx.createBufferSource();
+            const gainNode = this.audioCtx.createGain();
             source.buffer = buffer;
             source.loop = loop;
             gainNode.gain.value = volume !== undefined ? Math.max(0, Math.min(1, volume)) : this.musicVolume;
             source.connect(gainNode);
-            gainNode.connect(ctx.destination);
+            gainNode.connect(this.audioCtx.destination);
             source.start(0);
             this._musicSources.set(id, { source, gain: gainNode });
         };
@@ -216,9 +153,7 @@ export class AudioManager {
     /** Stop all active sound effect instances. */
     stopAllSounds(): void {
         for (const instance of this.activeSounds) {
-            if (instance.isPlaying()) {
-                instance.stop();
-            }
+            if (instance.isPlaying()) instance.stop();
         }
         this.activeSounds = [];
     }
@@ -234,11 +169,26 @@ export class AudioManager {
         this.sfxVolume = Math.max(0, Math.min(1, vol));
     }
 
-    private static nullInstance(): SoundInstance {
-        return {
-            stop() { /* noop */ },
-            isPlaying() { return false; },
-            setVolume() { /* noop */ }
+    private static makeInstance(): SoundInstance & { _source?: AudioBufferSourceNode; _gain?: GainNode; _playing: boolean } {
+        const inst = {
+            _source: undefined as AudioBufferSourceNode | undefined,
+            _gain: undefined as GainNode | undefined,
+            _playing: false,
+            stop() {
+                if (inst._playing && inst._source) {
+                    try { inst._source.stop(); } catch { /* already stopped */ }
+                    inst._playing = false;
+                }
+            },
+            isPlaying() { return inst._playing; },
+            setVolume(vol: number) {
+                if (inst._gain) inst._gain.gain.value = Math.max(0, Math.min(1, vol));
+            }
         };
+        return inst;
+    }
+
+    private static nullInstance(): SoundInstance {
+        return { stop() {}, isPlaying() { return false; }, setVolume() {} };
     }
 }
