@@ -20,7 +20,24 @@ function fitCanvas(canvas: HTMLCanvasElement, reserveBottom: number): void {
 
 const game = new GameManager('game-canvas');
 
+// Poll loading progress and update the HTML overlay
+const barEl = document.getElementById('loading-bar');
+const pctEl = document.getElementById('loading-pct');
+const overlayEl = document.getElementById('loading-overlay');
+const progressInterval = setInterval(() => {
+    const p = game.assets.getProgress();
+    if (barEl) barEl.style.width = `${Math.floor(p * 100)}%`;
+    if (pctEl) pctEl.textContent = `${Math.floor(p * 100)}%`;
+}, 100);
+
 game.init().then(() => {
+    clearInterval(progressInterval);
+    // Fade out and remove overlay
+    if (overlayEl) {
+        overlayEl.classList.add('hidden');
+        setTimeout(() => overlayEl.remove(), 500);
+    }
+
     const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
     // Create touch controls (self-appends to body)
