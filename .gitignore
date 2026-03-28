@@ -6,6 +6,7 @@ web/node_modules/
 web/dist/
 classic/build/
 classic/out/
+site/
 
 # IDE
 .vs/
