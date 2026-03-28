@@ -172,15 +172,18 @@ export class TouchControls {
         this.positionCircle(this.dpadBg, w * 0.22, h * 0.5, dpadSize / 2);
         this.positionCircle(this.fireEl, w * 0.78, h * 0.5, fireSize / 2);
         this.positionCircle(this.cfgEl, w * 0.50, h * 0.5, cfgSize / 2);
-        // ESC floats above bar at top-right of viewport (square)
+
+        // ESC above FIRE — same spacing logic as landscape
+        const fireCy = h * 0.5;
+        const escGap = pad * 0.8;
+        const escCy = fireCy - fireSize / 2 - escSize / 2 - escGap;
         const escD = escSize * 2;
-        const escMargin = 8;
-        const containerTop = window.innerHeight - h;
+        const fireCx = w * 0.78;
         this.escEl.style.width = `${escD}px`;
         this.escEl.style.height = `${escD}px`;
         this.escEl.style.borderRadius = '6px';
-        this.escEl.style.left = `${w - escD - escMargin}px`;
-        this.escEl.style.top = `${-(containerTop) + escMargin}px`;
+        this.escEl.style.left = `${fireCx - escSize}px`;
+        this.escEl.style.top = `${escCy - escSize}px`;
 
         this.layoutNub(dpadSize);
         this.layoutArrows(dpadSize);
@@ -562,14 +565,18 @@ export class TouchControls {
             const fireSize = Math.min(ch * 0.84, cw * 0.18);
             const cfgSize = Math.min(ch * 0.45, cw * 0.10);
             const escSize = Math.min(cfgSize, 36);
-            const escMargin = 8;
+
+            const fireCx2 = left + cw * 0.78;
+            const fireCy2 = top + ch * 0.5;
+            const pad = ch * 0.08;
+            const escGap = pad * 0.8;
+            const escCy2 = fireCy2 - fireSize / 2 - escSize / 2 - escGap;
 
             return {
                 dCx: left + cw * 0.22, dCy: top + ch * 0.5, dR: dpadSize / 2,
-                fCx: left + cw * 0.78, fCy: top + ch * 0.5, fR: fireSize / 2,
+                fCx: fireCx2, fCy: fireCy2, fR: fireSize / 2,
                 cCx: left + cw * 0.50, cCy: top + ch * 0.5, cR: cfgSize / 2,
-                // ESC at top-right of viewport
-                eCx: w - escSize - escMargin, eCy: escSize + escMargin, eR: escSize,
+                eCx: fireCx2, eCy: escCy2, eR: escSize,
             };
         }
     }
