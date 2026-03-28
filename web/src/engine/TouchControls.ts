@@ -167,7 +167,7 @@ export class TouchControls {
         const dpadSize = Math.min(h - pad * 2, w * 0.33);
         const fireSize = Math.min(h - pad * 2, w * 0.18);
         const cfgSize = Math.min(h * 0.45, w * 0.10);
-        const escSize = cfgSize * 0.65;
+        const escSize = cfgSize * 0.5;
 
         const cfgCx = w * 0.50;
         this.positionCircle(this.dpadBg, w * 0.22, h * 0.5, dpadSize / 2);
@@ -203,7 +203,7 @@ export class TouchControls {
         const dpadSize = Math.min(h * 0.52, w * 0.16);
         const fireSize = Math.min(h * 0.40, w * 0.12);
         const cfgSize = Math.min(h * 0.22, w * 0.06);
-        const escSize = cfgSize * 0.65;
+        const escSize = cfgSize * 0.5;
 
         const margin = h * 0.08;
         this.positionCircle(this.dpadBg, margin + dpadSize / 2,
@@ -540,9 +540,9 @@ export class TouchControls {
             const dpadSize = Math.min(h * 0.52, w * 0.16);
             const fireSize = Math.min(h * 0.40, w * 0.12);
             const cfgSize = Math.min(h * 0.22, w * 0.06);
-            const escSize = cfgSize * 0.65;
+            const escSize = cfgSize * 0.5;
 
-            const fireCx = w - margin - fireSize / 2;
+            const fireCx = w - margin- fireSize / 2;
             const fireCy = h - margin - fireSize / 2;
             const cfgCy = fireCy - fireSize / 2 - cfgSize / 2 - margin * 0.6;
             const modeFireGap = (fireCy - fireSize / 2) - (cfgCy + cfgSize / 2);
@@ -566,9 +566,9 @@ export class TouchControls {
             const dpadSize = Math.min(ch * 0.84, cw * 0.33);
             const fireSize = Math.min(ch * 0.84, cw * 0.18);
             const cfgSize = Math.min(ch * 0.45, cw * 0.10);
-            const escSize = cfgSize * 0.65;
+            const escSize = cfgSize * 0.5;
 
-            const cfgCx = left + cw * 0.50;
+            const cfgCx = left+ cw * 0.50;
             const cfgCy = top + ch * 0.5;
             const fireCx2 = left + cw * 0.78;
             const modeFireGap = (fireCx2 - fireSize / 2) - (cfgCx + cfgSize / 2);
