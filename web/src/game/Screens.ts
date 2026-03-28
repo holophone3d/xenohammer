@@ -8,20 +8,12 @@ import { AssetLoader } from '../engine';
 const SCREEN_W = 800;
 const SCREEN_H = 600;
 
-/** Draw a fullscreen background image, or dark gradient fallback */
-export function drawBackground(ctx: CanvasRenderingContext2D, assets: AssetLoader, imageId: string): boolean {
+/** Draw a fullscreen background image */
+export function drawBackground(ctx: CanvasRenderingContext2D, assets: AssetLoader, imageId: string): void {
     const img = assets.tryGetImage(imageId);
     if (img) {
         ctx.drawImage(img, 0, 0, SCREEN_W, SCREEN_H);
-        return true;
     }
-    // Fallback gradient
-    const gradient = ctx.createLinearGradient(0, 0, 0, SCREEN_H);
-    gradient.addColorStop(0, '#000020');
-    gradient.addColorStop(1, '#000008');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
-    return false;
 }
 
 /** Draw centered text */
@@ -148,9 +140,7 @@ export function renderGameOverScreen(
     score: number,
     time: number
 ): void {
-    if (!drawBackground(ctx, assets, 'game_over')) {
-        drawCentered(ctx, 'GAME OVER', 250, '32px XenoFont, monospace', '#f00');
-    }
+    drawBackground(ctx, assets, 'game_over');
     drawCentered(ctx, `Score: ${score}`, 400, '20px XenoFont, monospace', '#fff');
     if (time > 3) {
         drawBlinking(ctx, 'Press SPACE to continue', 450, '14px XenoFont, monospace', '#aaa', time);

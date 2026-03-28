@@ -130,7 +130,7 @@ export class GameManager {
             ['MenuSelect', 'sounds/MenuSelect.mp3'],
         ];
         for (const [id, path] of soundFiles) {
-            try { await this.audio.loadSound(id, `assets/${path}`); } catch { /* skip */ }
+            await this.audio.loadSound(id, `assets/${path}`);
         }
 
         // Load music tracks (OGG/Vorbis — kept as-is, already compressed)
@@ -139,10 +139,10 @@ export class GameManager {
             ['bossTEST', 'sounds/bossTEST.mp3'],
         ];
         for (const [id, path] of musicFiles) {
-            try { await this.audio.loadMusic(id, `assets/${path}`); } catch { /* skip */ }
+            await this.audio.loadMusic(id, `assets/${path}`);
         }
         // BossNear1 is a sound effect, not music
-        try { await this.audio.loadSound('BossNear1', 'assets/sounds/BossNear1.mp3'); } catch { /* skip */ }
+        await this.audio.loadSound('BossNear1', 'assets/sounds/BossNear1.mp3');
 
         // Cache explosion frames
         this.smallExpFrames = Explosion.loadFrames(this.assets, 'small');
@@ -361,7 +361,7 @@ export class GameManager {
             // Delay Space ambient slightly — on iOS the AudioContext needs
             // time to resume after the gesture handler's ctx.resume() call
             setTimeout(() => {
-                try { this.audio.playSound('Space', true); } catch { /* skip */ }
+                this.audio.playSound('Space', true);
             }, 150);
             this.started = true;
             this.state = GameState.ReadyRoom;
@@ -373,13 +373,6 @@ export class GameManager {
         const splash = this.assets.tryGetImage('XenoStart');
         if (splash) {
             ctx.drawImage(splash, 0, 0, 800, 600);
-        } else {
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, 800, 600);
-            ctx.fillStyle = '#0f0';
-            ctx.font = '32px XenoFont, monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('XENOHAMMER', 400, 280);
         }
         ctx.fillStyle = '#0f0';
         ctx.font = '20px XenoFont, monospace';
@@ -398,17 +391,17 @@ export class GameManager {
         if (this.input.isMousePressed()) {
             // Left zone: Ship Customization
             if (mx >= 10 && mx <= 218 && my >= 260 && my <= 380) {
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 this.state = GameState.ShipCustomization;
             }
             // Center zone: Briefing & Options
             if (mx >= 200 && mx <= 400 && my >= 185 && my <= 218) {
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 this.state = GameState.OptionsMenu;
             }
             // Right zone: Launch
             if (mx >= 601 && mx <= 800 && my >= 0 && my <= 540) {
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 this.startLevel(this.level);
             }
         }
@@ -426,9 +419,6 @@ export class GameManager {
         const bg = this.assets.tryGetImage('room');
         if (bg) {
             ctx.drawImage(bg, 0, 0, 800, 600);
-        } else {
-            ctx.fillStyle = '#111';
-            ctx.fillRect(0, 0, 800, 600);
         }
 
         const mouse = this.input.getMousePos();
@@ -548,13 +538,11 @@ export class GameManager {
 
         // Start level music — original uses Level2.mp3 for ALL levels
         this.audio.stopMusic();
-        try { this.audio.playMusic('Level2', true); this.musicPlaying = 'Level2'; } catch { /* skip */ }
+        this.audio.playMusic('Level2', true); this.musicPlaying = 'Level2';
 
         // Start engine sound at low volume (original used ~10%)
-        try {
-            this.engineSound = this.audio.playSound('ShipEngine', true);
-            this.engineSound.setVolume(0.1);
-        } catch { this.engineSound = null; }
+        this.engineSound = this.audio.playSound('ShipEngine', true);
+        this.engineSound.setVolume(0.1);
 
         this.state = GameState.Playing;
     }
@@ -573,25 +561,23 @@ export class GameManager {
             if (playerProj.length > 0) {
                 // C++ Sound.cpp:81-100: first fire plays single shot (PlayerGun1),
                 // subsequent fires while held switch to looping rapid fire (PlayerGun2)
-                try {
-                    if (this.playerFireSound && this.playerFireSound.isPlaying()) {
-                        if (!this.playerRapidFireActive) {
-                            this.playerFireSound.stop();
-                            this.playerFireSound = this.audio.playSound('PlayerGun2', true);
-                            this.playerRapidFireActive = true;
-                        }
-                    } else {
-                        this.playerFireSound = this.audio.playSound('PlayerGun1');
-                        this.playerRapidFireActive = false;
+                if (this.playerFireSound && this.playerFireSound.isPlaying()) {
+                    if (!this.playerRapidFireActive) {
+                        this.playerFireSound.stop();
+                        this.playerFireSound = this.audio.playSound('PlayerGun2', true);
+                        this.playerRapidFireActive = true;
                     }
-                } catch { /* skip */ }
+                } else {
+                    this.playerFireSound = this.audio.playSound('PlayerGun1');
+                    this.playerRapidFireActive = false;
+                }
             } else if (this.input.isKeyDown(Input.SPACE)) {
                 // Fire button held but gate not ready — keep sound going
             } else {
                 // C++ Sound.cpp:169-175: fire released — stop rapid loop, play final single shot
                 if (this.playerRapidFireActive && this.playerFireSound) {
                     this.playerFireSound.stop();
-                    try { this.playerFireSound = this.audio.playSound('PlayerGun1'); } catch { /* skip */ }
+                    this.playerFireSound = this.audio.playSound('PlayerGun1');
                     this.playerRapidFireActive = false;
                 }
             }
@@ -618,9 +604,7 @@ export class GameManager {
             enemy.update(dt, playerX, playerY);
             const enemyProj = enemy.tryFire(this.now, this.assets);
             if (enemyProj.length > 0) {
-                try {
-                    this.audio.playSound(enemy.type === 'gunship' ? 'AlienWeapon1' : 'AlienWeapon5', false, enemy.type === 'gunship' ? 0.5 : 1.0);
-                } catch { /* skip */ }
+                this.audio.playSound(enemy.type === 'gunship' ? 'AlienWeapon1' : 'AlienWeapon5', false, enemy.type === 'gunship' ? 0.5 : 1.0);
             }
             this.projectiles.push(...enemyProj);
         }
@@ -634,7 +618,7 @@ export class GameManager {
 
             // Play capital ship fire sounds (C++: ENEMYCANNON→AlienWeapon1@0.5, ENEMYBLASTER→AlienWeapon5@1.0)
             for (const fs of ship.getFireSounds()) {
-                try { this.audio.playSound(fs.sound, false, fs.volume); } catch { /* skip */ }
+                this.audio.playSound(fs.sound, false, fs.volume);
             }
 
             // Dual engine flames (C++ make_CapShipEngine: two exhaust points at x+40, x+57)
@@ -661,7 +645,7 @@ export class GameManager {
                 ship.justDied = false;
                 this.score += ENEMY_SCORES['frigate'] ?? 2000;
                 if (this.player) this.player.kills++;
-                try { this.audio.playSound('ExploMini1'); } catch { /* skip */ }
+                this.audio.playSound('ExploMini1');
 
                 for (const pt of ship.getExplosionPoints()) {
                     this.makeExplosions(pt.x, pt.y, ship.vx, ship.vy);
@@ -671,7 +655,7 @@ export class GameManager {
             // C++ ShipComponent::destroy_ship() — sound + explosion per component death
             for (const cd of ship.pendingComponentDestructions) {
                 this.makeExplosions(cd.x, cd.y, ship.vx, ship.vy);
-                try { this.audio.playSound('ExploMini1'); } catch { /* skip */ }
+                this.audio.playSound('ExploMini1');
             }
             ship.pendingComponentDestructions = [];
         }
@@ -684,10 +668,10 @@ export class GameManager {
             this.boss.update(dt, playerX, playerY, this.now, levelTimeMs);
 
             if (this.boss.shouldTriggerMusic()) {
-                try { this.audio.playSound('BossNear1'); } catch { /* skip */ }
+                this.audio.playSound('BossNear1');
                 // Switch to boss music (original: stops Level2, plays bossTEST)
                 this.audio.stopMusic();
-                try { this.audio.playMusic('bossTEST', true); this.musicPlaying = 'bossTEST'; } catch { /* skip */ }
+                this.audio.playMusic('bossTEST', true); this.musicPlaying = 'bossTEST';
             }
 
             const bossProj = this.boss.getProjectiles();
@@ -702,7 +686,7 @@ export class GameManager {
 
             // Boss sound emission requests (C++: Sound::playExplosionSound() on component destruction)
             for (const snd of this.boss.getSoundEmits()) {
-                try { this.audio.playSound(snd); } catch { /* skip */ }
+                this.audio.playSound(snd);
             }
         }
 
@@ -766,7 +750,7 @@ export class GameManager {
             if (this.boss && this.boss.isDefeated()) {
                 this.stopGameplaySounds();
                 // C++: lower boss music to 50%, transition to aftermath scrolling
-                try { this.audio.setMusicVolume(0.5); } catch { /* skip */ }
+                this.audio.setMusicVolume(0.5);
                 this.state = GameState.Aftermath;
                 this.aftermathY = 600;
                 this.stateTimer = 0;
@@ -882,7 +866,7 @@ export class GameManager {
             if (rectsOverlap(playerRect, pu.getRect())) {
                 pu.active = false;
                 this.applyPowerUp(pu);
-                try { this.audio.playSound('CoinCollected'); } catch { /* skip */ }
+                this.audio.playSound('CoinCollected');
             }
         }
     }
@@ -916,7 +900,7 @@ export class GameManager {
         });
 
         // C++: Sound::playExplosionSound() — once per destroy_ship() call
-        try { this.audio.playSound('ExploMini1'); } catch { /* skip */ }
+        this.audio.playSound('ExploMini1');
 
         const pu = PowerUp.tryDrop(enemy.x, enemy.y, enemy.config.powerUpDropChance, this.assets);
         if (pu) this.gamePowerUps.push(pu);
@@ -1142,12 +1126,6 @@ export class GameManager {
         const img = this.assets.tryGetImage('game_over');
         if (img) {
             ctx.drawImage(img, 272, 268);
-        } else {
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#0f0';
-            ctx.font = '24px XenoFont, monospace';
-            ctx.fillText('GAME OVER', 400, 290);
-            ctx.textAlign = 'left';
         }
     }
 
@@ -1168,7 +1146,7 @@ export class GameManager {
             this.level++;
             this.state = GameState.ReadyRoom;
             this.stateTimer = 0;
-            try { this.audio.stopMusic(); } catch { /* skip */ }
+            this.audio.stopMusic();
         }
     }
 
@@ -1204,9 +1182,6 @@ export class GameManager {
         const img = this.assets.tryGetImage('aftermath');
         if (img) {
             ctx.drawImage(img, 0, 0, 800, 600);
-        } else {
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, 800, 600);
         }
 
         ctx.textAlign = 'center';
@@ -1255,9 +1230,6 @@ export class GameManager {
         const overlay = this.assets.tryGetImage('room_screen');
         if (overlay) {
             ctx.drawImage(overlay, 0, 0, 800, 600);
-        } else {
-            ctx.fillStyle = '#0a1a0a';
-            ctx.fillRect(0, 0, 800, 600);
         }
     }
 
@@ -1302,21 +1274,21 @@ export class GameManager {
         if (newHover !== this.menuHoverIndex) {
             this.menuHoverIndex = newHover;
             if (newHover >= 0) {
-                try { this.audio.playSound('MenuChange'); } catch { /* skip */ }
+                this.audio.playSound('MenuChange');
             }
         }
 
         if (this.input.isMousePressed()) {
             if (newHover === 0) {
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 this.state = GameState.BriefingSubmenu;
             } else if (newHover === 1) {
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 this.saveGame();
                 this.optionsSaveTooltip = 'Game Saved';
                 this.optionsSaveTooltipTimer = 2;
             } else if (newHover === 2) {
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 if (this.loadGame()) {
                     this.optionsSaveTooltip = 'Game Loaded';
                 } else {
@@ -1324,13 +1296,13 @@ export class GameManager {
                 }
                 this.optionsSaveTooltipTimer = 2;
             } else if (newHover === 3) {
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 this.state = GameState.DifficultyScreen;
             } else if (newHover === 4) {
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 this.state = GameState.ReadyRoom;
             } else if (newHover === 5) {
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 // Quit to system — reload page
                 window.location.reload();
             }
@@ -1400,28 +1372,28 @@ export class GameManager {
         if (newHover !== this.menuHoverIndex) {
             this.menuHoverIndex = newHover;
             if (newHover >= 0) {
-                try { this.audio.playSound('MenuChange'); } catch { /* skip */ }
+                this.audio.playSound('MenuChange');
             }
         }
 
         if (this.input.isMousePressed()) {
             if (newHover === 0) {
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 this.state = GameState.Backstory;
                 this.briefingScrollStart = performance.now();
             } else if (newHover === 1) {
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 this.state = GameState.LevelBriefing;
                 this.briefingScrollStart = performance.now();
                 this.levelBriefed = this.level + 1;
             } else if (newHover === 2) {
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 this.state = GameState.ShipSpecs;
             } else if (newHover === 3) {
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 this.state = GameState.OptionsMenu;
             } else if (newHover === 4) {
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 this.state = GameState.ReadyRoom;
             }
         }
@@ -1490,13 +1462,6 @@ export class GameManager {
         const img = this.assets.tryGetImage('backstory');
         if (img) {
             ctx.drawImage(img, 0, this.briefingScrollY);
-        } else {
-            // Fallback text
-            ctx.fillStyle = '#0f0';
-            ctx.font = '16px XenoFont, monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('Backstory image not available', 400, 300 + this.briefingScrollY);
-            ctx.textAlign = 'left';
         }
     }
 
@@ -1534,12 +1499,6 @@ export class GameManager {
         const img = this.assets.tryGetImage(spriteId);
         if (img) {
             ctx.drawImage(img, 0, this.briefingScrollY);
-        } else {
-            ctx.fillStyle = '#0f0';
-            ctx.font = '16px XenoFont, monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText(`Level ${this.level + 1} Briefing`, 400, 300 + this.briefingScrollY);
-            ctx.textAlign = 'left';
         }
     }
 
@@ -1554,7 +1513,7 @@ export class GameManager {
         if (this.input.isMousePressed()) {
             const mouse = this.input.getMousePos();
             if (mouse.x >= 680 && mouse.x <= 800 && mouse.y >= 540 && mouse.y <= 600) {
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 this.state = GameState.BriefingSubmenu;
             }
         }
@@ -1565,16 +1524,6 @@ export class GameManager {
         const img = this.assets.tryGetImage('ship_specs');
         if (img) {
             ctx.drawImage(img, 0, 0, 800, 600);
-        } else {
-            ctx.fillStyle = '#0a1a0a';
-            ctx.fillRect(0, 0, 800, 600);
-            ctx.fillStyle = '#0f0';
-            ctx.font = '20px XenoFont, monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('Ship Specifications', 400, 280);
-            ctx.font = '14px XenoFont, monospace';
-            ctx.fillText('Press ESC to return', 400, 320);
-            ctx.textAlign = 'left';
         }
 
         // Draw "Done" button area
@@ -1613,16 +1562,16 @@ export class GameManager {
         if (newHover !== this.menuHoverIndex) {
             this.menuHoverIndex = newHover;
             if (newHover >= 0) {
-                try { this.audio.playSound('MenuChange'); } catch { /* skip */ }
+                this.audio.playSound('MenuChange');
             }
         }
 
         if (this.input.isMousePressed()) {
             if (newHover >= 0 && newHover <= 3) {
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 this.difficulty = newHover;
             } else if (newHover === 4) {
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 this.state = GameState.OptionsMenu;
             }
         }
@@ -1695,7 +1644,7 @@ export class GameManager {
         if (newHover !== this.custHoverSystem) {
             this.custHoverSystem = newHover;
             if (newHover >= 0) {
-                try { this.audio.playSound('MenuChange'); } catch { /* skip */ }
+                this.audio.playSound('MenuChange');
             }
         }
 
@@ -1705,7 +1654,7 @@ export class GameManager {
         // System zone click — only switch selection if clicking a DIFFERENT zone.
         // If same zone is already selected, fall through to arrow/buy button checks.
         if (newHover >= 0 && newHover !== this.custSelectedSystem) {
-            try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+            this.audio.playSound('MenuSelect');
             this.custSelectedSystem = newHover;
             return;
         }
@@ -1716,24 +1665,24 @@ export class GameManager {
         if (mx >= 520 && mx <= 800) {
             if (my >= 80 && my <= 110) {
                 this.player.powerPlant.selectSetting(0);
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 return;
             }
             if (my >= 111 && my <= 140) {
                 this.player.powerPlant.selectSetting(1);
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 return;
             }
             if (my >= 141 && my <= 170) {
                 this.player.powerPlant.selectSetting(2);
-                try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                this.audio.playSound('MenuSelect');
                 return;
             }
         }
 
         // Done button (517-800, 553-600) — reset shields/armor to 300 like C++
         if (mx >= 517 && mx <= 800 && my >= 553 && my <= 600) {
-            try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+            this.audio.playSound('MenuSelect');
             this.player.shields = 300;
             this.player.armor = 300;
             this.state = GameState.ReadyRoom;
@@ -1748,7 +1697,7 @@ export class GameManager {
         // Arrow button on ship diagram (gui_button at lx,ly is 10x30)
         // Top 10px: transfer cell2 → cell1 (increase rate)
         if (mx >= zone.lx && mx <= zone.lx + 10 && my >= zone.ly && my <= zone.ly + 10) {
-            try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+            this.audio.playSound('MenuSelect');
             if (setting[zone.c1] < maxCell && setting[zone.c2] > 1) {
                 setting[zone.c1]++;
                 setting[zone.c2]--;
@@ -1757,7 +1706,7 @@ export class GameManager {
         }
         // Bottom 10px: transfer cell1 → cell2 (increase power)
         if (mx >= zone.lx && mx <= zone.lx + 10 && my >= zone.ly + 20 && my <= zone.ly + 30) {
-            try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+            this.audio.playSound('MenuSelect');
             if (setting[zone.c2] < maxCell && setting[zone.c1] > 1) {
                 setting[zone.c2]++;
                 setting[zone.c1]--;
@@ -1767,7 +1716,7 @@ export class GameManager {
 
         // Buy Power Pod (300-364, 460-492) — affects ALL 3 settings
         if (mx >= 300 && mx <= 364 && my >= 460 && my <= 492) {
-            try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+            this.audio.playSound('MenuSelect');
             if (this.player.powerPlant.resourceUnits < 1) {
                 this.custStatusMsg = 'You Have No More Resource Units!';
                 this.custStatusTimer = 120;
@@ -1795,7 +1744,7 @@ export class GameManager {
 
         // Buy Research (300-364, 400-432)
         if (mx >= 300 && mx <= 364 && my >= 400 && my <= 432) {
-            try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+            this.audio.playSound('MenuSelect');
             if (sel === 1 || sel === 2) {
                 // Turret Rotation research (5 RU)
                 if (!this.turretAngleAvailable) {
@@ -1831,7 +1780,7 @@ export class GameManager {
                 const yPos = [350, 392, 434, 476, 518];
                 for (let i = 0; i < 5; i++) {
                     if (my >= yPos[i] && my <= yPos[i] + 32) {
-                        try { this.audio.playSound('MenuSelect'); } catch { /* skip */ }
+                        this.audio.playSound('MenuSelect');
                         if (sel === 1) {
                             setting.leftTurretAngle = angles[i];
                         } else {
@@ -2175,12 +2124,6 @@ export class GameManager {
             const img = this.assets.tryGetImage(spriteKey);
             if (img) {
                 ctx.drawImage(img, p.x, p.y);
-            } else {
-                const color = p.type === 'blaster' ? '#00ff33'
-                            : p.type === 'turret' ? '#00ff80'
-                            : '#0000ff';
-                ctx.fillStyle = color;
-                ctx.fillRect(p.x, p.y, 4 + frameIdx * 2, 4 + frameIdx * 2);
             }
         }
 
@@ -2461,7 +2404,7 @@ export class GameManager {
             }
             this.state = GameState.ReadyRoom;
             this.stateTimer = 0;
-            try { this.audio.stopMusic(); } catch { /* skip */ }
+            this.audio.stopMusic();
         }
     }
 
@@ -2495,11 +2438,9 @@ export class GameManager {
         this.capitalShips.push(ship);
 
         this.audio.stopMusic();
-        try { this.audio.playMusic('Level2', true); this.musicPlaying = 'Level2'; } catch { /* skip */ }
-        try {
-            this.engineSound = this.audio.playSound('ShipEngine', true);
-            this.engineSound.setVolume(0.1);
-        } catch { this.engineSound = null; }
+        this.audio.playMusic('Level2', true); this.musicPlaying = 'Level2';
+        this.engineSound = this.audio.playSound('ShipEngine', true);
+        this.engineSound.setVolume(0.1);
         this.state = GameState.Playing;
     }
 
@@ -2529,11 +2470,9 @@ export class GameManager {
         this.boss.musicTriggered = true;
 
         this.audio.stopMusic();
-        try { this.audio.playMusic('bossTEST', true); this.musicPlaying = 'bossTEST'; } catch { /* skip */ }
-        try {
-            this.engineSound = this.audio.playSound('ShipEngine', true);
-            this.engineSound.setVolume(0.1);
-        } catch { this.engineSound = null; }
+        this.audio.playMusic('bossTEST', true); this.musicPlaying = 'bossTEST';
+        this.engineSound = this.audio.playSound('ShipEngine', true);
+        this.engineSound.setVolume(0.1);
         this.state = GameState.Playing;
     }
 
