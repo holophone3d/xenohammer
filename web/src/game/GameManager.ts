@@ -2129,8 +2129,8 @@ export class GameManager {
     // Touch-friendly large arrow overlays for power adjustment
     // Each button spans half the info panel width (0→512), aligned to bottom
     private static readonly CUST_ARROW_W = 252;
-    private static readonly CUST_ARROW_H = 94;
-    private static readonly CUST_ARROW_Y = 506;
+    private static readonly CUST_ARROW_H = 70;
+    private static readonly CUST_ARROW_Y = 530;
     private static readonly CUST_ARROW_LEFT_X = 2;
     private static readonly CUST_ARROW_RIGHT_X = 258;
 
