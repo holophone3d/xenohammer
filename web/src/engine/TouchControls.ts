@@ -164,7 +164,7 @@ export class TouchControls {
 
         const w = window.innerWidth;
         const pad = h * 0.08;
-        const cy = h * 0.4;  // shifted up 10%
+        const cy = h * 0.25;  // shifted up ~25% from center
         const dpadSize = Math.min(h - pad * 2, w * 0.38);
         const fireSize = Math.min(h - pad * 2, w * 0.18);
         const cfgSize = Math.min(h * 0.45, w * 0.10);
@@ -568,7 +568,7 @@ export class TouchControls {
             const cfgSize = Math.min(ch * 0.45, cw * 0.10);
             const escSize = cfgSize * 0.5;
 
-            const cy = top + ch * 0.4;
+            const cy = top + ch * 0.25;
             const cfgCx = left + cw * 0.58;
             const dpadTop = cy - dpadSize / 2;
             const escCy = dpadTop - escSize;
