@@ -2337,7 +2337,8 @@ export class GameManager {
             this.debugToggleGodMode();
             this.debugKeyDebounce = 15;
         } else if (this.input.isKeyPressed('7')) {
-            this.debugExec(() => { if (this.player) this.player.powerPlant.resourceUnits += 10; });
+            if (this.player) this.player.powerPlant.resourceUnits += 10;
+            this.debugKeyDebounce = 15;
         } else if (this.input.isKeyPressed('Escape')) {
             this.debugMenuOpen = false;
             this.debugKeyDebounce = 15;
@@ -2379,7 +2380,7 @@ export class GameManager {
             case 3: this.debugExec(() => this.debugJumpToLevel(2)); break;
             case 4: this.debugExec(() => this.debugSpawnBoss()); break;
             case 5: this.debugToggleGodMode(); this.debugKeyDebounce = 15; break;
-            case 6: this.debugExec(() => { if (this.player) this.player.powerPlant.resourceUnits += 10; }); break;
+            case 6: if (this.player) this.player.powerPlant.resourceUnits += 10; this.debugKeyDebounce = 15; break;
             case 7: this.debugCycleTouchMode('portrait'); break;
             case 8: this.debugCycleTouchMode('landscape'); break;
         }
