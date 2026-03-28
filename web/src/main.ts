@@ -36,11 +36,16 @@ const progressInterval = setInterval(() => {
 
 game.init().then(() => {
     clearInterval(progressInterval);
-    // Fade out and remove overlay
-    if (overlayEl) {
-        overlayEl.classList.add('hidden');
-        setTimeout(() => overlayEl.remove(), 500);
-    }
+    // Show 100% before fading
+    if (barEl) barEl.style.width = '100%';
+    if (pctEl) pctEl.textContent = '100%';
+    // Fade out and remove overlay after a brief flash of 100%
+    setTimeout(() => {
+        if (overlayEl) {
+            overlayEl.classList.add('hidden');
+            setTimeout(() => overlayEl.remove(), 500);
+        }
+    }, 300);
 
     const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
