@@ -1940,24 +1940,6 @@ export class GameManager {
         ctx.fillRect(512, 195, 288, 358);       // right panel: ship demo
         ctx.fillRect(512, 553, 5, 47);          // thin divider next to exit button
 
-        // 3b. Green panel border lines (each UX region gets its own rectangle)
-        ctx.strokeStyle = '#0f0';
-        ctx.lineWidth = 1;
-        // Stats bar
-        ctx.strokeRect(0.5, 0.5, 799, 39);
-        // Ship diagram
-        ctx.strokeRect(0.5, 41.5, 511, 259);
-        // Bottom-left info panel
-        ctx.strokeRect(0.5, 301.5, 511, 198);
-        // Bottom-left touch arrow zone
-        ctx.strokeRect(0.5, 500.5, 511, 99);
-        // User Settings panel (right top)
-        ctx.strokeRect(512.5, 41.5, 287, 153);
-        // Ship Demo panel (right middle)
-        ctx.strokeRect(512.5, 195.5, 287, 357);
-        // Exit button
-        ctx.strokeRect(517.5, 553.5, 282, 46);
-
         // 4. Stats at top (y=35)
         if (this.player) {
             ctx.font = '18px XenoFont, monospace';
@@ -2031,6 +2013,21 @@ export class GameManager {
             ctx.textAlign = 'left';
             ctx.fillText(this.custStatusMsg, 20, 590);
         }
+
+        // 12. Green panel border lines — drawn last so they're always on top
+        ctx.strokeStyle = '#0f0';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0.5, 0.5, 799, 39);           // Stats bar
+        ctx.strokeRect(0.5, 41.5, 511, 259);          // Ship diagram
+        if (sel >= 0 && sel < this.custSystemZones.length) {
+            ctx.strokeRect(0.5, 301.5, 511, 198);     // Info panel
+            ctx.strokeRect(0.5, 500.5, 511, 99);      // Touch arrow zone
+        } else {
+            ctx.strokeRect(0.5, 301.5, 511, 298);     // Full info panel (All mode)
+        }
+        ctx.strokeRect(512.5, 41.5, 287, 153);        // User Settings
+        ctx.strokeRect(512.5, 195.5, 287, 357);       // Ship Demo
+        ctx.strokeRect(517.5, 553.5, 282, 46);        // Exit button
     }
 
     /** Draw power cell bars on the ship diagram at C_* positions from Console.h */
@@ -2237,15 +2234,17 @@ export class GameManager {
             const speedShip = this.assets.tryGetImage('speed_ship');
             if (speedShip) ctx.drawImage(speedShip, this.custSpeedShipX, 509);
 
-            // "Shields" label at (740, 345) per C++ (SHIELDS_X_POS+73, SHIELDS_Y_POS-220)
+            // "Shields" label centered in right portion of demo panel
             ctx.font = '18px XenoFont, monospace';
             ctx.fillStyle = '#0f0';
-            ctx.textAlign = 'left';
-            ctx.fillText('Shields', 720, 345);
+            ctx.textAlign = 'center';
+            const shieldCenterX = 750;
+            ctx.fillText('Shields', shieldCenterX, 345);
 
-            // Shield bar: fills from (720, 545) upward, height = shields * 0.666
+            // Shield bar: centered under text, fills upward from y=545
             const shields = this.custShieldDemo;
             const barHeight = shields * 0.666;
+            const barW = 45;
             let r: number, g: number;
             if (shields >= 150) {
                 r = Math.min(1, Math.max(0, (shields * -0.015) + 4.5));
@@ -2255,7 +2254,7 @@ export class GameManager {
                 g = Math.min(1, Math.max(0, shields * 0.0066));
             }
             ctx.fillStyle = `rgb(${Math.floor(r * 255)},${Math.floor(g * 255)},0)`;
-            ctx.fillRect(720, 545 - barHeight, 45, barHeight);
+            ctx.fillRect(shieldCenterX - barW / 2, 545 - barHeight, barW, barHeight);
         }
     }
 
