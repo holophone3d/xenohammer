@@ -1820,7 +1820,7 @@ export class GameManager {
                 const anglesLeft = [90, 135, 180, 225, 270];
                 const anglesRight = [90, 45, 0, 315, 270];
                 const angles = sel === 1 ? anglesLeft : anglesRight;
-                const yPos = [310, 352, 394, 436, 478];
+                const yPos = [320, 362, 404, 446, 488];
                 for (let i = 0; i < 5; i++) {
                     if (my >= yPos[i] && my <= yPos[i] + 32) {
                         this.audio.playSound('MenuSelect');
@@ -2094,10 +2094,10 @@ export class GameManager {
                 ctx.fillText('Already Researched', 110, 390);
                 ctx.fillText('cost = ', 160, 420);
                 ctx.fillText('n/a', 240, 420);
-                // Turret angle panel at (450, 310)
+                // Turret angle panel at (450, 320)
                 const panelKey = sel === 1 ? 'turret_pannel_left' : 'turret_pannel_right';
                 const panel = this.assets.tryGetImage(panelKey);
-                if (panel) ctx.drawImage(panel, 450, 310);
+                if (panel) ctx.drawImage(panel, 450, 320);
                 // Selector highlight at current angle
                 this.renderTurretAngleSelector(ctx, sel);
             } else {
@@ -2175,7 +2175,7 @@ export class GameManager {
         const anglesLeft = [90, 135, 180, 225, 270];
         const anglesRight = [90, 45, 0, 315, 270];
         const angles = sel === 1 ? anglesLeft : anglesRight;
-        const yPos = [310, 352, 394, 436, 478];
+        const yPos = [320, 362, 404, 446, 488];
         const idx = angles.indexOf(angle);
         if (idx >= 0) {
             const selector = this.assets.tryGetImage('turret_selector');
