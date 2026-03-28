@@ -130,15 +130,12 @@ export class GameManager {
         ];
         this.assets.addPending(soundFiles.length + musicFiles.length);
 
-        // Load manifest (all graphics)
-        try {
-            await this.assets.loadManifest('assets/manifest.json', 'assets');
-        } catch (e) {
-            console.warn('Failed to load manifest, continuing without assets:', e);
-        }
+        // Load all assets in parallel (images + sounds + music)
+        const imageLoad = this.assets.loadManifest('assets/manifest.json', 'assets')
+            .catch(e => console.warn('Failed to load manifest, continuing without assets:', e));
 
-        // Load sounds and music in parallel
         await Promise.all([
+            imageLoad,
             ...soundFiles.map(([id, path]) =>
                 this.audio.loadSound(id, `assets/${path}`).finally(() => this.assets.markLoaded())
             ),
