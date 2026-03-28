@@ -280,7 +280,7 @@ export class TouchControls {
 
     private buildUI(): void {
         this.dpadBg = this.makeCircle('rgba(60,60,60,0.5)', 'rgba(120,120,120,0.6)');
-        const arrows = ['▲', '▼', '◀', '▶'];
+        const arrows = ['▲\uFE0E', '▼\uFE0E', '◀\uFE0E', '▶\uFE0E'];
         this.dpadArrows = arrows.map(ch => {
             const el = document.createElement('span');
             el.textContent = ch;
