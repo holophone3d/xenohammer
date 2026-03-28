@@ -2111,11 +2111,12 @@ export class GameManager {
     }
 
     // Touch-friendly large arrow overlays for power adjustment
-    private static readonly CUST_ARROW_W = 70;
-    private static readonly CUST_ARROW_H = 100;
-    private static readonly CUST_ARROW_Y = 380;
-    private static readonly CUST_ARROW_LEFT_X = 10;
-    private static readonly CUST_ARROW_RIGHT_X = 430;
+    // Each button spans half the info panel width (0→512), aligned to bottom
+    private static readonly CUST_ARROW_W = 252;
+    private static readonly CUST_ARROW_H = 94;
+    private static readonly CUST_ARROW_Y = 506;
+    private static readonly CUST_ARROW_LEFT_X = 2;
+    private static readonly CUST_ARROW_RIGHT_X = 258;
 
     private renderCustTouchArrows(ctx: CanvasRenderingContext2D, sel: number): void {
         const mouse = this.input.getMousePos();
@@ -2128,7 +2129,7 @@ export class GameManager {
         const hoverL = mouse.x >= LX && mouse.x <= LX + AW && mouse.y >= AY && mouse.y <= AY + AH;
         const hoverR = mouse.x >= RX && mouse.x <= RX + AW && mouse.y >= AY && mouse.y <= AY + AH;
 
-        const label = sel <= 4 ? ['◀ Rate', 'Power ▶'] : ['◀ Shield', 'Speed ▶'];
+        const label = sel <= 4 ? ['◀  Rate', 'Power  ▶'] : ['◀  Shield', 'Speed  ▶'];
 
         // Left arrow (increase c1 / rate)
         ctx.fillStyle = hoverL ? 'rgba(0,255,0,0.25)' : 'rgba(0,255,0,0.10)';
@@ -2137,9 +2138,9 @@ export class GameManager {
         ctx.lineWidth = 2;
         ctx.strokeRect(LX, AY, AW, AH);
         ctx.fillStyle = hoverL ? '#0f0' : 'rgba(0,255,0,0.6)';
-        ctx.font = '14px XenoFont, monospace';
+        ctx.font = '22px XenoFont, monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(label[0], LX + AW / 2, AY + AH / 2 + 5);
+        ctx.fillText(label[0], LX + AW / 2, AY + AH / 2 + 8);
 
         // Right arrow (increase c2 / power)
         ctx.fillStyle = hoverR ? 'rgba(0,255,0,0.25)' : 'rgba(0,255,0,0.10)';
@@ -2148,7 +2149,7 @@ export class GameManager {
         ctx.lineWidth = 2;
         ctx.strokeRect(RX, AY, AW, AH);
         ctx.fillStyle = hoverR ? '#0f0' : 'rgba(0,255,0,0.6)';
-        ctx.fillText(label[1], RX + AW / 2, AY + AH / 2 + 5);
+        ctx.fillText(label[1], RX + AW / 2, AY + AH / 2 + 8);
     }
 
     private renderTurretAngleSelector(ctx: CanvasRenderingContext2D, sel: number): void {
