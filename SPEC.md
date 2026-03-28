@@ -333,7 +333,7 @@ Bottom text (y=580) shows currently selected difficulty.
 - Shields absorb damage first; overflow passes to armor
 
 ### Weapons
-5 weapon slots, all fire simultaneously when Space is held, every 150ms:
+5 weapon slots, all fire simultaneously when Space is held (each at its own fire rate):
 
 | Slot | Type | Offset (x, y) | Default Angle |
 |------|------|---------------|---------------|
@@ -347,16 +347,32 @@ Bottom text (y=580) shows currently selected difficulty.
 
 ## 5. Weapons
 
+### Power Cell System (C++ PowerPlant)
+
+Each weapon has **two independent power cells** that control different aspects:
+
+| Cell | Purpose | Formula | Default | Max |
+|------|---------|---------|---------|-----|
+| **Cell 1** (WEAPON_RATE) | Fire rate | `effectiveDelay = baseDelay / getPowerMUX(cell1)` | 1 (1.5×) | 5 (5.0×) |
+| **Cell 2** (WEAPON_POWER) | Damage + sprite | `actualDamage = baseDamage × getPowerMUX(cell2)` | 1 (1.5×) | 5 (5.0×) |
+
+- **Sprite frame** = `cell2 - 1` (higher cell → larger/more powerful projectile sprite)
+- Cell values are upgraded via the Ship Customization screen using Research Units (RUs)
+- Both cells start at 1 for all weapons; max achievable through upgrades is 5
+
 ### Player Weapons
 
 | Property | Blaster (1) | Turret (2) | Missile (3) |
 |----------|------------|------------|-------------|
 | Base Damage | 6 | 4 | 10 |
-| Damage Formula | 6 × WEAPON_POWER mult | 4 × WEAPON_POWER mult | 10 × WEAPON_POWER mult |
-| Fire Rate | 100ms | 250ms | 1000ms |
+| Damage Formula | 6 × getPowerMUX(cell2) | 4 × getPowerMUX(cell2) | 10 × getPowerMUX(cell2) |
+| Base Fire Rate | 100ms (BLASTER_DELAY) | 250ms (TURRET_DELAY) | 1000ms (MISSILE_DELAY) |
+| Effective Fire Rate | 100ms / getPowerMUX(cell1) | 250ms / getPowerMUX(cell1) | 1000ms / getPowerMUX(cell1) |
 | Projectile Speed | dy = −27 px/frame | angle-dependent (see below) | dy = −17 px/frame |
 | Sprite Frames | 5 (`blaster_1`–`5`) | 5 (`turret_1`–`5`) | 5 (`torp_1`–`5`) |
 | Special | — | Rotatable angle | Homing after 50px travel (if researched) |
+
+At default cell1=1 (1.5× multiplier): Blaster fires every 67ms, Turret every 167ms, Missile every 667ms.
 
 **Turret Velocity Lookup Table** (discrete 8-angle table from `Projectile.cpp`, NOT trigonometry):
 
@@ -382,13 +398,24 @@ Angles snap to the nearest 45° before lookup. Default turret angles: Left=135°
 
 ### Enemy Weapons
 
+Enemy weapons use the **default PowerPlant(1,1)** — cell1=1, cell2=1, giving a 1.5× multiplier
+to both fire rate and damage (same as player weapons at starting power). This means effective
+damage is higher than the raw formula values below.
+
 | Property | Enemy Blaster (4) | Enemy Cannon (5) |
 |----------|-------------------|------------------|
-| Base Damage | 5 × 3 multiplier = 15 | 5 × 4 multiplier = 20 |
-| Fire Rate | 100ms | 250ms |
+| Base Damage | 3 × ENEMY_DAMAGE_1(5) = 15 | 4 × ENEMY_DAMAGE_1(5) = 20 |
+| Effective Damage | 15 × 1.5 = **22** | 20 × 1.5 = **30** (gunship: 20 × 2.0 = **40**) |
+| Base Fire Rate | 100ms (BLASTER_DELAY) | 250ms (TURRET_DELAY) |
+| Effective Fire Rate | 100ms / 1.5 = **67ms** | 250ms / 1.5 = **167ms** |
 | Projectile Speed | Inherits ship velocity ×2 | dy = +21 px/frame |
 | Sprite Frames | 8 (`enemy_1`–`8`) | 8 (`enemy_1`–`8`) |
 | Used By | Light Fighters, Heavy Fighters | Gunships, Frigates |
+
+**Note:** Gunship explicitly sets `power_cell_2 = 2` (C++ `EnemyShip.h`), giving 2.0× damage.
+All other enemies use the default cell2=1 (1.5×). The AI-level fire rate (400ms for Light Fighters,
+1000ms for Fighter B, 600ms for Gunships) is the primary timing gate — the weapon's own fire rate
+only matters when the AI interval is shorter (e.g., boss turret sweeping at 60ms).
 
 ### Power Multipliers (Cell Total → Multiplier)
 
@@ -554,11 +581,14 @@ U-COMPONENT BASE:
 | Component | Offset (x,y) | Shields | Armor | Damageable | Sprite | Start Frame |
 |-----------|-------------|---------|-------|------------|--------|-------------|
 | CenterNode | (0, 0) | 1000+Hp | 1000+Hp | **true*** | CenterNodeTemplate (160×160) | 0 |
-| CenterOrb | (48, 48) | 1000+Hp | 1000+Hp | **false** | OrbTemplate (64×64) | 0 |
+| CenterOrb | (48, 48) | 1000+Hp | 1000+Hp | **false**† | OrbTemplate (64×64) | 0 |
 
-\* CenterNode is created with `damageable=true` in C++, but is effectively protected during
-Normal phase by collision priority order (CenterOrb checked first, blocks hits). Both CenterNode
-and CenterOrb become explicitly damageable at BOSS_MORPH2→BOSS_FINAL transition.
+\* CenterNode is created with `damageable=true` in C++, but during Normal phase it is protected
+by the boss shield (solid circle hitbox blocks all projectiles to internals). CenterNode becomes
+effectively targetable only at **BOSS_FINAL** state.
+
+† CenterOrb is created with `damageable=false`. It is set to `damageable=true` at the
+BOSS_MORPH2→BOSS_FINAL transition. Destroying CenterOrb triggers the death sequence.
 
 #### Outer Nodes (4) — Structural, effectively invulnerable
 
@@ -616,7 +646,9 @@ Created with `damageable=false` then immediately set to `true` via `set_damageab
 | LeftU | (LEFTU_X−80, LEFTU_Y−336) = (−174, −404) | 500+Hp | 500+Hp | bossul (144×288) |
 | RightU | (RIGHTU_X+80, RIGHTU_Y−336) = (192, −401) | 500+Hp | 500+Hp | bossur (144×288) |
 
-Only visible/rendered during Morph1, Morph2, and Final states.
+Created with `damageable=false` in C++ and **never** changed. The arms themselves are not
+targetable — only the turrets mounted on them can be hit. Only visible/rendered during
+Morph1, Morph2, and Final states.
 
 #### Boss Shield
 
@@ -649,6 +681,15 @@ All turrets fire in ALL states after entering. Weapon: ENEMYBLASTER, power cell 
 
 Turret weapon positions: `(turret_x_offset + 16, turret_y_offset + 16)`.
 
+**Turret Weapon Timing (CRITICAL):** Boss turrets have **two independent timing gates**:
+1. **TurretAI fireRate** — AI-level cooldown (e.g., 60ms for SWEEPING)
+2. **Weapon ready_to_fire()** — `BLASTER_DELAY / getPowerMUX(cell1)` = 100 / 1.5 ≈ **67ms**
+
+Both must be satisfied for a projectile to spawn. For SWEEPING turrets (60ms AI rate),
+the weapon cooldown blocks every other tick, giving an effective rate of ~120ms.
+Boss turrets use power_cell_1=1 (default), power_cell_2=4 (3.0× multiplier).
+Effective damage: 3 × ENEMY_DAMAGE_1(5) × getPowerMUX(4) = 15 × 3.0 = **45**.
+
 #### 6 U-Turrets (on U-components)
 
 | UTurret | Start Offset (absolute) | Shields | Armor | AI Type | Fire Rate (ms) |
@@ -660,7 +701,9 @@ Turret weapon positions: `(turret_x_offset + 16, turret_y_offset + 16)`.
 | 4 | (252, −230) | 0 | 600+Hp | NORMAL | 500 |
 | 5 | (252, −281) | 0 | 600+Hp | SWEEPING | 60 |
 
-U-turrets **only fire during BOSS_FINAL state**. Sprite: GunTurretTemplate (33 frames).
+U-turrets **only fire during BOSS_FINAL state**. However, they are **always damageable**
+(created with `damageable=true` in C++) — players can damage them during morph phases.
+Sprite: GunTurretTemplate (33 frames).
 
 UTurret weapon positions:
 - Left U (indices 0–2): `(x_offset + 96, y_offset + 352)`
@@ -672,18 +715,23 @@ UTurret weapon positions:
 |------|----------|
 | NORMAL | Tracks player, fires when facing. FireRate = cooldown between shots |
 | RANDOM | Snaps to random frame every FireRate ms, fires |
-| SWEEPING | Increments frame by 1 every FireRate ms, fires continuously |
+| SWEEPING | Turns to heading−5, waits 3000ms, then sweeps +1 frame/FireRate ms firing continuously until heading+5 (10 frame arc ≈ 112°) |
 | FIXED | Never changes frame (unused on boss) |
+
+Turn rate for all types: **65ms per frame** (TURRET_TURN_RATE).
 
 #### Turret Fire Direction (C++ `FireTurret()`)
 
 ```
 frame → angle:  rad = ((frame - 8) / 32) × 2π
 offset:         x_off = cos(rad) × 24,  y_off = sin(rad) × −24
-projectile:     position = boss + offset,  velocity = offset / 2
+C++ velocity:   weapon.fire(x + x_off, y + y_off, x_off/2, y_off/2)
+                Projectile doubles: dx = (x_off/2)×2 = x_off, dy = (y_off/2)×2 = y_off
+                → final velocity magnitude ≈ 24 px/frame
 ```
 
 Frame 0 = right, Frame 8 = down (toward player), Frame 16 = left, Frame 24 = up.
+32 frames = 360°. Uses trig (NOT the discrete 8-angle player turret table).
 
 ### 8.4 State Machine
 
@@ -759,9 +807,12 @@ Each component's `collision_update()` checks:
 **Ship-body collision** (`collision_update_ship`) has a different order:
 CenterNode → OuterNodes[0–3] → LeftU → RightU → Connectors[0–2] → bossShield
 
-**Web implementation note:** Web version checks shield FIRST (sprite-level collision masks
-with transparent center let bullets through to inner components). This is a deliberate
-design choice for better gameplay feel with sprite-mask collision detection.
+**Web implementation note:** The `bossShield.png` sprite has a transparent center, so pixel-mask
+collision would let bullets through. When `shieldActive` (orbCount > 0), the web version uses a
+**solid circle hitbox** (radius=128px, centered on boss) instead of the sprite mask. All internal
+components (platforms, connectors, centerNode, centerOrb, bossShield) are protected while shield
+is active — only outer orbs and outer turrets are targetable through the shield. When shield is
+inactive, normal sprite-mask collision applies.
 
 ### 8.6 Cascade Destruction (When Outer Orb Dies)
 
