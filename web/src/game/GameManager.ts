@@ -2276,8 +2276,8 @@ export class GameManager {
     private debugLastClickX = 0;
     private debugLastClickY = 0;
 
-    private readonly DEBUG_CORNER_W = 100;
-    private readonly DEBUG_CORNER_H = 60;
+    private readonly DEBUG_CORNER_W = 160;  // ~20% of 800
+    private readonly DEBUG_CORNER_H = 120;  // ~20% of 600
     private readonly DEBUG_DOUBLE_TAP_MS = 400;
 
     private handleDebugKeys(): void {
@@ -2373,7 +2373,8 @@ export class GameManager {
             case 4: this.debugExec(() => this.debugSpawnBoss()); break;
             case 5: this.debugToggleGodMode(); this.debugKeyDebounce = 15; break;
             case 6: this.debugExec(() => { if (this.player) this.player.powerPlant.resourceUnits += 10; }); break;
-            case 7: this.debugExec(() => this.returnToReadyRoom()); break;
+            case 7: this.debugCycleTouchMode('portrait'); break;
+            case 8: this.debugCycleTouchMode('landscape'); break;
         }
     }
 
@@ -2392,7 +2393,8 @@ export class GameManager {
         '5  Boss Fight',
         '6  God Mode + Max Power',
         '7  +10 RUs',
-        'ESC  Ready Room',
+        '8  Touch: Portrait',
+        '9  Touch: Landscape',
     ];
 
     private debugHitTestOverlay(mx: number, my: number): number {
@@ -2427,6 +2429,13 @@ export class GameManager {
         this.boss = null;
         this.particles.clear();
         this.state = GameState.ReadyRoom;
+    }
+
+    /** Public wrapper for touch ESC button. */
+    escToReadyRoom(): void {
+        if (this.state === GameState.Playing) {
+            this.returnToReadyRoom();
+        }
     }
 
     private debugJumpToLevel(levelIndex: number): void {
@@ -2514,6 +2523,19 @@ export class GameManager {
         }
     }
 
+    private debugCycleTouchMode(mode: 'portrait' | 'landscape'): void {
+        if (!this.touchControls) return;
+        const cur = this.touchControls.getForceMode();
+        // Toggle: if already this mode, turn off; otherwise set it
+        if (cur === mode) {
+            this.touchControls.forceMode(null);
+        } else {
+            this.touchControls.forceMode(mode);
+        }
+        this.debugMenuOpen = false;
+        this.debugKeyDebounce = 15;
+    }
+
     private renderDebugHint(): void {
         const ctx = this.canvas.ctx;
         ctx.save();
@@ -2579,8 +2601,14 @@ export class GameManager {
                 const hover = mouse.x >= bx && mouse.x <= bx + bw &&
                               mouse.y >= by && mouse.y <= by + bh;
 
-                // Button background
-                if (i === 5 && this.debugActive) {
+                // Button background — highlight active toggles
+                const touchMode = this.touchControls?.getForceMode() ?? null;
+                const isActiveToggle =
+                    (i === 5 && this.debugActive) ||
+                    (i === 7 && touchMode === 'portrait') ||
+                    (i === 8 && touchMode === 'landscape');
+
+                if (isActiveToggle) {
                     ctx.fillStyle = hover ? 'rgba(255,200,0,0.35)' : 'rgba(255,200,0,0.2)';
                 } else {
                     ctx.fillStyle = hover ? 'rgba(0,255,100,0.2)' : 'rgba(0,255,100,0.07)';
@@ -2598,8 +2626,8 @@ export class GameManager {
                 ctx.fillStyle = hover ? '#fff' : '#0f0';
                 ctx.fillText(this.DEBUG_OPTIONS[i], bx + 12, by + bh / 2 + 5);
 
-                // God mode ON indicator
-                if (i === 5 && this.debugActive) {
+                // Active toggle ON indicator
+                if (isActiveToggle) {
                     ctx.fillStyle = '#ff0';
                     ctx.textAlign = 'right';
                     ctx.fillText('ON', bx + bw - 10, by + bh / 2 + 5);

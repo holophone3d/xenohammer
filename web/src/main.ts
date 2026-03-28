@@ -26,6 +26,7 @@ game.init().then(() => {
     // Create touch controls (self-appends to body)
     const touch = new TouchControls(game.input);
     game.touchControls = touch;
+    touch.onEsc = () => game.escToReadyRoom();
     const reserved = touch.getReservedHeight();
 
     if (touch.isTouchDevice) {
