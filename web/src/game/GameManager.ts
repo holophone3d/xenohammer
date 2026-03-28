@@ -2,7 +2,8 @@
  * GameManager — main game state machine and orchestrator.
  */
 
-import { GameCanvas, Input, AudioManager, AssetLoader, ParticleSystem, SoundInstance, TouchControls } from '../engine';
+import { GameCanvas, Input, AudioManager, AssetLoader, ParticleSystem, SoundInstance } from '../engine';
+import type { TouchControls } from '../engine';
 import { LEVELS } from '../data/levels';
 import { ENEMY_SCORES, RANKINGS, TURRET_VELOCITY_TABLE } from '../data/ships';
 import { rectsOverlap, PLAY_AREA_W, PLAY_AREA_H } from './Collision';
@@ -345,8 +346,6 @@ export class GameManager {
         if (this.input.isMousePressed() ||
             this.input.isKeyPressed(Input.SPACE) ||
             this.input.isKeyPressed(Input.ENTER)) {
-            // Prime iOS audio session (must be in user-gesture call stack)
-            this.audio.primeIOSAudio();
             try { this.audio.playSound('Space', true); } catch { /* skip */ }
             this.started = true;
             this.state = GameState.ReadyRoom;

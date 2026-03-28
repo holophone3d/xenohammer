@@ -4,10 +4,10 @@
  * Web Audio gives us sample-accurate looping (no MP3 gap), low latency,
  * and proper mixing. HTML5 Audio streams music efficiently.
  *
- * iOS Safari quirk: the media session stays locked until an original
- * (non-cloned) HTMLAudioElement.play() fires in a user-gesture call stack.
- * Call primeIOSAudio() on the first user tap to unlock both HTML5 Audio
- * and Web Audio for the rest of the page session.
+ * iOS Safari: the media session stays locked until an original (non-cloned)
+ * HTMLAudioElement.play() fires inside a user-gesture call stack.
+ * We self-arm a document-level touchstart/click handler that runs the
+ * primer directly in the gesture context — no game-loop delay.
  */
 
 export interface SoundInstance {
@@ -29,6 +29,11 @@ export class AudioManager {
     private musicVolume = 0.5;
     private sfxVolume = 0.7;
     private iosPrimed = false;
+    private contextResumed = false;
+
+    constructor() {
+        this.armGestureUnlock();
+    }
 
     private ensureContext(): AudioContext {
         if (!this.ctx) {
@@ -41,53 +46,62 @@ export class AudioManager {
     }
 
     /**
-     * Unlock the iOS media session by briefly playing a real preloaded
-     * music element. Also resumes the AudioContext. Must be called
-     * synchronously from a user gesture (touch/click).
+     * Self-arming gesture unlock. Registers document-level touchstart/click
+     * handlers (capture phase) that fire directly in the user gesture
+     * context — necessary for iOS audio.play() to succeed.
+     * Keeps listening until both AudioContext is resumed and iOS media
+     * session is primed (or not iOS).
      */
-    primeIOSAudio(): void {
-        if (this.iosPrimed) return;
-        this.iosPrimed = true;
+    private armGestureUnlock(): void {
+        const events = ['touchstart', 'click'] as const;
 
-        // Always resume AudioContext on first gesture (needed for all browsers)
-        const ctx = this.ensureContext();
-        if (ctx.state === 'suspended') {
-            ctx.resume().catch(() => {});
-        }
-
-        // iOS-specific: play a real HTML5 Audio music element to unlock media session
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        if (!isIOS) return;
 
-        const music = this.musicElements.values().next().value as HTMLAudioElement | undefined;
-        if (!music) {
-            console.warn('[Audio] primeIOSAudio: no music loaded yet');
-            this.iosPrimed = false;
-            return;
-        }
+        const handler = () => {
+            // 1. Resume AudioContext (all browsers)
+            if (!this.contextResumed) {
+                const ctx = this.ensureContext();
+                if (ctx.state === 'suspended') {
+                    ctx.resume().catch(() => {});
+                }
+                this.contextResumed = true;
+            }
 
-        const savedVolume = music.volume;
-        const savedTime = music.currentTime;
-        const savedLoop = music.loop;
+            // 2. iOS: play+pause a real music element
+            if (isIOS && !this.iosPrimed) {
+                const music = this.musicElements.values().next().value as
+                    HTMLAudioElement | undefined;
+                if (!music) return; // Music not loaded yet — keep listening
 
-        music.volume = 0.001;
-        music.loop = false;
+                this.iosPrimed = true;
+                const sv = music.volume, st = music.currentTime, sl = music.loop;
+                music.volume = 0.001;
+                music.loop = false;
 
-        music.play().then(() => {
-            setTimeout(() => {
-                music.pause();
-                music.currentTime = savedTime;
-                music.volume = savedVolume;
-                music.loop = savedLoop;
-                console.log('[Audio] iOS media session primed');
-            }, 50);
-        }).catch(e => {
-            console.warn('[Audio] iOS prime failed:', e);
-            music.volume = savedVolume;
-            music.loop = savedLoop;
-            this.iosPrimed = false;
-        });
+                music.play().then(() => {
+                    setTimeout(() => {
+                        music.pause();
+                        music.currentTime = st;
+                        music.volume = sv;
+                        music.loop = sl;
+                        console.log('[Audio] iOS media session primed');
+                    }, 50);
+                }).catch(() => {
+                    this.iosPrimed = false; // retry on next gesture
+                });
+            }
+
+            // Remove listeners once fully unlocked
+            if (this.contextResumed && (!isIOS || this.iosPrimed)) {
+                events.forEach(e =>
+                    document.removeEventListener(e, handler, true));
+            }
+        };
+
+        // Capture phase — fires before any other handlers
+        events.forEach(e =>
+            document.addEventListener(e, handler, true));
     }
 
     /** Load a sound effect into a Web Audio buffer. */
