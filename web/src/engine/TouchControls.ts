@@ -96,7 +96,7 @@ export class TouchControls {
         const fireSize = Math.min(h - pad * 2, w * 0.18);
         const cfgSize = Math.min(h * 0.45, w * 0.10);
 
-        this.positionCircle(this.dpadBg, w * 0.15, h * 0.5, dpadSize / 2);
+        this.positionCircle(this.dpadBg, w * 0.22, h * 0.5, dpadSize / 2);
         this.positionCircle(this.fireEl, w * 0.78, h * 0.5, fireSize / 2);
         this.positionCircle(this.cfgEl, w * 0.58, h * 0.5, cfgSize / 2);
 
@@ -206,7 +206,7 @@ export class TouchControls {
 
         // Zone centers & radii (match layout percentages)
         const dpadSize = Math.min(h * 0.84, w * 0.33);
-        const dCx = w * 0.15, dCy = h * 0.5, dR = dpadSize / 2;
+        const dCx = w * 0.22, dCy = h * 0.5, dR = dpadSize / 2;
         const dead = dR * 0.22;
 
         const fireSize = Math.min(h * 0.84, w * 0.18);

@@ -346,7 +346,11 @@ export class GameManager {
         if (this.input.isMousePressed() ||
             this.input.isKeyPressed(Input.SPACE) ||
             this.input.isKeyPressed(Input.ENTER)) {
-            try { this.audio.playSound('Space', true); } catch { /* skip */ }
+            // Delay Space ambient slightly — on iOS the AudioContext needs
+            // time to resume after the gesture handler's ctx.resume() call
+            setTimeout(() => {
+                try { this.audio.playSound('Space', true); } catch { /* skip */ }
+            }, 150);
             this.started = true;
             this.state = GameState.ReadyRoom;
         }

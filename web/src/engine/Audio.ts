@@ -119,35 +119,22 @@ export class AudioManager {
 
     /** Play a loaded sound effect via Web Audio. */
     playSound(id: string, loop = false, volumeScale = 1.0): SoundInstance {
-        const ctx = this.ensureContext();
         const buffer = this.sfxBuffers.get(id);
-        if (!buffer) return AudioManager.nullInstance();
+        if (!buffer || !this.ctx) return AudioManager.nullInstance();
 
-        const source = ctx.createBufferSource();
+        const source = this.ctx.createBufferSource();
         source.buffer = buffer;
         source.loop = loop;
 
         // Per-sound volume via a gain node
-        const gain = ctx.createGain();
+        const gain = this.ctx.createGain();
         gain.gain.value = Math.min(1, this.sfxVolume * volumeScale);
         source.connect(gain);
         gain.connect(this.sfxGain);
 
         let playing = true;
         source.onended = () => { playing = false; };
-
-        // If context is still resuming (e.g. iOS first gesture), defer start
-        if (ctx.state === 'running') {
-            source.start(0);
-        } else {
-            const onRunning = () => {
-                if (ctx.state === 'running') {
-                    source.start(0);
-                    ctx.removeEventListener('statechange', onRunning);
-                }
-            };
-            ctx.addEventListener('statechange', onRunning);
-        }
+        source.start(0);
 
         const inst: SoundInstance = {
             stop() {
