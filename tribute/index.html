@@ -3,515 +3,648 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XenoHammer — A Tribute</title>
+<title>XenoHammer  A Tribute to the 2001 Space Shooter</title>
+<meta name="description" content="XenoHammer: A top-down space combat arcade shooter made by Georgia Tech seniors in 2001. Selected for the IGF 2002 Student Showcase at GDC. Now playable in your browser.">
 <style>
-/* ── Reset & Base ── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background: #0a0a0f;
-  color: #c8c8d0;
-  line-height: 1.6;
-  overflow-x: hidden;
+/* ===== RESET & BASE ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#08080f;--bg2:#0c0c18;--bg3:#10101f;
+  --green:#00ff66;--green-dim:#00cc52;--green-glow:rgba(0,255,102,.15);
+  --blue:#4488ff;--blue-dim:#3366cc;--cyan:#44ddee;
+  --text:#c8c8d0;--text-dim:#667788;--text-bright:#e8e8f0;
+  --border:#1a2a3a;--border-glow:rgba(0,255,102,.25);
+  --card:#0a0f1acc;--card-hover:#0e1422dd;
+  --nav-h:56px;
+  --play-w:650px;
 }
-a { color: #4af; text-decoration: none; }
-a:hover { color: #8cf; text-decoration: underline; }
+html{scroll-behavior:smooth;scroll-padding-top:var(--nav-h)}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;line-height:1.6;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+a{color:var(--green);text-decoration:none;transition:color .2s}
+a:hover{color:var(--cyan)}
+img{max-width:100%;height:auto;display:block}
+h1,h2,h3,h4{color:var(--text-bright);font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+h2{font-size:clamp(1.5rem,4vw,2.2rem);margin-bottom:.3em}
+.section-sub{color:var(--text-dim);font-size:.95rem;letter-spacing:.05em;margin-bottom:2.5rem;text-transform:uppercase}
 
-/* ── Starfield Background ── */
-.stars {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  pointer-events: none; z-index: -1;
-  background:
-    radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(1px 1px at 30% 60%, rgba(255,255,255,0.4), transparent),
-    radial-gradient(1px 1px at 50% 10%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(1px 1px at 70% 80%, rgba(255,255,255,0.3), transparent),
-    radial-gradient(1px 1px at 90% 40%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(1.5px 1.5px at 15% 85%, rgba(100,180,255,0.4), transparent),
-    radial-gradient(1px 1px at 85% 15%, rgba(255,200,100,0.3), transparent),
-    radial-gradient(1px 1px at 45% 45%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(1px 1px at 65% 35%, rgba(255,255,255,0.4), transparent),
-    radial-gradient(1px 1px at 25% 75%, rgba(255,255,255,0.3), transparent);
-  background-size: 200px 200px;
-}
+/* ===== CANVAS STARFIELD ===== */
+#starfield{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none}
 
-/* ── Layout ── */
-.container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
-section { padding: 80px 0; }
-h2 {
-  font-size: 1.8rem; color: #fff; margin-bottom: 32px;
-  border-bottom: 2px solid #1a3a1a; padding-bottom: 12px;
-  text-transform: uppercase; letter-spacing: 2px;
-}
-h3 { font-size: 1.2rem; color: #8f8; margin-bottom: 8px; }
+/* ===== SCANLINE OVERLAY ===== */
+.scanlines{position:relative;overflow:hidden}
+.scanlines::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.06) 2px,rgba(0,0,0,.06) 4px);pointer-events:none;z-index:2}
 
-/* ── Hero ── */
-.hero {
-  min-height: 100vh; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; text-align: center;
-  background: radial-gradient(ellipse at 50% 30%, rgba(0,40,20,0.4), transparent 70%);
-}
-.hero-title {
-  font-size: clamp(2.5rem, 8vw, 5rem); font-weight: 900;
-  letter-spacing: 6px; text-transform: uppercase;
-  background: linear-gradient(135deg, #0f0, #4af, #0f0);
-  background-size: 200% 200%;
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: shimmer 4s ease-in-out infinite;
-}
-@keyframes shimmer {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-}
-.hero-sub {
-  font-size: 1.1rem; color: #8a8; margin: 16px 0 8px;
-  font-style: italic;
-}
-.hero-tagline {
-  font-size: 0.95rem; color: #667; margin-bottom: 40px;
-}
-.hero-quote {
-  font-size: 0.85rem; color: #5a5; font-style: italic;
-  margin-bottom: 48px; max-width: 500px;
-}
-.btn-play {
-  display: inline-block; padding: 18px 64px;
-  font-size: 1.4rem; font-weight: 700; letter-spacing: 4px;
-  text-transform: uppercase; color: #0a0a0f;
-  background: linear-gradient(135deg, #0f0, #0c0);
-  border: 2px solid #0f0; border-radius: 8px;
-  box-shadow: 0 0 30px rgba(0,255,0,0.2), inset 0 0 20px rgba(0,255,0,0.1);
-  transition: all 0.3s;
-  text-decoration: none;
-}
-.btn-play:hover {
-  background: linear-gradient(135deg, #2f2, #0f0);
-  box-shadow: 0 0 50px rgba(0,255,0,0.4), inset 0 0 30px rgba(0,255,0,0.15);
-  transform: translateY(-2px);
-  text-decoration: none; color: #0a0a0f;
-}
-.nav-links {
-  margin-top: 32px; display: flex; gap: 32px;
-  font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;
-}
+/* ===== LAYOUT ===== */
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+section{position:relative;z-index:1;padding:5rem 0}
+.section-line{width:60px;height:3px;background:linear-gradient(90deg,var(--green),var(--blue));border-radius:2px;margin-bottom:1rem}
 
-/* ── About ── */
-.about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
-.about-grid p { color: #aab; }
-.feature-list { list-style: none; }
-.feature-list li {
-  padding: 6px 0; color: #aab;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-.feature-list li::before { content: '▸ '; color: #0f0; }
+/* ===== SCROLL ANIMATIONS ===== */
+.reveal{opacity:0;transform:translateY(30px);transition:opacity .7s ease,transform .7s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal-delay-1{transition-delay:.1s}
+.reveal-delay-2{transition-delay:.2s}
+.reveal-delay-3{transition-delay:.3s}
+.reveal-delay-4{transition-delay:.4s}
 
-/* ── Team ── */
-.team-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; }
-.team-card {
-  background: rgba(20,30,20,0.5); border: 1px solid #1a3a1a;
-  border-radius: 8px; padding: 24px; text-align: center;
-}
-.team-card .name { font-size: 1.1rem; color: #fff; font-weight: 600; }
-.team-card .role { font-size: 0.85rem; color: #8f8; margin-top: 4px; }
+/* ===== NAVIGATION ===== */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--nav-h);display:flex;align-items:center;transition:background .3s,backdrop-filter .3s,box-shadow .3s}
+nav.scrolled{background:rgba(8,8,15,.85);backdrop-filter:blur(12px);box-shadow:0 1px 0 var(--border)}
+nav .nav-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;width:100%;display:flex;align-items:center;justify-content:space-between}
+.nav-brand{font-size:1.1rem;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--green);text-shadow:0 0 20px rgba(0,255,102,.3)}
+.nav-links{display:flex;gap:1.5rem;list-style:none}
+.nav-links a{color:var(--text-dim);font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600;transition:color .2s}
+.nav-links a:hover,.nav-links a.active{color:var(--green)}
+.hamburger{display:none;background:none;border:none;color:var(--text);font-size:1.5rem;cursor:pointer;padding:.25rem}
+.mobile-menu{display:none;position:fixed;top:var(--nav-h);left:0;right:0;background:rgba(8,8,15,.95);backdrop-filter:blur(12px);padding:1rem 1.5rem;z-index:99;border-bottom:1px solid var(--border)}
+.mobile-menu.open{display:flex;flex-direction:column;gap:.75rem}
+.mobile-menu a{color:var(--text-dim);font-size:.9rem;letter-spacing:.08em;text-transform:uppercase;font-weight:600;padding:.5rem 0}
+.mobile-menu a:hover{color:var(--green)}
 
-/* ── Screenshots ── */
-.screenshot-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-}
-.screenshot-grid img {
-  width: 100%; border-radius: 6px;
-  border: 1px solid #1a3a1a;
-  transition: transform 0.3s, box-shadow 0.3s;
-  cursor: pointer;
-}
-.screenshot-grid img:hover {
-  transform: scale(1.03);
-  box-shadow: 0 0 20px rgba(0,255,0,0.15);
-}
-.screenshot-grid .caption {
-  font-size: 0.8rem; color: #667; margin-top: 4px; text-align: center;
-}
+/* ===== HERO ===== */
+.hero{position:relative;z-index:1;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden}
+.hero-bg{position:absolute;inset:0;z-index:0}
+.hero-bg img{width:100%;height:100%;object-fit:cover;opacity:.15;filter:blur(2px)}
+.hero-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,8,15,.4) 0%,rgba(8,8,15,.85) 60%,var(--bg) 100%)}
+.hero-content{position:relative;z-index:2;padding:2rem 1.5rem}
+.hero-title{font-size:clamp(2.8rem,8vw,5.5rem);font-weight:900;letter-spacing:.12em;text-transform:uppercase;background:linear-gradient(135deg,var(--green),var(--cyan),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:glow-pulse 4s ease-in-out infinite;line-height:1.1}
+@keyframes glow-pulse{0%,100%{filter:drop-shadow(0 0 20px rgba(0,255,102,.3))}50%{filter:drop-shadow(0 0 40px rgba(0,255,102,.5))}}
+.hero-codename{font-size:clamp(.85rem,2vw,1.1rem);color:var(--text-dim);letter-spacing:.25em;text-transform:uppercase;margin-top:.75rem}
+.hero-tagline{font-size:clamp(1rem,2.5vw,1.35rem);color:var(--text);margin-top:.5rem;font-weight:300}
+.hero-quote{font-style:italic;color:var(--cyan);margin-top:1.5rem;font-size:clamp(.85rem,1.8vw,1.05rem);max-width:600px;margin-left:auto;margin-right:auto;opacity:.85}
+.hero-quote span{color:var(--text-dim);font-style:normal}
+.hero-meta{color:var(--text-dim);font-size:.8rem;letter-spacing:.15em;text-transform:uppercase;margin-top:1.5rem}
+.hero-play{display:inline-flex;align-items:center;gap:.6rem;margin-top:2rem;padding:.9rem 2.5rem;background:linear-gradient(135deg,var(--green),#00dd55);color:#000;font-weight:800;font-size:1.1rem;letter-spacing:.1em;text-transform:uppercase;border:none;border-radius:4px;cursor:pointer;text-decoration:none;transition:transform .2s,box-shadow .2s;box-shadow:0 0 30px rgba(0,255,102,.3)}
+.hero-play:hover{transform:translateY(-2px);box-shadow:0 0 50px rgba(0,255,102,.5);color:#000}
+.hero-note{color:var(--text-dim);font-size:.75rem;margin-top:1rem;letter-spacing:.03em}
 
-/* ── Archives ── */
-.archive-card {
-  background: rgba(15,20,25,0.6); border: 1px solid #1a2a3a;
-  border-radius: 8px; padding: 28px; margin-bottom: 24px;
-}
-.archive-card .source-tag {
-  display: inline-block; font-size: 0.7rem; text-transform: uppercase;
-  letter-spacing: 1px; padding: 3px 10px; border-radius: 3px;
-  margin-bottom: 12px;
-}
-.tag-primary { background: rgba(255,60,60,0.15); color: #f66; border: 1px solid #622; }
-.tag-event { background: rgba(255,160,0,0.12); color: #fa0; border: 1px solid #642; }
-.tag-press { background: rgba(0,180,255,0.12); color: #4bf; border: 1px solid #246; }
-.tag-academic { background: rgba(255,255,0,0.1); color: #cc0; border: 1px solid #553; }
-.tag-ecosystem { background: rgba(100,255,100,0.1); color: #8f8; border: 1px solid #353; }
-.archive-card h3 { margin-bottom: 12px; }
-.archive-card blockquote {
-  border-left: 3px solid #1a3a3a; padding: 12px 16px;
-  margin: 16px 0; background: rgba(0,0,0,0.2);
-  color: #99a; font-style: italic; border-radius: 0 4px 4px 0;
-}
-.archive-card .source-link {
-  display: inline-block; margin-top: 12px;
-  font-size: 0.85rem; color: #4af;
-}
-.archive-card .meta {
-  font-size: 0.8rem; color: #556; margin-top: 8px;
-}
-.archive-img {
-  max-width: 100%; border-radius: 4px; margin: 16px 0;
-  border: 1px solid #1a3a1a;
-}
+/* ===== ABOUT ===== */
+.about-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:3rem;align-items:start}
+.about-text p{margin-bottom:1rem;line-height:1.75;color:var(--text)}
+.stat-boxes{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:2rem}
+.stat-box{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:1rem;text-align:center;transition:border-color .3s}
+.stat-box:hover{border-color:var(--green-dim)}
+.stat-box .val{font-size:1.6rem;font-weight:800;color:var(--green);display:block}
+.stat-box .lbl{font-size:.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin-top:.25rem;display:block}
+.tech-badges{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.5rem}
+.badge{background:var(--bg3);border:1px solid var(--border);padding:.3rem .75rem;border-radius:20px;font-size:.7rem;color:var(--text-dim);letter-spacing:.05em;text-transform:uppercase}
 
-/* ── Tech ── */
-.tech-badges { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
-.tech-badge {
-  padding: 6px 16px; border-radius: 20px; font-size: 0.85rem;
-  background: rgba(0,60,30,0.3); border: 1px solid #1a3a1a; color: #8f8;
-}
+/* ===== GALLERY ===== */
+.gallery-tabs{display:flex;gap:.5rem;margin-bottom:2rem;flex-wrap:wrap}
+.gallery-tab{padding:.5rem 1.25rem;background:var(--card);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);cursor:pointer;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;font-weight:600;transition:all .2s}
+.gallery-tab:hover{border-color:var(--text-dim)}
+.gallery-tab.active{border-color:var(--green);color:var(--green);background:rgba(0,255,102,.05)}
+.gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem}
+.gallery-item{position:relative;cursor:pointer;border-radius:6px;overflow:hidden;border:1px solid var(--border);transition:border-color .3s,transform .3s;aspect-ratio:4/3;background:var(--bg2)}
+.gallery-item:hover{border-color:var(--green-dim);transform:translateY(-3px)}
+.gallery-item img{width:100%;height:100%;object-fit:cover;transition:transform .4s}
+.gallery-item:hover img{transform:scale(1.05)}
+.gallery-item .caption{position:absolute;bottom:0;left:0;right:0;padding:.6rem .75rem;background:linear-gradient(transparent,rgba(0,0,0,.85));font-size:.75rem;color:var(--text);letter-spacing:.03em}
 
-/* ── Footer ── */
-footer {
-  padding: 40px 0; text-align: center;
-  border-top: 1px solid #1a1a1a; color: #445; font-size: 0.85rem;
-}
-footer .cactaur-img {
-  width: 80px; border-radius: 50%; margin-bottom: 16px;
-  border: 2px solid #1a3a1a; opacity: 0.7;
-}
+/* ===== LIGHTBOX ===== */
+.lightbox{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.92);backdrop-filter:blur(8px);align-items:center;justify-content:center;flex-direction:column}
+.lightbox.open{display:flex}
+.lightbox img{max-width:90vw;max-height:80vh;border-radius:4px;box-shadow:0 0 60px rgba(0,0,0,.5)}
+.lightbox .lb-caption{color:var(--text);margin-top:1rem;font-size:.9rem;text-align:center;max-width:600px}
+.lightbox .lb-close{position:absolute;top:1rem;right:1.5rem;background:none;border:none;color:var(--text);font-size:2rem;cursor:pointer;opacity:.7;transition:opacity .2s;z-index:201}
+.lightbox .lb-close:hover{opacity:1}
+.lightbox .lb-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);color:#fff;font-size:1.5rem;padding:.5rem .8rem;cursor:pointer;border-radius:4px;transition:background .2s;z-index:201}
+.lightbox .lb-nav:hover{background:rgba(255,255,255,.15)}
+.lightbox .lb-prev{left:1rem}
+.lightbox .lb-next{right:1rem}
+.lightbox .lb-counter{color:var(--text-dim);font-size:.75rem;margin-top:.5rem}
 
-/* ── Responsive ── */
-@media (max-width: 600px) {
-  .about-grid { grid-template-columns: 1fr; }
-  .hero-title { letter-spacing: 3px; }
-  .btn-play { padding: 14px 40px; font-size: 1.2rem; }
-  .nav-links { flex-direction: column; gap: 16px; }
-}
+/* ===== TIMELINE ===== */
+.timeline{position:relative;padding:2rem 0}
+.timeline::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:2px;background:linear-gradient(180deg,transparent,var(--border) 5%,var(--border) 95%,transparent);transform:translateX(-50%)}
+.tl-item{position:relative;width:50%;padding:0 2.5rem 3rem}
+.tl-item:nth-child(odd){left:0;text-align:right;padding-right:3rem;padding-left:0}
+.tl-item:nth-child(even){left:50%;text-align:left;padding-left:3rem;padding-right:0}
+.tl-dot{position:absolute;top:.25rem;width:14px;height:14px;background:var(--bg);border:2px solid var(--green);border-radius:50%;z-index:2}
+.tl-item:nth-child(odd) .tl-dot{right:-7px}
+.tl-item:nth-child(even) .tl-dot{left:-7px}
+.tl-date{display:inline-block;background:rgba(0,255,102,.1);color:var(--green);padding:.15rem .6rem;border-radius:3px;font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem}
+.tl-title{font-size:1rem;color:var(--text-bright);margin-bottom:.4rem;text-transform:none;letter-spacing:0}
+.tl-desc{font-size:.85rem;color:var(--text-dim);line-height:1.6}
 
-/* ── Lightbox ── */
-.lightbox {
-  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.92); z-index: 100;
-  align-items: center; justify-content: center; cursor: pointer;
+/* ===== ARCHIVES ===== */
+.archives-sub{margin-bottom:3.5rem}
+.archives-sub h3{font-size:1.15rem;color:var(--text-bright);margin-bottom:1.25rem;display:flex;align-items:center;gap:.5rem}
+.archives-sub h3 .icon{color:var(--green);font-size:1.2rem}
+.browser-mockup{background:#111;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:1.5rem;max-width:800px}
+.browser-bar{background:#1a1a2a;padding:.5rem .75rem;display:flex;align-items:center;gap:.5rem;border-bottom:1px solid var(--border)}
+.browser-dot{width:10px;height:10px;border-radius:50%;background:#333}
+.browser-dot.r{background:#ff5f56}.browser-dot.y{background:#ffbd2e}.browser-dot.g{background:#27c93f}
+.browser-url{background:#0a0a15;color:var(--text-dim);font-size:.7rem;padding:.25rem .5rem;border-radius:3px;margin-left:.5rem;flex:1;font-family:monospace}
+.browser-body{height:350px;overflow:hidden;position:relative}
+.browser-body iframe{width:100%;height:100%;border:none;transform:scale(1);transform-origin:top left}
+.archive-links{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.75rem}
+.archive-link{display:flex;align-items:center;gap:.6rem;padding:.7rem 1rem;background:var(--card);border:1px solid var(--border);border-radius:4px;transition:border-color .2s,background .2s;font-size:.85rem}
+.archive-link:hover{border-color:var(--green-dim);background:var(--card-hover)}
+.archive-link .al-icon{color:var(--green);font-size:1rem;flex-shrink:0}
+.press-cards{display:grid;gap:1rem}
+.press-card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:1.25rem 1.5rem;transition:border-color .3s}
+.press-card:hover{border-color:var(--green-dim)}
+.press-card h4{font-size:.95rem;color:var(--text-bright);margin-bottom:.5rem;text-transform:none;letter-spacing:0}
+.press-card p{font-size:.85rem;color:var(--text-dim);line-height:1.7}
+.press-card blockquote{border-left:3px solid var(--green);padding-left:1rem;margin:.75rem 0;color:var(--text);font-style:italic;font-size:.9rem;line-height:1.7}
+.press-card .src{font-size:.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-top:.5rem}
+.doc-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.75rem}
+.doc-item{display:flex;align-items:start;gap:.75rem;padding:.85rem 1rem;background:var(--card);border:1px solid var(--border);border-radius:4px;transition:border-color .2s}
+.doc-item:hover{border-color:var(--green-dim)}
+.doc-icon{color:var(--blue);font-size:1.2rem;flex-shrink:0;margin-top:.1rem}
+.doc-info .doc-name{font-size:.85rem;color:var(--text-bright);font-weight:600}
+.doc-info .doc-desc{font-size:.75rem;color:var(--text-dim);margin-top:.15rem}
+
+/* ===== STRATEGY ===== */
+.tips-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem;margin-bottom:2.5rem}
+.tip-card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:1.25rem;transition:border-color .3s}
+.tip-card:hover{border-color:var(--green-dim)}
+.tip-card h4{color:var(--green);font-size:.85rem;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.05em}
+.tip-card p{font-size:.85rem;color:var(--text-dim);line-height:1.6}
+.enemy-cards{display:grid;gap:1.25rem}
+.enemy-card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:1.5rem;display:grid;grid-template-columns:auto 1fr;gap:1.25rem;transition:border-color .3s}
+.enemy-card:hover{border-color:var(--green-dim)}
+.threat{display:flex;flex-direction:column;align-items:center;gap:.25rem;min-width:60px}
+.threat-level{font-size:.6rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em}
+.threat-bar{display:flex;flex-direction:column;gap:2px}
+.threat-pip{width:8px;height:8px;border-radius:2px;background:var(--border)}
+.threat-pip.on{background:var(--green)}
+.threat-pip.on.high{background:#ff4444}
+.threat-pip.on.med{background:#ffaa22}
+.enemy-card h4{font-size:1rem;color:var(--text-bright);margin-bottom:.4rem;text-transform:none;letter-spacing:0}
+.enemy-card p{font-size:.85rem;color:var(--text-dim);line-height:1.65}
+
+/* ===== TEAM ===== */
+.team-intro{text-align:center;color:var(--text-dim);font-size:1rem;max-width:600px;margin:0 auto 2.5rem;line-height:1.7}
+.team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1.25rem;margin-bottom:2.5rem}
+.team-card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:1.5rem;text-align:center;transition:border-color .3s,transform .3s}
+.team-card:hover{border-color:var(--green-dim);transform:translateY(-3px)}
+.team-card .tc-icon{font-size:2rem;margin-bottom:.75rem}
+.team-card h4{font-size:1rem;color:var(--text-bright);margin-bottom:.2rem;text-transform:none;letter-spacing:0}
+.team-card .tc-role{font-size:.75rem;color:var(--green);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.75rem}
+.team-card p{font-size:.8rem;color:var(--text-dim);line-height:1.6}
+.cactaur-block{text-align:center;padding:2rem;background:var(--card);border:1px solid var(--border);border-radius:8px}
+.cactaur-block img{width:140px;height:140px;border-radius:50%;margin:0 auto 1rem;border:2px solid var(--border);object-fit:cover}
+.cactaur-block h4{color:var(--text-bright);font-size:1.1rem;margin-bottom:.5rem;text-transform:none;letter-spacing:0}
+.cactaur-block p{color:var(--text-dim);font-size:.85rem;max-width:500px;margin:0 auto;line-height:1.6}
+
+/* ===== FOOTER ===== */
+footer{position:relative;z-index:1;border-top:1px solid var(--border);padding:3rem 0 2rem;text-align:center}
+footer .footer-cta{display:inline-flex;align-items:center;gap:.5rem;padding:.65rem 2rem;background:transparent;border:1px solid var(--green);color:var(--green);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;border-radius:4px;transition:all .2s;margin-bottom:2rem}
+footer .footer-cta:hover{background:var(--green);color:#000}
+footer p{font-size:.75rem;color:var(--text-dim);margin-bottom:.4rem}
+footer .heart{color:var(--green)}
+
+/* ===== BTN GENERIC ===== */
+.btn{display:inline-flex;align-items:center;gap:.5rem;padding:.55rem 1.25rem;border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.8rem;letter-spacing:.05em;cursor:pointer;background:var(--card);transition:all .2s}
+.btn:hover{border-color:var(--green-dim);color:var(--green)}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:768px){
+  .nav-links{display:none}
+  .hamburger{display:block}
+  .about-grid{grid-template-columns:1fr}
+  .timeline::before{left:1rem}
+  .tl-item,.tl-item:nth-child(odd),.tl-item:nth-child(even){width:100%;left:0;text-align:left;padding-left:2.5rem;padding-right:0}
+  .tl-item:nth-child(odd) .tl-dot,.tl-item:nth-child(even) .tl-dot{left:4px;right:auto}
+  .enemy-card{grid-template-columns:1fr}
+  .threat{flex-direction:row;min-width:auto}
+  .threat-bar{flex-direction:row}
+  .gallery-grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+  .stat-boxes{grid-template-columns:1fr 1fr}
+  .browser-body{height:250px}
 }
-.lightbox.active { display: flex; }
-.lightbox img { max-width: 95%; max-height: 90vh; border-radius: 4px; }
+@media(max-width:480px){
+  .stat-boxes{grid-template-columns:1fr}
+  .hero-title{font-size:2.2rem}
+}
 </style>
 </head>
 <body>
 
-<div class="stars"></div>
+<!-- ===== STARFIELD CANVAS ===== -->
+<canvas id="starfield"></canvas>
 
-<!-- Lightbox -->
-<div class="lightbox" id="lightbox" onclick="this.classList.remove('active')">
-  <img id="lightbox-img" src="" alt="Enlarged screenshot">
+<!-- ===== NAVIGATION ===== -->
+<nav id="navbar">
+  <div class="nav-inner">
+    <a href="#hero" class="nav-brand">XenoHammer</a>
+    <ul class="nav-links">
+      <li><a href="../web/dist/index.html">Play</a></li>
+      <li><a href="#about">About</a></li>
+      <li><a href="#gallery">Gallery</a></li>
+      <li><a href="#timeline">Timeline</a></li>
+      <li><a href="#archives">Archives</a></li>
+      <li><a href="#strategy">Strategy</a></li>
+      <li><a href="#team">Team</a></li>
+    </ul>
+    <button class="hamburger" id="hamburger" aria-label="Menu">&#9776;</button>
+  </div>
+</nav>
+<div class="mobile-menu" id="mobileMenu">
+  <a href="../web/dist/index.html">Play</a>
+  <a href="#about">About</a>
+  <a href="#gallery">Gallery</a>
+  <a href="#timeline">Timeline</a>
+  <a href="#archives">Archives</a>
+  <a href="#strategy">Strategy</a>
+  <a href="#team">Team</a>
 </div>
 
-<!-- ═══════════ HERO ═══════════ -->
-<section class="hero">
-  <div class="hero-title">XenoHammer</div>
-  <div class="hero-sub">Codename: XenoHammerGL</div>
-  <div class="hero-tagline">A top-down space shooter &middot; Georgia Tech &middot; 2001</div>
-  <div class="hero-quote">
-    &ldquo;Hands down, the most stunning visuals ever seen in a ClanLib powered game!&rdquo; — Cactaur
+<!-- ===== HERO ===== -->
+<section class="hero" id="hero">
+  <div class="hero-bg">
+    <img src="../assets/reference_screenshots/10_gameplay_combat.png" alt="" loading="eager">
   </div>
-  <a href="../web/dist/index.html" class="btn-play">▶ Play</a>
-  <nav class="nav-links">
-    <a href="#about">About</a>
-    <a href="#screenshots">Screenshots</a>
-    <a href="#archives">Archives</a>
-    <a href="#team">Team</a>
-  </nav>
+  <div class="hero-content">
+    <h1 class="hero-title">XenoHammer</h1>
+    <div class="hero-codename">Codename: XenoHammerGL</div>
+    <p class="hero-tagline">A top-down space combat arcade shooter</p>
+    <p class="hero-quote">&ldquo;Hands down, the most stunning visuals ever seen in a ClanLib powered game!&rdquo;<br><span>&mdash; Cactaur</span></p>
+    <div class="hero-meta">Georgia Tech &middot; 2001 &middot; IGF Student Showcase 2002</div>
+    <a href="../web/dist/index.html" class="hero-play">&#9654; Play Now</a>
+    <p class="hero-note">Web rewrite in TypeScript &mdash; faithful to the original</p>
+  </div>
 </section>
 
-<!-- ═══════════ ABOUT ═══════════ -->
+<!-- ===== ABOUT ===== -->
 <section id="about">
   <div class="container">
-    <h2>About the Game</h2>
+    <div class="reveal"><div class="section-line"></div><h2>About</h2><p class="section-sub">The Story Behind the Game</p></div>
     <div class="about-grid">
-      <div>
-        <p>XenoHammer is a top-down 2D space combat arcade shooter, originally developed in C++ by four Georgia Institute of Technology seniors in just <strong>2.5 months</strong> as a senior project and résumé piece. It was powered by the ClanLib game libraries with OpenGL enhancements.</p>
-        <br>
-        <p>The game was selected for the <strong>2002 IGF Student Showcase</strong> at the Game Developers Conference in San Jose, CA — one of only 10 student games chosen from 31 entries worldwide.</p>
-        <br>
-        <p>This tribute site preserves the history of XenoHammer and hosts a fully playable <strong>modern web rewrite</strong> in TypeScript/Canvas, faithful to the original.</p>
+      <div class="about-text reveal">
+        <p><strong>XenoHammer</strong> is a top-down space combat arcade shooter created in late 2001 by four seniors at the Georgia Institute of Technology. Built in just 2.5 months using C++ and the ClanLib game libraries, it features three levels of intense combat, five distinct enemy types, a fully customizable ship, and a climactic multi-part boss battle.</p>
+        <p>The game caught the attention of the Independent Games Festival judges and was selected as one of only 10 games (from 31 entries) for the <strong>IGF 2002 Student Showcase</strong> at the Game Developers Conference in San Jose. Reviewers praised its physics-based explosions, particle effects, and overall graphical polish&mdash;remarkable for a student project of its era.</p>
+        <p>This tribute site preserves the history of XenoHammer and hosts a faithful browser-playable rewrite built in TypeScript and Canvas, so a new generation can experience the game as it was meant to be played.</p>
       </div>
-      <div>
-        <h3>Features</h3>
-        <ul class="feature-list">
-          <li>1 campaign to save Earth from destruction</li>
-          <li>3 frenzied levels + massive final boss</li>
-          <li>5 unique enemies with different AI</li>
-          <li>Original heart-pounding synchronized soundtrack</li>
-          <li>High quality pre-rendered sprites (POV-Ray, 3ds Max)</li>
-          <li>OpenGL real-time lighting &amp; particle effects</li>
-          <li>Advanced particle system with physics-based explosions</li>
-          <li>Customizable ship with weapon &amp; power management</li>
-          <li>Mission briefings, ship specs &amp; backstory</li>
-        </ul>
+      <div class="reveal reveal-delay-1">
+        <div class="stat-boxes">
+          <div class="stat-box"><span class="val">2.5</span><span class="lbl">Months of Dev</span></div>
+          <div class="stat-box"><span class="val">4</span><span class="lbl">Developers</span></div>
+          <div class="stat-box"><span class="val">1/10</span><span class="lbl">IGF Selected</span></div>
+          <div class="stat-box"><span class="val">3</span><span class="lbl">Levels</span></div>
+        </div>
+        <h4 style="font-size:.8rem;color:var(--text-dim);margin-bottom:.6rem;letter-spacing:.1em">TECH STACK</h4>
         <div class="tech-badges">
-          <span class="tech-badge">C++</span>
-          <span class="tech-badge">ClanLib</span>
-          <span class="tech-badge">OpenGL</span>
-          <span class="tech-badge">Ogg Vorbis</span>
-          <span class="tech-badge">POV-Ray</span>
-          <span class="tech-badge">3ds Max</span>
-          <span class="tech-badge">SourceSafe</span>
+          <span class="badge">C++</span>
+          <span class="badge">ClanLib 0.6</span>
+          <span class="badge">OpenGL</span>
+          <span class="badge">Ogg Vorbis</span>
+          <span class="badge">POV-Ray</span>
+          <span class="badge">3ds Max</span>
+          <span class="badge">SourceSafe</span>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════ SCREENSHOTS ═══════════ -->
-<section id="screenshots">
+<!-- ===== GALLERY ===== -->
+<section id="gallery">
   <div class="container">
-    <h2>Original Game Screenshots</h2>
-    <p style="color:#667; margin-bottom:24px;">From the original C++/ClanLib/OpenGL version, circa 2001–2002.</p>
-    <div class="screenshot-grid">
-      <div>
-        <img src="../assets/reference_screenshots/01_ready_room_default.png"
-             alt="Ready Room" onclick="showLightbox(this)">
-        <div class="caption">Ready Room — Main Hub</div>
-      </div>
-      <div>
-        <img src="../assets/reference_screenshots/08_ship_customization.png"
-             alt="Ship Customization" onclick="showLightbox(this)">
-        <div class="caption">Ship Customization</div>
-      </div>
-      <div>
-        <img src="../assets/reference_screenshots/07_ship_specifications.png"
-             alt="Ship Specifications" onclick="showLightbox(this)">
-        <div class="caption">Ship Specifications</div>
-      </div>
-      <div>
-        <img src="../assets/reference_screenshots/05_briefing_options_menu.png"
-             alt="Briefing &amp; Options" onclick="showLightbox(this)">
-        <div class="caption">Briefing / Options Menu</div>
-      </div>
-      <div>
-        <img src="../assets/reference_screenshots/09_level1_intro.png"
-             alt="Level 1 Intro" onclick="showLightbox(this)">
-        <div class="caption">Level 1 Intro Animation</div>
-      </div>
-      <div>
-        <img src="../assets/reference_screenshots/10_gameplay_combat.png"
-             alt="Gameplay Combat" onclick="showLightbox(this)">
-        <div class="caption">Gameplay — Combat</div>
-      </div>
-      <div>
-        <img src="../assets/reference_screenshots/06_briefing_lore_text.png"
-             alt="Backstory Briefing" onclick="showLightbox(this)">
-        <div class="caption">Scrolling Backstory</div>
-      </div>
-      <div>
-        <img src="archives/images/gdc_xeno_screenshot.jpg"
-             alt="GDC 2002 Screenshot" onclick="showLightbox(this)">
-        <div class="caption">GDC 2002 — Enlarged Screenshot</div>
-      </div>
+    <div class="reveal"><div class="section-line"></div><h2>Gallery</h2><p class="section-sub">Screenshots from the Original Game &amp; Web Archives</p></div>
+    <div class="gallery-tabs reveal">
+      <button class="gallery-tab active" data-tab="original">Original Game</button>
+      <button class="gallery-tab" data-tab="tripod">From the Web (Tripod)</button>
+    </div>
+    <div class="gallery-grid reveal" id="galleryGrid"></div>
+  </div>
+</section>
+
+<!-- ===== TIMELINE ===== -->
+<section id="timeline">
+  <div class="container">
+    <div class="reveal"><div class="section-line"></div><h2>Timeline</h2><p class="section-sub">From College Project to GDC</p></div>
+    <div class="timeline">
+      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Oct 2001</span><h4 class="tl-title">Development Begins</h4><p class="tl-desc">Four Georgia Tech seniors begin building a top-down space shooter using C++ and the ClanLib game libraries as their senior project.</p></div>
+      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Oct 30, 2001</span><h4 class="tl-title">&ldquo;XenoHammerGL&rdquo; Announced</h4><p class="tl-desc">The OpenGL-powered version goes public, featuring hardware-accelerated particles, translucent shield bubbles, and dynamic lighting effects.</p></div>
+      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Nov 7, 2001</span><h4 class="tl-title">Feature List Revealed</h4><p class="tl-desc">Full feature set announced: 3 levels, 5 enemy types, customizable ship loadout, scrolling briefings, parallax starfield, and an original soundtrack.</p></div>
+      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Nov 20, 2001</span><h4 class="tl-title">Alpha Release</h4><p class="tl-desc">&ldquo;Codename: XenoHammerGL&rdquo; goes live. The Cactaur community proclaims it the best-looking ClanLib game ever made.</p></div>
+      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Jan 2002</span><h4 class="tl-title">IGF Student Showcase Selection</h4><p class="tl-desc">Selected as 1 of 10 games from 31 entries for the Independent Games Festival 2002 Student Showcase, judged by the Seattle IGDA chapter.</p></div>
+      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Mar 2002</span><h4 class="tl-title">GDC 2002 &mdash; San Jose</h4><p class="tl-desc">The team showcases XenoHammer at the Game Developers Conference. Reviewers praise the physics-based explosions and graphical polish for a student project.</p></div>
+      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">2002 &ndash; 2025</span><h4 class="tl-title">Legacy</h4><p class="tl-desc">The game lives on in academic references, GDC archives, and the memories of the ClanLib community. The original Tripod site fades but is archived.</p></div>
+      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">2026</span><h4 class="tl-title">Reborn for the Web</h4><p class="tl-desc">XenoHammer is faithfully rewritten in TypeScript and Canvas, making it playable in any modern browser. This tribute site preserves the full history.</p></div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════ ARCHIVES ═══════════ -->
+<!-- ===== ARCHIVES ===== -->
 <section id="archives">
   <div class="container">
-    <h2>Archives</h2>
-    <p style="color:#667; margin-bottom:32px;">
-      Everything we could find about XenoHammer across the internet, preserved here with original source links.
-    </p>
+    <div class="reveal"><div class="section-line"></div><h2>Archives</h2><p class="section-sub">Preserved History &amp; Original Materials</p></div>
 
-    <!-- GDC 2002 -->
-    <div class="archive-card">
-      <span class="source-tag tag-event">GDC 2002</span>
-      <h3>GameDev.net — GDC 2002 Student Showcase Coverage</h3>
-      <p>A detailed hands-on writeup by Mason McCuskey of Spin Studios, who visited each student showcase booth at GDC 2002 in San Jose.</p>
-      <blockquote>
-        Xenohammer is a great implementation of your classic retro top-view space shooter. You've all played these games — you fly up the screen and shoot enemies that come down.<br><br>
-        The graphics in Xenohammer are pretty impressive. I especially like the explosions, which are simulated using physics: if a ship blows up when it's moving right the momentum of that movement will also carry the explosion right. It's a great effect that, when combined with some good artwork and particle system code, creates a nice explosion.<br><br>
-        Xenohammer was developed by seniors at the Georgia Institute of Technology as a resume piece, designed to help them look for a game job. It took only two and a half months to create.<br><br>
-        <strong>What Went Right:</strong> The short schedule and motivation of the team were a powerful combination in getting a high-quality game out quickly.<br><br>
-        <strong>What Went Wrong:</strong> If they did it over again, the development team would choose to do full 3D instead of just 2D in 3D.
-      </blockquote>
-      <p class="meta">
-        <strong>Team:</strong> 3 coders (Brian Smith, Chris Haire, Jason Shelton) + 1 artist (Roger Norris)<br>
-        <strong>Coded using:</strong> C++, ClanLIB game libraries<br>
-        <strong>Dev time:</strong> 2.5 months<br>
-        <strong>Tools:</strong> SourceSafe, POV Ray, 3D Studio Max, Ogg Vorbis
-      </p>
-      <a class="source-link" href="https://web.archive.org/web/20030210020947/http://archive.gamedev.net/archive/columns/events/gdc2002/view5d70.html?SectionID=27" target="_blank">🔗 Source: archive.gamedev.net via Wayback Machine</a>
+    <!-- Original Website -->
+    <div class="archives-sub reveal">
+      <h3><span class="icon">&#127760;</span> The Original Website</h3>
+      <div class="browser-mockup">
+        <div class="browser-bar">
+          <span class="browser-dot r"></span><span class="browser-dot y"></span><span class="browser-dot g"></span>
+          <span class="browser-url">http://cultofcactaur.tripod.com/xenohammer/</span>
+        </div>
+        <div class="browser-body">
+          <iframe src="archives/raw/tripod/index.html" title="Original XenoHammer Tripod Website" loading="lazy" sandbox="allow-same-origin"></iframe>
+        </div>
+      </div>
+      <div class="archive-links">
+        <a class="archive-link" href="archives/raw/tripod/index.html" target="_blank"><span class="al-icon">&#127968;</span> Home Page</a>
+        <a class="archive-link" href="archives/raw/tripod/team.htm" target="_blank"><span class="al-icon">&#128101;</span> Team Page</a>
+        <a class="archive-link" href="archives/raw/tripod/screenshots.htm" target="_blank"><span class="al-icon">&#128247;</span> Screenshots</a>
+        <a class="archive-link" href="archives/raw/tripod/tips_and_hints.htm" target="_blank"><span class="al-icon">&#128161;</span> Tips &amp; Hints</a>
+        <a class="archive-link" href="archives/raw/tripod/docsandpresentations.htm" target="_blank"><span class="al-icon">&#128196;</span> Docs &amp; Presentations</a>
+      </div>
+      <p style="font-size:.75rem;color:var(--text-dim);margin-top:1rem">Archived from Tripod/Wayback Machine. Some links and images may not function as originally intended.</p>
     </div>
 
-    <!-- IGF 2002 -->
-    <div class="archive-card">
-      <span class="source-tag tag-event">IGF 2002</span>
-      <h3>Independent Games Festival — 2002 Student Showcase Selections</h3>
-      <p>Official announcement of the 10 student games selected for the IGF Student Showcase at GDC 2002, chosen by the Seattle chapter of the IGDA from a pool of 31 entries.</p>
-      <blockquote>
-        <strong>Xenohammer</strong><br>
-        Developed by B. Smith, C. Haire, J. Shelton, R. Norris, M. Andrew<br>
-        School: Georgia Institute of Technology
-      </blockquote>
-      <p style="color:#aab;">XenoHammer was one of ten games selected alongside titles from DigiPen, University of Waterloo, and other institutions. The showcase took place at GDC 2002 in San Jose, California.</p>
-      <a class="source-link" href="https://www.gamedeveloper.com/game-platforms/igf-announces-2002-student-showcase-selections" target="_blank">🔗 Source: gamedeveloper.com (formerly Gamasutra)</a>
+    <!-- Press & Recognition -->
+    <div class="archives-sub reveal">
+      <h3><span class="icon">&#127942;</span> Press &amp; Recognition</h3>
+      <div class="press-cards">
+        <div class="press-card">
+          <h4>GDC 2002 Student Showcase Review</h4>
+          <p>Mason McCuskey attended the Student Showcase at GDC 2002 and reviewed all ten selected games.</p>
+          <blockquote>&ldquo;The physics-based explosions were cool&hellip; overall, the quality of the graphics was very high for a student project.&rdquo;</blockquote>
+          <p>He noted the team of 3 coders and 1 artist built the game in just 2.5 months. Their post-mortem revealed the short schedule paradoxically helped&mdash;it kept the team intensely motivated. Given more time, they said they would have gone fully 3D.</p>
+          <div class="src">Source: Mason McCuskey &mdash; <a href="archives/raw/external/gdc2002_student_showcase.html" target="_blank">GDC 2002 Student Showcase article</a></div>
+        </div>
+        <div class="press-card">
+          <h4>IGF 2002 Student Showcase Selection</h4>
+          <p>The Independent Games Festival selected XenoHammer as one of 10 student games (from 31 entries) for their 2002 Student Showcase at the Game Developers Conference in San Jose. Entries were judged by the Seattle chapter of the IGDA.</p>
+          <p>Team credited: B. Smith, C. Haire, J. Shelton, R. Norris, M. Andrew</p>
+          <div class="src">Source: <a href="archives/raw/external/igf_2002_student_showcase.html" target="_blank">IGF 2002 Official Announcement</a></div>
+        </div>
+      </div>
     </div>
 
-    <!-- Original Dev Site -->
-    <div class="archive-card">
-      <span class="source-tag tag-primary">Original Website</span>
-      <h3>saberx88.tripod.com — Official XenoHammer Dev Site</h3>
-      <p>The original Tripod-hosted website for XenoHammer, created by the development team. Archived via the Wayback Machine.</p>
-      <blockquote>
-        This site is dedicated to the development and playing of the worlds latest and greatest over head shooter XenoHammer. XenoHammer is powered by the awesome ClanLib game libraries.<br><br>
-        <strong>2002 IGF Student Showcase Selections!</strong><br>
-        That's right folks XenoHammer has made it into the IGF conference as a student showcase selection!
-      </blockquote>
-      <p style="color:#aab; margin-top:12px;">The site announced the alpha release as "Codename XenoHammerGL" on November 20th, 2001, featuring:</p>
-      <ul class="feature-list" style="margin-top:8px;">
-        <li>1 campaign to save Earth from imminent destruction</li>
-        <li>3 frenzied levels, culminating in a fierce battle with a massive final boss</li>
-        <li>5 unique enemies, each with different AI</li>
-        <li>Original heart-pounding soundtrack synchronized with the action</li>
-        <li>High Quality pre-rendered sprites</li>
-        <li>OpenGL used for real-time lighting and particle effects</li>
-      </ul>
-      <p class="meta" style="margin-top:16px;">
-        Copyright 2001 — Cult of Cactaur<br>
-        Web Design: Jason Shelton · Game Sprites: Roger Norris · Music: Mike Andrew
-      </p>
-      <a class="source-link" href="https://web.archive.org/web/20021124172252/http://saberx88.tripod.com/" target="_blank">🔗 Source: saberx88.tripod.com via Wayback Machine</a>
-    </div>
-
-    <!-- Team Page -->
-    <div class="archive-card">
-      <span class="source-tag tag-primary">Original Website</span>
-      <h3>saberx88.tripod.com/team.htm — Development Team</h3>
-      <p>The team page from the original site, listing all four Georgia Tech seniors and their responsibilities.</p>
-      <blockquote>
-        Our Development team consists of Four Georgia Institute of Technology Seniors.<br><br>
-        &bull; <strong>Brian Smith</strong> — Engine Design<br>
-        &bull; <strong>Chris Haire</strong> — Saving/Loading, Sound, Music, Level Design<br>
-        &bull; <strong>Jason Shelton</strong> — GUI Design and GUI Artwork, Level Design<br>
-        &bull; <strong>Roger Norris</strong> — Artwork and Animations, AI, Level Design
-      </blockquote>
-      <a class="source-link" href="https://web.archive.org/web/20030724054536/http://saberx88.tripod.com/team.htm" target="_blank">🔗 Source: saberx88.tripod.com/team.htm via Wayback Machine</a>
-    </div>
-
-    <!-- Course Slides -->
-    <div class="archive-card">
-      <span class="source-tag tag-academic">Academic</span>
-      <h3>IAT 410 Course Slides — Simon Fraser University</h3>
-      <p>A course on Video Game Design and Programming at SFU lists XenoHammer as a "Past Winning Game" from the IGF Student Showcase, used as an example to inspire students.</p>
-      <blockquote>
-        <strong>Past Winning Games:</strong><br>
-        XenoHammer — IGF Student Showcase 2002<br>
-        DOGgone CATastrophe — IGF Student Showcase 2003<br>
-        KubeKombat — IGF Student Showcase 2004<br>
-        Growbot — IGF Student Showcase 2004<br>
-        TeamRobot — IGF Student Showcase 2005
-      </blockquote>
-      <p style="color:#aab;">Course taught by Chris Shaw, Ph.D. The slides encouraged students to submit their games to the IGF competition, with $500 travel stipends and a $2,500 Best Student Game award at GDC.</p>
-      <a class="source-link" href="https://www.slideserve.com/sylviacampbell/iat-410-video-game-design-and-programming-powerpoint-ppt-presentation" target="_blank">🔗 Source: slideserve.com (IAT 410 presentation)</a>
-    </div>
-
-    <!-- Georgia Tech Repository -->
-    <div class="archive-card">
-      <span class="source-tag tag-academic">Academic</span>
-      <h3>Georgia Tech Repository — XenoHammer Video Game</h3>
-      <p>A PDF document in the Georgia Tech digital repository that references "XenoHammer Video Game," confirming the project's presence in the university's academic records.</p>
-      <a class="source-link" href="https://repository.gatech.edu/server/api/core/bitstreams/4bd33c0d-8d42-4169-8aca-50210a301ba5/content" target="_blank">🔗 Source: repository.gatech.edu (PDF)</a>
-    </div>
-
-    <!-- GameDev.net Forum -->
-    <div class="archive-card">
-      <span class="source-tag tag-ecosystem">Dev Community</span>
-      <h3>GameDev.net Forums — ClanLib Discussion</h3>
-      <p>A forum thread on GameDev.net comparing game libraries (Allegro, ClanLib, PLib) where XenoHammer is mentioned as a ClanLib-powered game, confirming the project's visibility in the indie game development community of the early 2000s.</p>
-      <p class="meta">Note: The original thread is no longer accessible (403 error) and was not captured by the Wayback Machine.</p>
-      <a class="source-link" href="https://www.gamedev.net/forums/topic/82450-allegro-clanlib-or-plib/" target="_blank">🔗 Source: gamedev.net/forums (unavailable)</a>
-    </div>
-
-    <!-- ClanLib Ecosystem -->
-    <div class="archive-card">
-      <span class="source-tag tag-ecosystem">Engine Ecosystem</span>
-      <h3>ClanLib NEWS / Debian Sources</h3>
-      <p>The ClanLib game engine's changelog, hosted on Debian Sources, documents the evolution of the engine that powered XenoHammer. ClanLib was a cross-platform C++ game library featuring sprite rendering, sound mixing, input handling, GUI components, and OpenGL integration — the foundation on which XenoHammer was built.</p>
-      <p class="meta">XenoHammer used ClanLib 0.6.x (circa 2001), with OpenGL extensions for particle effects, dynamic lighting, and shield rendering.</p>
-      <a class="source-link" href="https://sources.debian.org/src/clanlib/1.0~svn3827-2/NEWS" target="_blank">🔗 Source: sources.debian.org (ClanLib changelog)</a>
+    <!-- Development Documents -->
+    <div class="archives-sub reveal">
+      <h3><span class="icon">&#128218;</span> Development Documents</h3>
+      <div class="doc-list">
+        <a class="doc-item" href="archives/raw/tripod/docs/Preliminary_Game_Design.doc" target="_blank">
+          <span class="doc-icon">&#128196;</span>
+          <div class="doc-info"><div class="doc-name">Preliminary Game Design</div><div class="doc-desc">Initial game proposal and design document</div></div>
+        </a>
+        <a class="doc-item" href="archives/raw/tripod/docs/Part2_Interim_Report.doc" target="_blank">
+          <span class="doc-icon">&#128196;</span>
+          <div class="doc-info"><div class="doc-name">Interim Report (Part 2)</div><div class="doc-desc">First build progress update</div></div>
+        </a>
+        <a class="doc-item" href="archives/raw/tripod/docs/Part3_Progress_Report.doc" target="_blank">
+          <span class="doc-icon">&#128196;</span>
+          <div class="doc-info"><div class="doc-name">Progress Report (Part 3)</div><div class="doc-desc">Second build progress update</div></div>
+        </a>
+        <a class="doc-item" href="archives/raw/tripod/docs/Interim_Presentation.ppt" target="_blank">
+          <span class="doc-icon">&#128202;</span>
+          <div class="doc-info"><div class="doc-name">Interim Presentation</div><div class="doc-desc">PowerPoint project presentation</div></div>
+        </a>
+        <a class="doc-item" href="archives/raw/tripod/resume_general.doc" target="_blank">
+          <span class="doc-icon">&#128100;</span>
+          <div class="doc-info"><div class="doc-name">Jason Shelton &mdash; R&eacute;sum&eacute;</div><div class="doc-desc">Team member resume (circa 2002)</div></div>
+        </a>
+        <a class="doc-item" href="archives/raw/tripod/Resume_Brian_Smith_Xeno.doc" target="_blank">
+          <span class="doc-icon">&#128100;</span>
+          <div class="doc-info"><div class="doc-name">Brian Smith &mdash; R&eacute;sum&eacute;</div><div class="doc-desc">Team member resume (circa 2002)</div></div>
+        </a>
+        <a class="doc-item" href="archives/raw/tripod/chris-resume.doc" target="_blank">
+          <span class="doc-icon">&#128100;</span>
+          <div class="doc-info"><div class="doc-name">Chris Haire &mdash; R&eacute;sum&eacute;</div><div class="doc-desc">Team member resume (circa 2002)</div></div>
+        </a>
+      </div>
     </div>
 
   </div>
 </section>
 
-<!-- ═══════════ TEAM ═══════════ -->
+<!-- ===== STRATEGY ===== -->
+<section id="strategy">
+  <div class="container">
+    <div class="reveal"><div class="section-line"></div><h2>Strategy Guide</h2><p class="section-sub">Tips, Tricks &amp; Enemy Intel</p></div>
+    <div class="tips-grid reveal">
+      <div class="tip-card">
+        <h4>&#128737; Shields First</h4>
+        <p>Buy shields as early as possible. They regenerate slowly over time, giving you a crucial safety net during intense waves. Upgrading shields is always a smart investment.</p>
+      </div>
+      <div class="tip-card">
+        <h4>&#128300; Invest in Research</h4>
+        <p>Spending RU&rsquo;s on research unlocks better weapons and systems. It costs resources upfront, but the payoff in firepower is always worth it in later levels.</p>
+      </div>
+      <div class="tip-card">
+        <h4>&#128214; Read Your Briefings</h4>
+        <p>The mission briefings aren&rsquo;t just flavor text. They contain genuine tactical intel about what you&rsquo;ll face in the next level. Read them before launching.</p>
+      </div>
+      <div class="tip-card">
+        <h4>&#127919; Stay Mobile</h4>
+        <p>Standing still is a death sentence. Enemies fire on sight and some will kamikaze straight into you. Keep moving to dodge incoming fire and avoid collisions.</p>
+      </div>
+    </div>
+    <h3 class="reveal" style="font-size:1.15rem;margin-bottom:1.5rem;color:var(--text-bright)">Enemy Intel</h3>
+    <div class="enemy-cards">
+      <div class="enemy-card reveal">
+        <div class="threat"><span class="threat-level">Threat</span><div class="threat-bar"><div class="threat-pip on"></div><div class="threat-pip"></div><div class="threat-pip"></div><div class="threat-pip"></div><div class="threat-pip"></div></div></div>
+        <div><h4>Light Fighter</h4><p>Quick but fragile. A single well-placed shot takes them down, but they&rsquo;re fast and fire on sight. They appear in swarms starting from Level 1. Keep moving and pick them off before they overwhelm you.</p></div>
+      </div>
+      <div class="enemy-card reveal">
+        <div class="threat"><span class="threat-level">Threat</span><div class="threat-bar"><div class="threat-pip on"></div><div class="threat-pip on"></div><div class="threat-pip"></div><div class="threat-pip"></div><div class="threat-pip"></div></div></div>
+        <div><h4>Gun Ship</h4><p>Equipped with two wing cannons, the Gun Ship hovers near the top of the screen and barrages you from above. When it runs out of ammo or takes enough damage, it will kamikaze straight into you. Stay out from directly underneath.</p></div>
+      </div>
+      <div class="enemy-card reveal">
+        <div class="threat"><span class="threat-level">Threat</span><div class="threat-bar"><div class="threat-pip on"></div><div class="threat-pip on"></div><div class="threat-pip on"></div><div class="threat-pip"></div><div class="threat-pip"></div></div></div>
+        <div><h4>Heavy Fighter</h4><p>Appears from Level 2 onward. Three times the armor of a Light Fighter but just as fast. They attack in coordinated groups, so focus fire on one at a time to thin the pack quickly.</p></div>
+      </div>
+      <div class="enemy-card reveal">
+        <div class="threat"><span class="threat-level">Threat</span><div class="threat-bar"><div class="threat-pip on med"></div><div class="threat-pip on med"></div><div class="threat-pip on med"></div><div class="threat-pip on med"></div><div class="threat-pip"></div></div></div>
+        <div><h4>Capital Ship</h4><p>A massive Level 2 warship with 6 destructible parts: the body, 2 wings, 2 turrets, and a heavily-armored forward bridge. The turrets track your position and fire periodically. The bridge carries a devastating weapon. You must destroy the body to kill it. <strong>Collision is instant death.</strong></p></div>
+      </div>
+      <div class="enemy-card reveal">
+        <div class="threat"><span class="threat-level">Threat</span><div class="threat-bar"><div class="threat-pip on high"></div><div class="threat-pip on high"></div><div class="threat-pip on high"></div><div class="threat-pip on high"></div><div class="threat-pip on high"></div></div></div>
+        <div><h4>Nexus Core</h4><p>The final boss at the end of Level 3. Absolutely massive, with 20 destructible parts. Destroy the outer nodes first to drop its shield generator and disable its homing-missile jamming field. Only then can you damage the core itself. Bring everything you have.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== TEAM ===== -->
 <section id="team">
   <div class="container">
-    <h2>The Team</h2>
-    <p style="color:#667; margin-bottom:32px;">
-      Developed by <strong style="color:#8f8;">Cult of Cactaur</strong> — four Georgia Institute of Technology seniors, class of 2002.
-    </p>
+    <div class="reveal"><div class="section-line"></div><h2>The Team</h2><p class="section-sub">Cult of Cactaur</p></div>
+    <p class="team-intro reveal">A group of Georgia Tech seniors who built something remarkable in 2.5 months.</p>
     <div class="team-grid">
-      <div class="team-card">
-        <div class="name">Brian Smith</div>
-        <div class="role">Engine Design</div>
+      <div class="team-card reveal">
+        <div class="tc-icon">&#128187;</div>
+        <h4>Brian Smith</h4>
+        <div class="tc-role">Engine Design</div>
+        <p>Architected the core game engine&mdash;rendering pipeline, game loop, collision detection, and the OpenGL particle system that reviewers praised at GDC.</p>
       </div>
-      <div class="team-card">
-        <div class="name">Chris Haire</div>
-        <div class="role">Sound, Music, Saving/Loading, Level Design</div>
+      <div class="team-card reveal reveal-delay-1">
+        <div class="tc-icon">&#127912;</div>
+        <h4>Jason Shelton</h4>
+        <div class="tc-role">GUI &amp; Level Design</div>
+        <p>Designed and built the entire UI system&mdash;menus, HUD, briefing screens&mdash;plus the GUI artwork and level design that structured the game&rsquo;s progression.</p>
       </div>
-      <div class="team-card">
-        <div class="name">Jason Shelton</div>
-        <div class="role">GUI Design &amp; Artwork, Level Design</div>
+      <div class="team-card reveal reveal-delay-2">
+        <div class="tc-icon">&#127917;</div>
+        <h4>Roger Norris</h4>
+        <div class="tc-role">Art, Animation &amp; AI</div>
+        <p>Created the ship sprites, animations, and enemy AI behaviors. Responsible for the visual identity that made XenoHammer stand out in the IGF showcase.</p>
       </div>
-      <div class="team-card">
-        <div class="name">Roger Norris</div>
-        <div class="role">Art, Animations, AI, Level Design</div>
+      <div class="team-card reveal reveal-delay-3">
+        <div class="tc-icon">&#128266;</div>
+        <h4>Chris Haire</h4>
+        <div class="tc-role">Sound, Music &amp; Save/Load</div>
+        <p>Implemented the save/load system, integrated the Ogg Vorbis audio pipeline, and designed the sound effects and music integration for the entire game.</p>
       </div>
-      <div class="team-card">
-        <div class="name">Mike Andrew</div>
-        <div class="role">Music &amp; Soundtrack</div>
+      <div class="team-card reveal reveal-delay-4">
+        <div class="tc-icon">&#127925;</div>
+        <h4>Mike Andrew</h4>
+        <div class="tc-role">Music Composer</div>
+        <p>Composed the original soundtrack that drives the game&rsquo;s atmosphere&mdash;from the tension of combat to the pulse-pounding boss encounters.</p>
       </div>
     </div>
-
-    <div style="text-align:center; margin-top:48px;">
-      <img src="archives/images/cactaur_logo.jpg" alt="Cult of Cactaur"
-           style="width:120px; border-radius:8px; border:2px solid #1a3a1a; opacity:0.8;">
-      <p style="color:#556; font-size:0.85rem; margin-top:8px;">Cult of Cactaur</p>
+    <div class="cactaur-block reveal">
+      <img src="archives/images/tripod/cactaur.jpg" alt="Cult of Cactaur Logo">
+      <h4>Cult of Cactaur</h4>
+      <p>The team&rsquo;s identity and calling card. The Cactaur community recognized XenoHammer as having &ldquo;the most stunning visuals ever seen in a ClanLib powered game.&rdquo;</p>
     </div>
   </div>
 </section>
 
-<!-- ═══════════ FOOTER ═══════════ -->
+<!-- ===== FOOTER ===== -->
 <footer>
   <div class="container">
-    <p style="margin-bottom:12px;">
-      <a href="../web/dist/index.html" class="btn-play" style="font-size:1rem; padding:12px 40px;">▶ Play XenoHammer</a>
-    </p>
-    <p style="margin-top:24px;">
-      XenoHammer &copy; 2001 Cult of Cactaur — Georgia Institute of Technology<br>
-      Game sprites &copy; Roger Norris · Music &copy; Mike Andrew · Web design &copy; Jason Shelton
-    </p>
-    <p style="margin-top:12px;">
-      Tribute site &amp; web rewrite &copy; 2026 · All original content preserved with source attribution.
-    </p>
+    <a href="../web/dist/index.html" class="footer-cta">&#9654; Play XenoHammer</a>
+    <p>&copy; 2001&ndash;2002 Cult of Cactaur (B. Smith, J. Shelton, R. Norris, C. Haire, M. Andrew)</p>
+    <p>Tribute site &copy; 2026. Built with <span class="heart">&hearts;</span> as a tribute to the original.</p>
+    <p style="margin-top:.5rem"><a href="archives/raw/tripod/index.html">Original Tripod Site</a> &middot; <a href="archives/raw/external/igf_2002_student_showcase.html">IGF 2002</a> &middot; <a href="archives/raw/external/gdc2002_student_showcase.html">GDC 2002 Review</a></p>
   </div>
 </footer>
 
-<script>
-function showLightbox(img) {
-  const lb = document.getElementById('lightbox');
-  document.getElementById('lightbox-img').src = img.src;
-  lb.classList.add('active');
-}
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') document.getElementById('lightbox').classList.remove('active');
-});
-</script>
+<!-- ===== LIGHTBOX ===== -->
+<div class="lightbox" id="lightbox">
+  <button class="lb-close" aria-label="Close">&times;</button>
+  <button class="lb-nav lb-prev" aria-label="Previous">&#8249;</button>
+  <button class="lb-nav lb-next" aria-label="Next">&#8250;</button>
+  <img src="" alt="" id="lbImg">
+  <div class="lb-caption" id="lbCaption"></div>
+  <div class="lb-counter" id="lbCounter"></div>
+</div>
 
+<script>
+/* ===== STARFIELD ===== */
+(function(){
+  const c=document.getElementById('starfield'),ctx=c.getContext('2d');
+  let W,H;
+  const LAYERS=[
+    {count:120,speed:.15,size:.8,color:'rgba(180,200,255,'},
+    {count:80,speed:.35,size:1.2,color:'rgba(200,220,255,'},
+    {count:40,speed:.7,size:1.8,color:'rgba(230,240,255,'},
+    {count:15,speed:1.1,size:2.4,color:'rgba(255,255,255,'}
+  ];
+  let stars=[];
+  function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;init()}
+  function init(){
+    stars=[];
+    LAYERS.forEach(l=>{for(let i=0;i<l.count;i++)stars.push({x:Math.random()*W,y:Math.random()*H,s:l.speed,sz:l.size*(0.6+Math.random()*0.8),c:l.color,tw:Math.random()*Math.PI*2})})
+  }
+  function draw(t){
+    ctx.clearRect(0,0,W,H);
+    stars.forEach(s=>{
+      s.y+=s.s;
+      if(s.y>H){s.y=-2;s.x=Math.random()*W}
+      s.tw+=0.02;
+      const a=0.4+Math.sin(s.tw)*0.3;
+      ctx.fillStyle=s.c+a+')';
+      ctx.beginPath();ctx.arc(s.x,s.y,s.sz,0,Math.PI*2);ctx.fill()
+    });
+    requestAnimationFrame(draw)
+  }
+  window.addEventListener('resize',resize);
+  resize();draw()
+})();
+
+/* ===== STICKY NAV ===== */
+(function(){
+  const nav=document.getElementById('navbar');
+  window.addEventListener('scroll',()=>{nav.classList.toggle('scrolled',window.scrollY>40)},{passive:true})
+})();
+
+/* ===== MOBILE MENU ===== */
+(function(){
+  const btn=document.getElementById('hamburger'),menu=document.getElementById('mobileMenu');
+  btn.addEventListener('click',()=>menu.classList.toggle('open'));
+  menu.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>menu.classList.remove('open')))
+})();
+
+/* ===== SCROLL REVEAL ===== */
+(function(){
+  const obs=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target)}})},{threshold:0.08,rootMargin:'0px 0px -40px 0px'});
+  document.querySelectorAll('.reveal').forEach(el=>obs.observe(el))
+})();
+
+/* ===== GALLERY ===== */
+(function(){
+  const IMAGES={
+    original:[
+      {src:'../assets/reference_screenshots/01_ready_room_default.png',cap:'Ready Room \u2014 the central hub between missions'},
+      {src:'../assets/reference_screenshots/02_ready_room_briefing_hover.png',cap:'Ready Room \u2014 hovering over the Briefing monitor'},
+      {src:'../assets/reference_screenshots/03_ready_room_briefing_hover_alt.png',cap:'Ready Room \u2014 alternate briefing hover state'},
+      {src:'../assets/reference_screenshots/04_ready_room_customize_hover.png',cap:'Ready Room \u2014 hovering over Ship Customization'},
+      {src:'../assets/reference_screenshots/05_briefing_options_menu.png',cap:'Briefing and Options menu screen'},
+      {src:'../assets/reference_screenshots/06_briefing_lore_text.png',cap:'Scrolling backstory lore text'},
+      {src:'../assets/reference_screenshots/07_ship_specifications.png',cap:'Ship specifications display'},
+      {src:'../assets/reference_screenshots/08_ship_customization.png',cap:'Ship customization \u2014 weapons, shields, and systems'},
+      {src:'../assets/reference_screenshots/09_level1_intro.png',cap:'Level 1 intro animation'},
+      {src:'../assets/reference_screenshots/10_gameplay_combat.png',cap:'Gameplay \u2014 intense space combat'}
+    ],
+    tripod:[
+      {src:'archives/images/tripod/XenoHammerGL.jpg',cap:'XenoHammerGL \u2014 OpenGL version showcase (from Tripod site)'},
+      {src:'archives/images/tripod/xhattack.jpg',cap:'Attack in progress \u2014 featured on Tripod and GDC page'},
+      {src:'archives/images/gdc/xeno1.jpg',cap:'GDC promotional screenshot'}
+    ]
+  };
+  const grid=document.getElementById('galleryGrid');
+  let current='original',lbItems=[],lbIdx=0;
+
+  function render(tab){
+    current=tab;
+    grid.innerHTML='';
+    const imgs=IMAGES[tab];
+    lbItems=imgs;
+    imgs.forEach((img,i)=>{
+      const d=document.createElement('div');
+      d.className='gallery-item scanlines';
+      d.innerHTML='<img src="'+img.src+'" alt="'+img.cap+'" loading="lazy"><div class="caption">'+img.cap+'</div>';
+      d.addEventListener('click',()=>openLB(i));
+      grid.appendChild(d)
+    })
+  }
+
+  document.querySelectorAll('.gallery-tab').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.gallery-tab').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      render(btn.dataset.tab)
+    })
+  });
+  render('original');
+
+  /* Lightbox */
+  const lb=document.getElementById('lightbox'),lbImg=document.getElementById('lbImg'),lbCap=document.getElementById('lbCaption'),lbCnt=document.getElementById('lbCounter');
+  function openLB(i){lbIdx=i;updateLB();lb.classList.add('open');document.body.style.overflow='hidden'}
+  function closeLB(){lb.classList.remove('open');document.body.style.overflow=''}
+  function updateLB(){const item=lbItems[lbIdx];lbImg.src=item.src;lbImg.alt=item.cap;lbCap.textContent=item.cap;lbCnt.textContent=(lbIdx+1)+' / '+lbItems.length}
+  function prevLB(){lbIdx=(lbIdx-1+lbItems.length)%lbItems.length;updateLB()}
+  function nextLB(){lbIdx=(lbIdx+1)%lbItems.length;updateLB()}
+
+  lb.querySelector('.lb-close').addEventListener('click',closeLB);
+  lb.querySelector('.lb-prev').addEventListener('click',prevLB);
+  lb.querySelector('.lb-next').addEventListener('click',nextLB);
+  lb.addEventListener('click',e=>{if(e.target===lb)closeLB()});
+  document.addEventListener('keydown',e=>{
+    if(!lb.classList.contains('open'))return;
+    if(e.key==='Escape')closeLB();
+    else if(e.key==='ArrowLeft')prevLB();
+    else if(e.key==='ArrowRight')nextLB()
+  })
+})();
+</script>
 </body>
 </html>
