@@ -214,6 +214,13 @@ export class GameManager {
         // Touch controls only active during gameplay
         this.touchControls?.setActive(this.state === GameState.Playing);
 
+        // When debug overlay is open, consume input so it doesn't reach game UI
+        if (this.debugMenuOpen) {
+            this.handleDebugKeys();
+            this.input.endFrame();
+            return;
+        }
+
         switch (this.state) {
             case GameState.Loading:
                 break;
