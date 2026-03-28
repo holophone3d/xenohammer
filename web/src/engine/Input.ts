@@ -58,6 +58,27 @@ export class Input {
         canvas.addEventListener('mouseup', () => {
             this.mouseDown = false;
         });
+
+        // Touch → mouse simulation (for menu interaction on mobile)
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (e.touches.length > 0) {
+                const rect = canvas.getBoundingClientRect();
+                const sx = canvas.width / rect.width;
+                const sy = canvas.height / rect.height;
+                this.mouseX = (e.touches[0].clientX - rect.left) * sx;
+                this.mouseY = (e.touches[0].clientY - rect.top) * sy;
+                this.mouseDown = true;
+                this.mouseClickQueued = true;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            if (e.touches.length === 0) {
+                this.mouseDown = false;
+            }
+        }, { passive: false });
     }
 
     /** True while the key is held down (keyboard or virtual touch). */

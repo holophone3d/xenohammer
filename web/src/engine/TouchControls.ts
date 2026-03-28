@@ -1,61 +1,61 @@
 /**
- * Virtual touch controls for mobile/tablet.
- * Renders a translucent D-pad (left) and Fire + Config buttons (right)
- * over the play area during gameplay. Feeds virtual key state into Input.
+ * Virtual touch controls — HTML bar below the game canvas.
+ *
+ * On touch devices the game canvas scales down to leave room at the
+ * bottom of the viewport. This module creates a fixed-bottom container
+ * with a D-pad, Fire button, and Config-cycle button, all sized
+ * proportionally to the available space.
+ *
+ * Multi-touch: a single container-level touch handler checks every
+ * active touch against zone hit-boxes, so D-pad + Fire works
+ * simultaneously with two fingers.
  */
 
 import { Input } from './Input';
 
-// Layout constants in game coordinates (800×600, play area 650×600)
-const DPAD_CX = 100;
-const DPAD_CY = 490;
-const DPAD_R = 60;
-const DPAD_DEAD = 15;
-
-const FIRE_CX = 550;
-const FIRE_CY = 510;
-const FIRE_R = 50;
-
-const CFG_CX = 550;
-const CFG_CY = 400;
-const CFG_R = 30;
-
-// Hit-test slop multiplier (finger is imprecise)
-const SLOP = 1.4;
-
 export class TouchControls {
     private input: Input;
-    private canvas: HTMLCanvasElement;
-    private _isTouchDevice: boolean;
+    private container: HTMLElement;
+    readonly isTouchDevice: boolean;
     private _active = false;
-
-    // Render state
-    private dpadDx = 0;
-    private dpadDy = 0;
-    private fireHeld = false;
     private configIndex = 0;
-    private lastTouchX = 0;
-    private lastTouchY = 0;
 
-    constructor(canvas: HTMLCanvasElement, input: Input) {
-        this.canvas = canvas;
+    // Visual elements
+    private dpadBg!: HTMLElement;
+    private dpadArrows: HTMLElement[] = [];
+    private fireEl!: HTMLElement;
+    private cfgEl!: HTMLElement;
+    private cfgLabel!: HTMLElement;
+
+    constructor(input: Input) {
         this.input = input;
-        this._isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 1;
+        this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 1;
 
-        if (this._isTouchDevice) {
+        this.container = document.createElement('div');
+        this.container.id = 'touch-controls';
+        this.hide();
+        document.body.appendChild(this.container);
+
+        if (this.isTouchDevice) {
+            this.applyContainerStyle();
+            this.buildUI();
             this.addListeners();
+            window.addEventListener('resize', () => this.layout());
+            this.layout();
         }
     }
 
-    get isTouchDevice(): boolean { return this._isTouchDevice; }
+    /** How much vertical space (px) to reserve for controls. */
+    getReservedHeight(): number {
+        if (!this.isTouchDevice) return 0;
+        // Use up to 25% of viewport height, min 100px, max 180px
+        return Math.max(100, Math.min(180, Math.round(window.innerHeight * 0.25)));
+    }
 
-    /** Enable/disable gameplay controls (menus still get touch→mouse). */
     setActive(gameplay: boolean): void {
         this._active = gameplay;
+        this.container.style.opacity = gameplay ? '1' : '0.35';
         if (!gameplay) {
-            // Release all virtual keys when leaving gameplay
-            this.dpadDx = this.dpadDy = 0;
-            this.fireHeld = false;
             this.input.setVirtualKey(Input.LEFT, false);
             this.input.setVirtualKey(Input.RIGHT, false);
             this.input.setVirtualKey(Input.UP, false);
@@ -64,14 +64,132 @@ export class TouchControls {
         }
     }
 
-    // ── Touch event wiring ──
+    show(): void { this.container.style.display = 'block'; }
+    hide(): void { this.container.style.display = 'none'; }
+
+    /** No-op — visuals are HTML elements, not canvas. */
+    render(_ctx: CanvasRenderingContext2D): void {}
+
+    // ── Container style ──
+
+    private applyContainerStyle(): void {
+        const s = this.container.style;
+        s.position = 'fixed';
+        s.bottom = '0';
+        s.left = '0';
+        s.right = '0';
+        s.touchAction = 'none';
+        s.userSelect = 'none';
+        (s as any).webkitUserSelect = 'none';
+        s.zIndex = '10';
+    }
+
+    // ── Layout: size container & position elements to fill space ──
+
+    layout(): void {
+        const h = this.getReservedHeight();
+        this.container.style.height = `${h}px`;
+
+        const w = window.innerWidth;
+        const pad = h * 0.08; // padding around elements
+        const dpadSize = Math.min(h - pad * 2, w * 0.22);
+        const fireSize = Math.min(h - pad * 2, w * 0.18);
+        const cfgSize = Math.min(h * 0.45, w * 0.10);
+
+        this.positionCircle(this.dpadBg, w * 0.15, h * 0.5, dpadSize / 2);
+        this.positionCircle(this.fireEl, w * 0.78, h * 0.5, fireSize / 2);
+        this.positionCircle(this.cfgEl, w * 0.58, h * 0.5, cfgSize / 2);
+
+        // Arrow offsets scale with dpad size
+        const ao = dpadSize * 0.33;
+        const positions = [
+            [0, -ao], [0, ao], [-ao, 0], [ao, 0] // up, down, left, right
+        ];
+        this.dpadArrows.forEach((el, i) => {
+            el.style.fontSize = `${Math.round(dpadSize * 0.22)}px`;
+            el.style.left = `${dpadSize / 2 + positions[i][0]}px`;
+            el.style.top = `${dpadSize / 2 + positions[i][1]}px`;
+        });
+
+        // Scale fire/cfg labels
+        const fireLabel = this.fireEl.querySelector('span') as HTMLElement;
+        if (fireLabel) fireLabel.style.fontSize = `${Math.round(fireSize * 0.22)}px`;
+        if (this.cfgLabel) this.cfgLabel.style.fontSize = `${Math.round(cfgSize * 0.36)}px`;
+    }
+
+    private positionCircle(el: HTMLElement, cx: number, cy: number, r: number): void {
+        const d = r * 2;
+        el.style.left = `${cx - r}px`;
+        el.style.top = `${cy - r}px`;
+        el.style.width = `${d}px`;
+        el.style.height = `${d}px`;
+    }
+
+    // ── Build HTML elements ──
+
+    private buildUI(): void {
+        // D-pad
+        this.dpadBg = this.makeCircle('rgba(60,60,60,0.5)', 'rgba(120,120,120,0.6)');
+        const arrows = ['▲', '▼', '◀', '▶'];
+        this.dpadArrows = arrows.map(ch => {
+            const el = document.createElement('span');
+            el.textContent = ch;
+            Object.assign(el.style, {
+                position: 'absolute',
+                transform: 'translate(-50%,-50%)',
+                color: 'rgba(180,180,180,0.7)',
+                pointerEvents: 'none',
+            });
+            this.dpadBg.appendChild(el);
+            return el;
+        });
+
+        // Fire
+        this.fireEl = this.makeCircle('rgba(120,0,0,0.45)', 'rgba(255,60,60,0.6)');
+        this.addLabel(this.fireEl, 'FIRE', true);
+
+        // Config
+        this.cfgEl = this.makeCircle('rgba(0,40,80,0.45)', 'rgba(0,130,255,0.55)');
+        this.cfgLabel = this.addLabel(this.cfgEl, 'Q', true);
+    }
+
+    private makeCircle(bg: string, border: string): HTMLElement {
+        const el = document.createElement('div');
+        Object.assign(el.style, {
+            position: 'absolute',
+            borderRadius: '50%',
+            background: bg,
+            border: `2px solid ${border}`,
+            pointerEvents: 'none',
+        });
+        this.container.appendChild(el);
+        return el;
+    }
+
+    private addLabel(parent: HTMLElement, text: string, bold: boolean): HTMLElement {
+        const el = document.createElement('span');
+        el.textContent = text;
+        Object.assign(el.style, {
+            position: 'absolute',
+            top: '50%', left: '50%',
+            transform: 'translate(-50%,-50%)',
+            fontWeight: bold ? 'bold' : 'normal',
+            fontFamily: 'sans-serif',
+            color: 'rgba(255,255,255,0.65)',
+            pointerEvents: 'none',
+        });
+        parent.appendChild(el);
+        return el;
+    }
+
+    // ── Touch handling ──
 
     private addListeners(): void {
-        const opts: AddEventListenerOptions = { passive: false };
-        this.canvas.addEventListener('touchstart', this.onTouch, opts);
-        this.canvas.addEventListener('touchmove', this.onTouch, opts);
-        this.canvas.addEventListener('touchend', this.onTouchEnd, opts);
-        this.canvas.addEventListener('touchcancel', this.onTouchEnd, opts);
+        const o: AddEventListenerOptions = { passive: false };
+        this.container.addEventListener('touchstart', this.onTouch, o);
+        this.container.addEventListener('touchmove', this.onTouch, o);
+        this.container.addEventListener('touchend', this.onTouch, o);
+        this.container.addEventListener('touchcancel', this.onTouch, o);
     }
 
     private onTouch = (e: TouchEvent): void => {
@@ -79,137 +197,71 @@ export class TouchControls {
         this.process(e.touches, e.type === 'touchstart' ? e.changedTouches : null);
     };
 
-    private onTouchEnd = (e: TouchEvent): void => {
-        e.preventDefault();
-        this.process(e.touches, null);
-    };
-
-    // ── Core processing ──
-
-    private toGame(cx: number, cy: number): [number, number] {
-        const r = this.canvas.getBoundingClientRect();
-        return [
-            (cx - r.left) * (this.canvas.width / r.width),
-            (cy - r.top) * (this.canvas.height / r.height)
-        ];
-    }
-
     private process(touches: TouchList, newTouches: TouchList | null): void {
-        // Always simulate mouse from primary touch (for menus)
-        if (touches.length > 0) {
-            const [mx, my] = this.toGame(touches[0].clientX, touches[0].clientY);
-            this.lastTouchX = mx;
-            this.lastTouchY = my;
-            this.input.simulateMouseDown(mx, my);
-        } else {
-            this.input.simulateMouseUp();
-        }
-
         if (!this._active) return;
 
-        // Scan all touches for virtual controls
+        const cr = this.container.getBoundingClientRect();
+        const h = cr.height;
+        const w = cr.width;
+
+        // Zone centers & radii (match layout percentages)
+        const dpadSize = Math.min(h * 0.84, w * 0.22);
+        const dCx = w * 0.15, dCy = h * 0.5, dR = dpadSize / 2;
+        const dead = dR * 0.22;
+
+        const fireSize = Math.min(h * 0.84, w * 0.18);
+        const fCx = w * 0.78, fCy = h * 0.5, fR = fireSize / 2;
+
+        const cfgSize = Math.min(h * 0.45, w * 0.10);
+        const cCx = w * 0.58, cCy = h * 0.5, cR = cfgSize / 2;
+
         let dx = 0, dy = 0, fire = false;
 
         for (let i = 0; i < touches.length; i++) {
-            const [gx, gy] = this.toGame(touches[i].clientX, touches[i].clientY);
+            const tx = touches[i].clientX - cr.left;
+            const ty = touches[i].clientY - cr.top;
 
-            // D-pad
-            if (Math.hypot(gx - DPAD_CX, gy - DPAD_CY) < DPAD_R * SLOP) {
-                const tdx = gx - DPAD_CX;
-                const tdy = gy - DPAD_CY;
-                if (Math.abs(tdx) > DPAD_DEAD) dx = tdx > 0 ? 1 : -1;
-                if (Math.abs(tdy) > DPAD_DEAD) dy = tdy > 0 ? 1 : -1;
+            // D-pad (generous hit area)
+            if (Math.hypot(tx - dCx, ty - dCy) < dR * 1.6) {
+                const ddx = tx - dCx, ddy = ty - dCy;
+                if (Math.abs(ddx) > dead) dx = ddx > 0 ? 1 : -1;
+                if (Math.abs(ddy) > dead) dy = ddy > 0 ? 1 : -1;
             }
 
-            // Fire
-            if (Math.hypot(gx - FIRE_CX, gy - FIRE_CY) < FIRE_R * SLOP) {
+            // Fire (generous)
+            if (Math.hypot(tx - fCx, ty - fCy) < fR * 1.6) {
                 fire = true;
             }
         }
 
-        // Config tap: only on touchstart, cycle Q→W→E
+        // Config: tap only (touchstart)
         if (newTouches) {
             for (let i = 0; i < newTouches.length; i++) {
-                const [gx, gy] = this.toGame(newTouches[i].clientX, newTouches[i].clientY);
-                if (Math.hypot(gx - CFG_CX, gy - CFG_CY) < CFG_R * SLOP) {
+                const tx = newTouches[i].clientX - cr.left;
+                const ty = newTouches[i].clientY - cr.top;
+                if (Math.hypot(tx - cCx, ty - cCy) < cR * 2) {
                     this.configIndex = (this.configIndex + 1) % 3;
-                    const keys = [Input.KEY_Q, Input.KEY_W, Input.KEY_E];
-                    this.input.queueVirtualPress(keys[this.configIndex]);
+                    this.input.queueVirtualPress(
+                        [Input.KEY_Q, Input.KEY_W, Input.KEY_E][this.configIndex]);
+                    this.cfgLabel.textContent = ['Q', 'W', 'E'][this.configIndex];
                     break;
                 }
             }
         }
 
-        this.dpadDx = dx;
-        this.dpadDy = dy;
-        this.fireHeld = fire;
-
+        // Inject into Input
         this.input.setVirtualKey(Input.LEFT, dx < 0);
         this.input.setVirtualKey(Input.RIGHT, dx > 0);
         this.input.setVirtualKey(Input.UP, dy < 0);
         this.input.setVirtualKey(Input.DOWN, dy > 0);
         this.input.setVirtualKey(Input.SPACE, fire);
-    }
 
-    // ── Render ──
-
-    render(ctx: CanvasRenderingContext2D): void {
-        if (!this._isTouchDevice || !this._active) return;
-        ctx.save();
-
-        // D-pad disc
-        ctx.globalAlpha = 0.2;
-        ctx.beginPath();
-        ctx.arc(DPAD_CX, DPAD_CY, DPAD_R, 0, Math.PI * 2);
-        ctx.fillStyle = '#444';
-        ctx.fill();
-        ctx.strokeStyle = '#888';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        // D-pad arrows
-        ctx.globalAlpha = 0.5;
-        ctx.font = '22px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        const ao = 32;
-        ctx.fillStyle = this.dpadDy < 0 ? '#0f0' : '#aaa';
-        ctx.fillText('▲', DPAD_CX, DPAD_CY - ao);
-        ctx.fillStyle = this.dpadDy > 0 ? '#0f0' : '#aaa';
-        ctx.fillText('▼', DPAD_CX, DPAD_CY + ao);
-        ctx.fillStyle = this.dpadDx < 0 ? '#0f0' : '#aaa';
-        ctx.fillText('◀', DPAD_CX - ao, DPAD_CY);
-        ctx.fillStyle = this.dpadDx > 0 ? '#0f0' : '#aaa';
-        ctx.fillText('▶', DPAD_CX + ao, DPAD_CY);
-
-        // Fire button
-        ctx.globalAlpha = 0.25;
-        ctx.beginPath();
-        ctx.arc(FIRE_CX, FIRE_CY, FIRE_R, 0, Math.PI * 2);
-        ctx.fillStyle = this.fireHeld ? '#c00' : '#600';
-        ctx.fill();
-        ctx.strokeStyle = '#f44';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.globalAlpha = 0.6;
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 16px sans-serif';
-        ctx.fillText('FIRE', FIRE_CX, FIRE_CY);
-
-        // Config button
-        ctx.globalAlpha = 0.25;
-        ctx.beginPath();
-        ctx.arc(CFG_CX, CFG_CY, CFG_R, 0, Math.PI * 2);
-        ctx.fillStyle = '#036';
-        ctx.fill();
-        ctx.strokeStyle = '#09f';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.globalAlpha = 0.6;
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 12px sans-serif';
-        ctx.fillText(['Q', 'W', 'E'][this.configIndex], CFG_CX, CFG_CY);
-
-        ctx.restore();
+        // Visual feedback
+        this.fireEl.style.background =
+            fire ? 'rgba(200,0,0,0.55)' : 'rgba(120,0,0,0.45)';
+        this.dpadArrows[0].style.color = dy < 0 ? '#0f0' : 'rgba(180,180,180,0.7)';
+        this.dpadArrows[1].style.color = dy > 0 ? '#0f0' : 'rgba(180,180,180,0.7)';
+        this.dpadArrows[2].style.color = dx < 0 ? '#0f0' : 'rgba(180,180,180,0.7)';
+        this.dpadArrows[3].style.color = dx > 0 ? '#0f0' : 'rgba(180,180,180,0.7)';
     }
 }

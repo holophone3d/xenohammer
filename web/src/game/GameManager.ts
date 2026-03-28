@@ -42,7 +42,7 @@ export class GameManager {
     audio: AudioManager;
     assets: AssetLoader;
     particles: ParticleSystem;
-    touchControls: TouchControls;
+    touchControls: TouchControls | null = null;
 
     level = 0;
     difficulty = 1;
@@ -100,7 +100,6 @@ export class GameManager {
         this.audio = new AudioManager();
         this.assets = new AssetLoader();
         this.particles = new ParticleSystem(500);
-        this.touchControls = new TouchControls(this.canvas.canvas, this.input);
         this.starField = new StarField();
         this.hud = new HUD();
         this.waveManager = new WaveManager();
@@ -212,7 +211,7 @@ export class GameManager {
         this.now = performance.now();
 
         // Touch controls only active during gameplay
-        this.touchControls.setActive(this.state === GameState.Playing);
+        this.touchControls?.setActive(this.state === GameState.Playing);
 
         switch (this.state) {
             case GameState.Loading:
@@ -1089,7 +1088,7 @@ export class GameManager {
         }
 
         // Touch controls overlay (mobile only)
-        this.touchControls.render(ctx);
+        this.touchControls?.render(ctx);
     }
 
     // ========== State: LevelComplete ==========
