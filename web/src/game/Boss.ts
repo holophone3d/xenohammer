@@ -1542,11 +1542,13 @@ export class Boss {
             const ry2 = by + NODE_OFFSETS[2].y + 26 - 16;
             this.drawBeam(ctx, rx1, ry1, rx2, ry2, 60, 0.0, 0.0, 1.0, this.bossAlpha);
         }
-        // Center bar: Node2→Node3 (horizontal)
+        // Center bar: Node2→Node3 (horizontal, use drawBeam like C++ degenerate triangle strip)
         if (!this.outerOrbs[1].destroyed && !this.outerOrbs[2].destroyed) {
-            const cx = bx + NODE_OFFSETS[1].x + 148;
-            const cy = by + NODE_OFFSETS[1].y + 65;
-            this.drawGlow(ctx, cx, cy, 50, 25, 0.0, 0.0, 1.0, this.bossAlpha);
+            const cx1 = bx + NODE_OFFSETS[1].x + 128;
+            const cy1 = by + NODE_OFFSETS[1].y + 65;
+            const cx2 = bx + NODE_OFFSETS[2].x + 0;
+            const cy2 = by + NODE_OFFSETS[2].y + 65;
+            this.drawBeam(ctx, cx1, cy1, cx2, cy2, 25, 0.0, 0.0, 1.0, this.bossAlpha);
         }
 
         // --- U-arm red lights (C++: red 20×20, bossAlpha, only when all orbs destroyed) ---
@@ -1585,7 +1587,7 @@ export class Boss {
 
     /**
      * Draw an energy beam matching C++ createTriangleStrip with bar.bmp texture.
-     * Uses radial gradients at endpoints + a soft center fill to avoid hard quad edges.
+     * Uses a layered approach: wide soft outer glow + brighter narrow core + endpoint glows.
      */
     private drawBeam(
         ctx: CanvasRenderingContext2D,
@@ -1601,37 +1603,44 @@ export class Boss {
         ctx.save();
         ctx.globalAlpha = a;
 
-        // Soft center beam (narrower, higher opacity — no hard edges visible)
         const dx = x2 - x1, dy = y2 - y1;
         const len = Math.sqrt(dx * dx + dy * dy);
         if (len > 1) {
             const px = -dy / len, py = dx / len;
-            const hw = ox * 0.35; // half-width of visible core
+
+            // Wide soft outer glow (full offset width)
+            const hw = ox * 0.7;
             ctx.beginPath();
             ctx.moveTo(x1 + px * hw, y1 + py * hw);
             ctx.lineTo(x2 + px * hw, y2 + py * hw);
             ctx.lineTo(x2 - px * hw, y2 - py * hw);
             ctx.lineTo(x1 - px * hw, y1 - py * hw);
             ctx.closePath();
-            ctx.fillStyle = `${color},${0.5})`;
+            ctx.fillStyle = `${color},0.15)`;
+            ctx.fill();
+
+            // Brighter narrow core
+            const cw = ox * 0.25;
+            ctx.beginPath();
+            ctx.moveTo(x1 + px * cw, y1 + py * cw);
+            ctx.lineTo(x2 + px * cw, y2 + py * cw);
+            ctx.lineTo(x2 - px * cw, y2 - py * cw);
+            ctx.lineTo(x1 - px * cw, y1 - py * cw);
+            ctx.closePath();
+            ctx.fillStyle = `${color},0.5)`;
             ctx.fill();
         }
 
-        // Endpoint glows (large enough to bridge the gap to neighboring beams)
-        const glowR = Math.max(ox, offy);
-        const glow = ctx.createRadialGradient(x1, y1, 0, x1, y1, glowR);
-        glow.addColorStop(0, `${color},${0.6})`);
-        glow.addColorStop(0.4, `${color},${0.25})`);
-        glow.addColorStop(1, `${color},0)`);
-        ctx.fillStyle = glow;
-        ctx.beginPath(); ctx.arc(x1, y1, glowR, 0, Math.PI * 2); ctx.fill();
-
-        const glow2 = ctx.createRadialGradient(x2, y2, 0, x2, y2, glowR);
-        glow2.addColorStop(0, `${color},${0.6})`);
-        glow2.addColorStop(0.4, `${color},${0.25})`);
-        glow2.addColorStop(1, `${color},0)`);
-        ctx.fillStyle = glow2;
-        ctx.beginPath(); ctx.arc(x2, y2, glowR, 0, Math.PI * 2); ctx.fill();
+        // Endpoint glows
+        const glowR = Math.max(ox, offy) * 0.7;
+        for (const [gx, gy] of [[x1, y1], [x2, y2]]) {
+            const glow = ctx.createRadialGradient(gx, gy, 0, gx, gy, glowR);
+            glow.addColorStop(0, `${color},0.5)`);
+            glow.addColorStop(0.5, `${color},0.15)`);
+            glow.addColorStop(1, `${color},0)`);
+            ctx.fillStyle = glow;
+            ctx.beginPath(); ctx.arc(gx, gy, glowR, 0, Math.PI * 2); ctx.fill();
+        }
 
         ctx.restore();
     }
