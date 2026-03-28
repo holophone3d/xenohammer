@@ -2266,52 +2266,138 @@ export class GameManager {
     private debugActive = false;
     private debugMenuOpen = false;
     private debugKeyDebounce = 0;
+    private debugLastTapTime = 0;       // for double-tap ' key
+    private debugLastClickTime = 0;     // for double-click / double-tap in corner
+    private debugLastClickX = 0;
+    private debugLastClickY = 0;
+
+    private readonly DEBUG_CORNER_W = 100;
+    private readonly DEBUG_CORNER_H = 60;
+    private readonly DEBUG_DOUBLE_TAP_MS = 400;
 
     private handleDebugKeys(): void {
         this.debugKeyDebounce = Math.max(0, this.debugKeyDebounce - 1);
         if (this.debugKeyDebounce > 0) return;
 
-        // Backtick (`) toggles debug menu
-        if (this.input.isKeyPressed('`')) {
-            this.debugMenuOpen = !this.debugMenuOpen;
-            this.debugKeyDebounce = 15;
-            return;
+        // Double-tap apostrophe (') toggles debug overlay
+        if (this.input.isKeyPressed("'")) {
+            const now = performance.now();
+            if (now - this.debugLastTapTime < this.DEBUG_DOUBLE_TAP_MS) {
+                this.debugMenuOpen = !this.debugMenuOpen;
+                this.debugKeyDebounce = 15;
+                this.debugLastTapTime = 0;
+                return;
+            }
+            this.debugLastTapTime = now;
+        }
+
+        // Double-click / double-tap in top-left corner toggles overlay
+        if (this.input.isMousePressed()) {
+            const pos = this.input.getMousePos();
+            if (pos.x < this.DEBUG_CORNER_W && pos.y < this.DEBUG_CORNER_H) {
+                const now = performance.now();
+                if (now - this.debugLastClickTime < this.DEBUG_DOUBLE_TAP_MS) {
+                    this.debugMenuOpen = !this.debugMenuOpen;
+                    this.debugKeyDebounce = 15;
+                    this.debugLastClickTime = 0;
+                    return;
+                }
+                this.debugLastClickTime = now;
+                this.debugLastClickX = pos.x;
+                this.debugLastClickY = pos.y;
+            }
         }
 
         if (!this.debugMenuOpen) return;
 
-        // 1-7 debug options
+        // Keyboard: 1-7 debug options
         if (this.input.isKeyPressed('1')) {
-            this.debugJumpToLevel(0);
-            this.debugMenuOpen = false;
-            this.debugKeyDebounce = 15;
+            this.debugExec(() => this.debugJumpToLevel(0));
         } else if (this.input.isKeyPressed('2')) {
-            this.debugJumpToLevel(1);
-            this.debugMenuOpen = false;
-            this.debugKeyDebounce = 15;
+            this.debugExec(() => this.debugJumpToLevel(1));
         } else if (this.input.isKeyPressed('3')) {
-            this.debugSpawnFrigate();
-            this.debugMenuOpen = false;
-            this.debugKeyDebounce = 15;
+            this.debugExec(() => this.debugSpawnFrigate());
         } else if (this.input.isKeyPressed('4')) {
-            this.debugJumpToLevel(2);
-            this.debugMenuOpen = false;
-            this.debugKeyDebounce = 15;
+            this.debugExec(() => this.debugJumpToLevel(2));
         } else if (this.input.isKeyPressed('5')) {
-            this.debugSpawnBoss();
-            this.debugMenuOpen = false;
-            this.debugKeyDebounce = 15;
+            this.debugExec(() => this.debugSpawnBoss());
         } else if (this.input.isKeyPressed('6')) {
-            this.debugActive = !this.debugActive;
-            if (this.player) {
-                this.player.godMode = this.debugActive;
-                if (this.debugActive) this.debugMaxPower();
-            }
+            this.debugToggleGodMode();
             this.debugKeyDebounce = 15;
         } else if (this.input.isKeyPressed('7')) {
-            if (this.player) this.player.powerPlant.resourceUnits += 10;
+            this.debugExec(() => { if (this.player) this.player.powerPlant.resourceUnits += 10; });
+        } else if (this.input.isKeyPressed('Escape')) {
+            this.debugMenuOpen = false;
             this.debugKeyDebounce = 15;
         }
+
+        // Touch/click on overlay buttons
+        if (this.input.isMousePressed()) {
+            const pos = this.input.getMousePos();
+            const hit = this.debugHitTestOverlay(pos.x, pos.y);
+            if (hit >= 0) {
+                this.debugExecOption(hit);
+            } else if (pos.x > this.DEBUG_OVERLAY_W) {
+                // Click outside overlay closes it
+                this.debugMenuOpen = false;
+                this.debugKeyDebounce = 15;
+            }
+        }
+    }
+
+    private debugExec(fn: () => void): void {
+        fn();
+        this.debugMenuOpen = false;
+        this.debugKeyDebounce = 15;
+    }
+
+    private debugToggleGodMode(): void {
+        this.debugActive = !this.debugActive;
+        if (this.player) {
+            this.player.godMode = this.debugActive;
+            if (this.debugActive) this.debugMaxPower();
+        }
+    }
+
+    private debugExecOption(index: number): void {
+        switch (index) {
+            case 0: this.debugExec(() => this.debugJumpToLevel(0)); break;
+            case 1: this.debugExec(() => this.debugJumpToLevel(1)); break;
+            case 2: this.debugExec(() => this.debugSpawnFrigate()); break;
+            case 3: this.debugExec(() => this.debugJumpToLevel(2)); break;
+            case 4: this.debugExec(() => this.debugSpawnBoss()); break;
+            case 5: this.debugToggleGodMode(); this.debugKeyDebounce = 15; break;
+            case 6: this.debugExec(() => { if (this.player) this.player.powerPlant.resourceUnits += 10; }); break;
+        }
+    }
+
+    // Overlay layout constants
+    private readonly DEBUG_OVERLAY_W = 240;
+    private readonly DEBUG_BTN_H = 44;
+    private readonly DEBUG_BTN_PAD = 6;
+    private readonly DEBUG_BTN_X = 12;
+    private readonly DEBUG_BTN_Y0 = 50;
+
+    private readonly DEBUG_OPTIONS = [
+        '1  Level 1',
+        '2  Level 2',
+        '3  Frigate (Mini-Boss)',
+        '4  Level 3',
+        '5  Boss Fight',
+        '6  God Mode + Max Power',
+        '7  +10 RUs',
+    ];
+
+    private debugHitTestOverlay(mx: number, my: number): number {
+        if (mx > this.DEBUG_OVERLAY_W) return -1;
+        for (let i = 0; i < this.DEBUG_OPTIONS.length; i++) {
+            const by = this.DEBUG_BTN_Y0 + i * (this.DEBUG_BTN_H + this.DEBUG_BTN_PAD);
+            if (mx >= this.DEBUG_BTN_X && mx <= this.DEBUG_OVERLAY_W - this.DEBUG_BTN_X &&
+                my >= by && my <= by + this.DEBUG_BTN_H) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private debugJumpToLevel(levelIndex: number): void {
@@ -2402,31 +2488,83 @@ export class GameManager {
     private renderDebugHint(): void {
         const ctx = this.canvas.ctx;
         ctx.save();
-        ctx.font = '10px monospace';
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.textAlign = 'left';
-        ctx.fillText('`:Debug', 4, 12);
+
+        // Only show GOD MODE indicator when active (no more `:Debug` hint)
         if (this.debugActive) {
+            ctx.font = '10px monospace';
             ctx.fillStyle = 'rgba(255,255,0,0.6)';
-            ctx.fillText('GOD MODE', 4, 24);
+            ctx.textAlign = 'left';
+            ctx.fillText('GOD MODE', 4, 12);
         }
+
+        // Debug overlay
         if (this.debugMenuOpen) {
-            ctx.fillStyle = 'rgba(0,0,0,0.85)';
-            ctx.fillRect(2, 28, 210, 130);
+            const W = this.DEBUG_OVERLAY_W;
+            const H = 600;
+
+            // Dim background overlay
+            ctx.fillStyle = 'rgba(0,0,0,0.7)';
+            ctx.fillRect(0, 0, 800, 600);
+
+            // Panel
+            ctx.fillStyle = 'rgba(5,15,5,0.95)';
+            ctx.fillRect(0, 0, W, H);
+            ctx.strokeStyle = 'rgba(0,255,100,0.3)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(0, 0, W, H);
+
+            // Title
+            ctx.font = 'bold 16px monospace';
             ctx.fillStyle = '#0f0';
-            ctx.font = '12px monospace';
-            ctx.fillText('1: Level 1', 8, 44);
-            ctx.fillText('2: Level 2', 8, 58);
-            ctx.fillText('3: Level 2 Mini-Boss', 8, 72);
-            ctx.fillText('4: Level 3', 8, 86);
-            ctx.fillText('5: Level 3 Boss', 8, 100);
-            ctx.fillText('6: God Mode + Max Power', 8, 114);
-            ctx.fillText('7: +10 RUs', 8, 128);
-            if (this.debugActive) {
-                ctx.fillStyle = '#ff0';
-                ctx.fillText('(ON)', 186, 114);
+            ctx.textAlign = 'left';
+            ctx.fillText('DEBUG MENU', 14, 32);
+
+            // Close hint
+            ctx.font = '10px monospace';
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.textAlign = 'right';
+            ctx.fillText('ESC / tap outside', W - 10, 32);
+
+            // Buttons
+            const mouse = this.input.getMousePos();
+            for (let i = 0; i < this.DEBUG_OPTIONS.length; i++) {
+                const bx = this.DEBUG_BTN_X;
+                const by = this.DEBUG_BTN_Y0 + i * (this.DEBUG_BTN_H + this.DEBUG_BTN_PAD);
+                const bw = W - this.DEBUG_BTN_X * 2;
+                const bh = this.DEBUG_BTN_H;
+
+                // Hover detection
+                const hover = mouse.x >= bx && mouse.x <= bx + bw &&
+                              mouse.y >= by && mouse.y <= by + bh;
+
+                // Button background
+                if (i === 5 && this.debugActive) {
+                    ctx.fillStyle = hover ? 'rgba(255,200,0,0.35)' : 'rgba(255,200,0,0.2)';
+                } else {
+                    ctx.fillStyle = hover ? 'rgba(0,255,100,0.2)' : 'rgba(0,255,100,0.07)';
+                }
+                ctx.fillRect(bx, by, bw, bh);
+
+                // Button border
+                ctx.strokeStyle = hover ? 'rgba(0,255,100,0.5)' : 'rgba(0,255,100,0.15)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(bx, by, bw, bh);
+
+                // Button text
+                ctx.font = '13px monospace';
+                ctx.textAlign = 'left';
+                ctx.fillStyle = hover ? '#fff' : '#0f0';
+                ctx.fillText(this.DEBUG_OPTIONS[i], bx + 12, by + bh / 2 + 5);
+
+                // God mode ON indicator
+                if (i === 5 && this.debugActive) {
+                    ctx.fillStyle = '#ff0';
+                    ctx.textAlign = 'right';
+                    ctx.fillText('ON', bx + bw - 10, by + bh / 2 + 5);
+                }
             }
         }
+
         ctx.restore();
     }
 }
