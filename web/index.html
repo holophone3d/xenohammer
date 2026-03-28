@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>XenoHammer</title>
   <style>
     @font-face {
@@ -16,13 +16,22 @@
       padding: 0;
       box-sizing: border-box;
     }
+    html {
+      height: 100%;
+      overflow: hidden;
+    }
     body {
       background: #000;
       display: flex;
       justify-content: center;
       align-items: center;
-      min-height: 100vh;
+      height: 100dvh;
+      height: 100vh; /* fallback for browsers without dvh */
       overflow: hidden;
+    }
+    /* Modern browsers: use dynamic viewport height (iOS Safari friendly) */
+    @supports (height: 100dvh) {
+      body { height: 100dvh; }
     }
     canvas {
       display: block;

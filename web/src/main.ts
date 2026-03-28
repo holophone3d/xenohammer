@@ -11,10 +11,14 @@ function fitCanvas(canvas: HTMLCanvasElement, reserveBottom: number): void {
     const scaleY = (window.innerHeight - reserveBottom) / GAME_H;
     const scale = Math.min(scaleX, scaleY);
     canvas.style.transform = `scale(${scale})`;
-    // On touch devices, push canvas to the top so controls sit below
     if (reserveBottom > 0) {
+        // Portrait: push canvas to top so controls sit below
         canvas.style.transformOrigin = 'top center';
         document.body.style.alignItems = 'flex-start';
+    } else {
+        // Landscape: center canvas in viewport
+        canvas.style.transformOrigin = 'center center';
+        document.body.style.alignItems = 'center';
     }
 }
 
