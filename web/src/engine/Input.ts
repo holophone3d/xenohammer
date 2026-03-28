@@ -1,11 +1,12 @@
 /**
- * Keyboard + mouse input state tracking.
+ * Keyboard + mouse + virtual-touch input state tracking.
  * Tracks current held-state (not events), suitable for a game loop.
  */
 export class Input {
     private keys: Map<string, boolean> = new Map();
     private prevKeys: Map<string, boolean> = new Map();
     private pressedQueue: Set<string> = new Set(); // catches fast press+release between frames
+    private virtualKeys: Map<string, boolean> = new Map();
     private mouseX = 0;
     private mouseY = 0;
     private mouseDown = false;
@@ -59,9 +60,9 @@ export class Input {
         });
     }
 
-    /** True while the key is held down. */
+    /** True while the key is held down (keyboard or virtual touch). */
     isKeyDown(key: string): boolean {
-        return this.keys.get(key) === true;
+        return this.keys.get(key) === true || this.virtualKeys.get(key) === true;
     }
 
     /** True only on the frame the key was first pressed. */
@@ -94,5 +95,35 @@ export class Input {
         this.prevMouseDown = this.mouseDown;
         this.pressedQueue.clear();
         this.mouseClickQueued = false;
+    }
+
+    // ── Virtual input (touch controls) ──
+
+    /** Set a virtual key's held state from touch controls. */
+    setVirtualKey(key: string, down: boolean): void {
+        if (down && !this.virtualKeys.get(key)) {
+            this.pressedQueue.add(key);
+        }
+        this.virtualKeys.set(key, down);
+    }
+
+    /** Queue a one-frame virtual press (e.g. config cycle tap). */
+    queueVirtualPress(key: string): void {
+        this.pressedQueue.add(key);
+    }
+
+    /** Simulate mouse-down from a touch event (for menu interaction). */
+    simulateMouseDown(x: number, y: number): void {
+        this.mouseX = x;
+        this.mouseY = y;
+        if (!this.mouseDown) {
+            this.mouseClickQueued = true;
+        }
+        this.mouseDown = true;
+    }
+
+    /** Simulate mouse-up from touch release. */
+    simulateMouseUp(): void {
+        this.mouseDown = false;
     }
 }

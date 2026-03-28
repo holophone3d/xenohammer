@@ -2,7 +2,7 @@
  * GameManager — main game state machine and orchestrator.
  */
 
-import { GameCanvas, Input, AudioManager, AssetLoader, ParticleSystem, SoundInstance } from '../engine';
+import { GameCanvas, Input, AudioManager, AssetLoader, ParticleSystem, SoundInstance, TouchControls } from '../engine';
 import { LEVELS } from '../data/levels';
 import { ENEMY_SCORES, RANKINGS, TURRET_VELOCITY_TABLE } from '../data/ships';
 import { rectsOverlap, PLAY_AREA_W, PLAY_AREA_H } from './Collision';
@@ -42,6 +42,7 @@ export class GameManager {
     audio: AudioManager;
     assets: AssetLoader;
     particles: ParticleSystem;
+    touchControls: TouchControls;
 
     level = 0;
     difficulty = 1;
@@ -99,6 +100,7 @@ export class GameManager {
         this.audio = new AudioManager();
         this.assets = new AssetLoader();
         this.particles = new ParticleSystem(500);
+        this.touchControls = new TouchControls(this.canvas.canvas, this.input);
         this.starField = new StarField();
         this.hud = new HUD();
         this.waveManager = new WaveManager();
@@ -208,6 +210,9 @@ export class GameManager {
     update(dt: number): void {
         dt = Math.min(dt, 0.1);
         this.now = performance.now();
+
+        // Touch controls only active during gameplay
+        this.touchControls.setActive(this.state === GameState.Playing);
 
         switch (this.state) {
             case GameState.Loading:
@@ -1082,6 +1087,9 @@ export class GameManager {
         } else if (timeLeft > 5) {
             this.levelEndAnimStart = 0;
         }
+
+        // Touch controls overlay (mobile only)
+        this.touchControls.render(ctx);
     }
 
     // ========== State: LevelComplete ==========

@@ -6,3 +6,4 @@ export { Sprite, StaticSprite } from './Sprite';
 export { AssetLoader } from './AssetLoader';
 export { ParticleSystem } from './Particles';
 export type { ParticleOptions } from './Particles';
+export { TouchControls } from './TouchControls';
