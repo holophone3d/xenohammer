@@ -5,15 +5,21 @@
  * **Landscape:** semi-transparent overlays on left/right sides of screen,
  *   game canvas fills 100% of the viewport.
  *
- * Includes a persistent ESC button (top-right) to return to Ready Room.
+ * D-pad has a draggable joystick nub that tracks the thumb and snaps
+ * back to center on release. Inputs are maintained even when the thumb
+ * slides beyond the dpad boundary (touch is tracked by ID, not zone).
  *
- * Multi-touch: document-level touch handlers check every active touch
- * against zone hit-boxes, so D-pad + Fire works simultaneously.
- * In landscape the container has pointer-events:none so canvas touches
- * pass through for menu interaction.
+ * ESC button: portrait → left of MODE; landscape → above MODE.
  */
 
 import { Input } from './Input';
+
+interface ZoneData {
+    dCx: number; dCy: number; dR: number;
+    fCx: number; fCy: number; fR: number;
+    cCx: number; cCy: number; cR: number;
+    eCx: number; eCy: number; eR: number;
+}
 
 export class TouchControls {
     private input: Input;
@@ -24,20 +30,24 @@ export class TouchControls {
 
     // Visual elements
     private dpadBg!: HTMLElement;
+    private dpadNub!: HTMLElement;
     private dpadArrows: HTMLElement[] = [];
     private fireEl!: HTMLElement;
     private cfgEl!: HTMLElement;
     private cfgLabel!: HTMLElement;
     private escEl!: HTMLElement;
 
+    // D-pad joystick state — track by touch identifier
+    private dpadTouchId: number | null = null;
+
     // Callback for ESC button
     onEsc: (() => void) | null = null;
 
-    // Debug force mode: null = auto, 'portrait' | 'landscape' = forced
+    // Debug force mode
     private _forceMode: 'portrait' | 'landscape' | null = null;
-    // Mouse-as-touch emulation for PC testing
     private _mouseEmulation = false;
     private _mouseDown = false;
+    private _mouseDpadLocked = false;
 
     // Cached zone data (recomputed every layout + every touch)
     private _zones: ZoneData | null = null;
@@ -111,6 +121,7 @@ export class TouchControls {
             this.input.setVirtualKey(Input.UP, false);
             this.input.setVirtualKey(Input.DOWN, false);
             this.input.setVirtualKey(Input.SPACE, false);
+            this.resetDpadNub();
         }
     }
 
@@ -140,6 +151,7 @@ export class TouchControls {
             this.layoutPortrait();
         }
         this._zones = this.computeZones();
+        this.resetDpadNub();
     }
 
     private layoutPortrait(): void {
@@ -155,14 +167,15 @@ export class TouchControls {
         const dpadSize = Math.min(h - pad * 2, w * 0.33);
         const fireSize = Math.min(h - pad * 2, w * 0.18);
         const cfgSize = Math.min(h * 0.45, w * 0.10);
-        const escSize = Math.min(h * 0.35, w * 0.08);
+        const escSize = cfgSize;
 
         this.positionCircle(this.dpadBg, w * 0.22, h * 0.5, dpadSize / 2);
         this.positionCircle(this.fireEl, w * 0.78, h * 0.5, fireSize / 2);
-        this.positionCircle(this.cfgEl, w * 0.55, h * 0.5, cfgSize / 2);
-        // ESC button: top-right corner, outside the bottom bar
-        this.positionEscButton(w, false);
+        this.positionCircle(this.cfgEl, w * 0.58, h * 0.5, cfgSize / 2);
+        // ESC to the left of MODE
+        this.positionCircle(this.escEl, w * 0.45, h * 0.5, escSize / 2);
 
+        this.layoutNub(dpadSize);
         this.layoutArrows(dpadSize);
         this.scaleLabelFonts(fireSize, cfgSize, escSize);
     }
@@ -180,49 +193,27 @@ export class TouchControls {
         const dpadSize = Math.min(h * 0.52, w * 0.16);
         const fireSize = Math.min(h * 0.40, w * 0.12);
         const cfgSize = Math.min(h * 0.22, w * 0.06);
-        const escSize = Math.min(h * 0.18, w * 0.05);
+        const escSize = cfgSize;
 
         const margin = h * 0.08;
-        const dpadCx = margin + dpadSize / 2;
-        const dpadCy = h - margin - dpadSize / 2;
-        this.positionCircle(this.dpadBg, dpadCx, dpadCy, dpadSize / 2);
+        this.positionCircle(this.dpadBg, margin + dpadSize / 2,
+            h - margin - dpadSize / 2, dpadSize / 2);
 
         const fireCx = w - margin - fireSize / 2;
         const fireCy = h - margin - fireSize / 2;
         this.positionCircle(this.fireEl, fireCx, fireCy, fireSize / 2);
 
-        const cfgCx = fireCx;
+        // MODE above FIRE
         const cfgCy = fireCy - fireSize / 2 - cfgSize / 2 - margin * 0.6;
-        this.positionCircle(this.cfgEl, cfgCx, cfgCy, cfgSize / 2);
+        this.positionCircle(this.cfgEl, fireCx, cfgCy, cfgSize / 2);
 
-        // ESC: top-right
-        this.positionEscButton(w, true);
+        // ESC above MODE
+        const escCy = cfgCy - cfgSize / 2 - escSize / 2 - margin * 0.4;
+        this.positionCircle(this.escEl, fireCx, escCy, escSize / 2);
 
+        this.layoutNub(dpadSize);
         this.layoutArrows(dpadSize);
         this.scaleLabelFonts(fireSize, cfgSize, escSize);
-    }
-
-    private positionEscButton(screenW: number, landscape: boolean): void {
-        const size = landscape
-            ? Math.min(window.innerHeight * 0.18, screenW * 0.05)
-            : Math.min(this.getReservedHeight() * 0.35, screenW * 0.08);
-        const margin = 10;
-        // In portrait, ESC floats above the bar (top-right of viewport)
-        // In landscape, ESC is top-right of viewport
-        const d = Math.max(size, 32) * 2;
-        this.escEl.style.width = `${d}px`;
-        this.escEl.style.height = `${d}px`;
-        this.escEl.style.borderRadius = '50%';
-
-        if (landscape) {
-            this.escEl.style.left = `${screenW - d - margin}px`;
-            this.escEl.style.top = `${margin}px`;
-        } else {
-            // Position at top-right of viewport (container is bottom-fixed, so use negative top)
-            const containerTop = window.innerHeight - this.getReservedHeight();
-            this.escEl.style.left = `${screenW - d - margin}px`;
-            this.escEl.style.top = `${-(containerTop) + margin}px`;
-        }
     }
 
     private layoutArrows(dpadSize: number): void {
@@ -233,6 +224,23 @@ export class TouchControls {
             el.style.left = `${dpadSize / 2 + positions[i][0]}px`;
             el.style.top = `${dpadSize / 2 + positions[i][1]}px`;
         });
+    }
+
+    private layoutNub(dpadSize: number): void {
+        const nubD = Math.round(dpadSize * 0.36);
+        this.dpadNub.style.width = `${nubD}px`;
+        this.dpadNub.style.height = `${nubD}px`;
+        this.dpadNub.style.borderRadius = '50%';
+        this.resetDpadNub();
+    }
+
+    private resetDpadNub(): void {
+        if (!this.dpadNub || !this.dpadBg) return;
+        const bgW = parseFloat(this.dpadBg.style.width) || 0;
+        const nubW = parseFloat(this.dpadNub.style.width) || 0;
+        this.dpadNub.style.left = `${(bgW - nubW) / 2}px`;
+        this.dpadNub.style.top = `${(bgW - nubW) / 2}px`;
+        this.dpadTouchId = null;
     }
 
     private scaleLabelFonts(fireSize: number, cfgSize: number, escSize: number): void {
@@ -268,6 +276,17 @@ export class TouchControls {
             this.dpadBg.appendChild(el);
             return el;
         });
+
+        // Joystick nub — draggable inner circle
+        this.dpadNub = document.createElement('div');
+        Object.assign(this.dpadNub.style, {
+            position: 'absolute',
+            background: 'rgba(200,200,200,0.5)',
+            border: '2px solid rgba(255,255,255,0.6)',
+            borderRadius: '50%',
+            pointerEvents: 'none',
+        });
+        this.dpadBg.appendChild(this.dpadNub);
 
         this.fireEl = this.makeCircle('rgba(120,0,0,0.45)', 'rgba(255,60,60,0.6)');
         this.addLabel(this.fireEl, 'FIRE', true);
@@ -313,10 +332,10 @@ export class TouchControls {
 
     private addListeners(): void {
         const o: AddEventListenerOptions = { passive: false };
-        document.addEventListener('touchstart', this.onDocTouch, o);
-        document.addEventListener('touchmove', this.onDocTouch, o);
-        document.addEventListener('touchend', this.onDocTouch, o);
-        document.addEventListener('touchcancel', this.onDocTouch, o);
+        document.addEventListener('touchstart', this.onDocTouchStartMove, o);
+        document.addEventListener('touchmove', this.onDocTouchStartMove, o);
+        document.addEventListener('touchend', this.onDocTouchEnd, o);
+        document.addEventListener('touchcancel', this.onDocTouchEnd, o);
 
         // Mouse emulation for PC debug testing
         document.addEventListener('mousedown', this.onMouseDown);
@@ -324,32 +343,88 @@ export class TouchControls {
         document.addEventListener('mouseup', this.onMouseUp);
     }
 
-    private onDocTouch = (e: TouchEvent): void => {
+    private onDocTouchStartMove = (e: TouchEvent): void => {
         if (this.container.style.display === 'none') return;
         const zones = this.computeZones();
         this._zones = zones;
 
         let hitControl = false;
+
+        // Check for new dpad touches on touchstart
+        if (e.type === 'touchstart') {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
+                if (Math.hypot(t.clientX - zones.dCx, t.clientY - zones.dCy) < zones.dR * 1.6) {
+                    this.dpadTouchId = t.identifier;
+                    hitControl = true;
+                }
+            }
+        }
+
+        // Check if any active touch hits a control
         for (let i = 0; i < e.touches.length; i++) {
             if (this.touchInAnyZone(e.touches[i].clientX, e.touches[i].clientY, zones)) {
                 hitControl = true;
                 break;
             }
         }
-
-        if (hitControl) {
-            e.preventDefault();
+        // If tracked dpad touch is active, it's a control hit even if outside zone
+        if (this.dpadTouchId !== null) {
+            for (let i = 0; i < e.touches.length; i++) {
+                if (e.touches[i].identifier === this.dpadTouchId) {
+                    hitControl = true;
+                    break;
+                }
+            }
         }
 
+        if (hitControl) e.preventDefault();
+
         this.process(e.touches, e.type === 'touchstart' ? e.changedTouches : null, zones);
+    };
+
+    private onDocTouchEnd = (e: TouchEvent): void => {
+        if (this.container.style.display === 'none') return;
+
+        // Check if the dpad touch was released
+        if (this.dpadTouchId !== null) {
+            let dpadStillDown = false;
+            for (let i = 0; i < e.touches.length; i++) {
+                if (e.touches[i].identifier === this.dpadTouchId) {
+                    dpadStillDown = true;
+                    break;
+                }
+            }
+            if (!dpadStillDown) {
+                this.resetDpadNub();
+                this.input.setVirtualKey(Input.LEFT, false);
+                this.input.setVirtualKey(Input.RIGHT, false);
+                this.input.setVirtualKey(Input.UP, false);
+                this.input.setVirtualKey(Input.DOWN, false);
+            }
+        }
+
+        // Re-process remaining touches
+        const zones = this.computeZones();
+        this._zones = zones;
+        this.process(e.touches, null, zones);
     };
 
     private onMouseDown = (e: MouseEvent): void => {
         if (!this._mouseEmulation || this.container.style.display === 'none') return;
         const zones = this.computeZones();
         this._zones = zones;
-        if (!this.touchInAnyZone(e.clientX, e.clientY, zones)) return;
+        if (!this.touchInAnyZone(e.clientX, e.clientY, zones)) {
+            // Check if near dpad for drag
+            if (Math.hypot(e.clientX - zones.dCx, e.clientY - zones.dCy) < zones.dR * 1.6) {
+                this._mouseDpadLocked = true;
+            }
+            if (!this._mouseDpadLocked) return;
+        }
         this._mouseDown = true;
+        if (Math.hypot(e.clientX - zones.dCx, e.clientY - zones.dCy) < zones.dR * 1.6) {
+            this._mouseDpadLocked = true;
+        }
         this.processMouseAsTouch(e.clientX, e.clientY, true, zones);
     };
 
@@ -361,6 +436,7 @@ export class TouchControls {
     private onMouseUp = (_e: MouseEvent): void => {
         if (!this._mouseEmulation || !this._mouseDown) return;
         this._mouseDown = false;
+        this._mouseDpadLocked = false;
         this.input.setVirtualKey(Input.LEFT, false);
         this.input.setVirtualKey(Input.RIGHT, false);
         this.input.setVirtualKey(Input.UP, false);
@@ -368,33 +444,33 @@ export class TouchControls {
         this.input.setVirtualKey(Input.SPACE, false);
         this.fireEl.style.background = 'rgba(120,0,0,0.45)';
         this.dpadArrows.forEach(el => el.style.color = 'rgba(180,180,180,0.7)');
+        this.resetDpadNub();
     };
 
     private processMouseAsTouch(cx: number, cy: number, isNew: boolean, zones: ZoneData): void {
-        if (!this._active) return;
-
         const { dCx, dCy, dR, fCx, fCy, fR, cCx, cCy, cR, eCx, eCy, eR } = zones;
-        const dead = dR * 0.22;
 
-        let dx = 0, dy = 0, fire = false;
-
-        if (Math.hypot(cx - dCx, cy - dCy) < dR * 1.6) {
-            const ddx = cx - dCx, ddy = cy - dCy;
-            if (Math.abs(ddx) > dead) dx = ddx > 0 ? 1 : -1;
-            if (Math.abs(ddy) > dead) dy = ddy > 0 ? 1 : -1;
+        // ESC and MODE work regardless of active state
+        if (isNew && Math.hypot(cx - eCx, cy - eCy) < eR * 1.6) {
+            if (this.onEsc) this.onEsc();
         }
-
-        if (Math.hypot(cx - fCx, cy - fCy) < fR * 1.6) fire = true;
-
         if (isNew && Math.hypot(cx - cCx, cy - cCy) < cR * 2) {
             this.configIndex = (this.configIndex + 1) % 3;
             this.input.queueVirtualPress(
                 [Input.KEY_Q, Input.KEY_W, Input.KEY_E][this.configIndex]);
         }
 
-        if (isNew && Math.hypot(cx - eCx, cy - eCy) < eR * 1.6) {
-            if (this.onEsc) this.onEsc();
+        if (!this._active) return;
+
+        let dx = 0, dy = 0, fire = false;
+
+        if (this._mouseDpadLocked || Math.hypot(cx - dCx, cy - dCy) < dR * 1.6) {
+            const result = this.processDpadTouch(cx, cy, zones);
+            dx = result.dx;
+            dy = result.dy;
         }
+
+        if (Math.hypot(cx - fCx, cy - fCy) < fR * 1.6) fire = true;
 
         this.input.setVirtualKey(Input.LEFT, dx < 0);
         this.input.setVirtualKey(Input.RIGHT, dx > 0);
@@ -403,6 +479,37 @@ export class TouchControls {
         this.input.setVirtualKey(Input.SPACE, fire);
 
         this.updateVisualFeedback(dx, dy, fire);
+    }
+
+    /** Process a touch/mouse position on the dpad. Returns directional input and moves nub. */
+    private processDpadTouch(cx: number, cy: number, zones: ZoneData): { dx: number; dy: number } {
+        const { dCx, dCy, dR } = zones;
+        const dead = dR * 0.18;
+        const maxVisual = dR * 0.85;
+
+        const rawDx = cx - dCx;
+        const rawDy = cy - dCy;
+        const dist = Math.hypot(rawDx, rawDy);
+
+        // Direction from raw offset (even if beyond boundary)
+        let dx = 0, dy = 0;
+        if (Math.abs(rawDx) > dead) dx = rawDx > 0 ? 1 : -1;
+        if (Math.abs(rawDy) > dead) dy = rawDy > 0 ? 1 : -1;
+
+        // Clamp nub visual position to maxVisual radius
+        let nubOx = rawDx, nubOy = rawDy;
+        if (dist > maxVisual) {
+            nubOx = (rawDx / dist) * maxVisual;
+            nubOy = (rawDy / dist) * maxVisual;
+        }
+
+        // Position nub relative to dpadBg
+        const bgW = parseFloat(this.dpadBg.style.width) || 0;
+        const nubW = parseFloat(this.dpadNub.style.width) || 0;
+        this.dpadNub.style.left = `${bgW / 2 + nubOx - nubW / 2}px`;
+        this.dpadNub.style.top = `${bgW / 2 + nubOy - nubW / 2}px`;
+
+        return { dx, dy };
     }
 
     /** Compute absolute screen-coordinate zones for current layout. */
@@ -416,22 +523,20 @@ export class TouchControls {
             const dpadSize = Math.min(h * 0.52, w * 0.16);
             const fireSize = Math.min(h * 0.40, w * 0.12);
             const cfgSize = Math.min(h * 0.22, w * 0.06);
-            const escSize = Math.max(Math.min(h * 0.18, w * 0.05), 16);
+            const escSize = cfgSize;
 
             const fireCx = w - margin - fireSize / 2;
             const fireCy = h - margin - fireSize / 2;
+            const cfgCy = fireCy - fireSize / 2 - cfgSize / 2 - margin * 0.6;
+            const escCy = cfgCy - cfgSize / 2 - escSize / 2 - margin * 0.4;
 
             return {
                 dCx: margin + dpadSize / 2,
                 dCy: h - margin - dpadSize / 2,
                 dR: dpadSize / 2,
                 fCx: fireCx, fCy: fireCy, fR: fireSize / 2,
-                cCx: fireCx,
-                cCy: fireCy - fireSize / 2 - cfgSize / 2 - margin * 0.6,
-                cR: cfgSize / 2,
-                eCx: w - escSize - 10,
-                eCy: escSize + 10,
-                eR: escSize,
+                cCx: fireCx, cCy: cfgCy, cR: cfgSize / 2,
+                eCx: fireCx, eCy: escCy, eR: escSize / 2,
             };
         } else {
             const cr = this.container.getBoundingClientRect();
@@ -443,16 +548,13 @@ export class TouchControls {
             const dpadSize = Math.min(ch * 0.84, cw * 0.33);
             const fireSize = Math.min(ch * 0.84, cw * 0.18);
             const cfgSize = Math.min(ch * 0.45, cw * 0.10);
-            const escSize = Math.max(Math.min(ch * 0.35, cw * 0.08), 16);
+            const escSize = cfgSize;
 
             return {
                 dCx: left + cw * 0.22, dCy: top + ch * 0.5, dR: dpadSize / 2,
                 fCx: left + cw * 0.78, fCy: top + ch * 0.5, fR: fireSize / 2,
-                cCx: left + cw * 0.55, cCy: top + ch * 0.5, cR: cfgSize / 2,
-                // ESC at top-right of viewport
-                eCx: w - escSize - 10,
-                eCy: escSize + 10,
-                eR: escSize,
+                cCx: left + cw * 0.58, cCy: top + ch * 0.5, cR: cfgSize / 2,
+                eCx: left + cw * 0.45, eCy: top + ch * 0.5, eR: escSize / 2,
             };
         }
     }
@@ -465,27 +567,18 @@ export class TouchControls {
     }
 
     private process(touches: TouchList, newTouches: TouchList | null, zones: ZoneData): void {
-        if (!this._active) return;
+        const { fCx, fCy, fR, cCx, cCy, cR, eCx, eCy, eR } = zones;
 
-        const { dCx, dCy, dR, fCx, fCy, fR, cCx, cCy, cR, eCx, eCy, eR } = zones;
-        const dead = dR * 0.22;
-
-        let dx = 0, dy = 0, fire = false;
-
-        for (let i = 0; i < touches.length; i++) {
-            const tx = touches[i].clientX;
-            const ty = touches[i].clientY;
-
-            if (Math.hypot(tx - dCx, ty - dCy) < dR * 1.6) {
-                const ddx = tx - dCx, ddy = ty - dCy;
-                if (Math.abs(ddx) > dead) dx = ddx > 0 ? 1 : -1;
-                if (Math.abs(ddy) > dead) dy = ddy > 0 ? 1 : -1;
-            }
-
-            if (Math.hypot(tx - fCx, ty - fCy) < fR * 1.6) fire = true;
-        }
-
+        // ESC and MODE work regardless of active state
         if (newTouches) {
+            for (let i = 0; i < newTouches.length; i++) {
+                const tx = newTouches[i].clientX;
+                const ty = newTouches[i].clientY;
+                if (Math.hypot(tx - eCx, ty - eCy) < eR * 1.6) {
+                    if (this.onEsc) this.onEsc();
+                    break;
+                }
+            }
             for (let i = 0; i < newTouches.length; i++) {
                 const tx = newTouches[i].clientX;
                 const ty = newTouches[i].clientY;
@@ -496,15 +589,25 @@ export class TouchControls {
                     break;
                 }
             }
-            // ESC button — tap only
-            for (let i = 0; i < newTouches.length; i++) {
-                const tx = newTouches[i].clientX;
-                const ty = newTouches[i].clientY;
-                if (Math.hypot(tx - eCx, ty - eCy) < eR * 1.6) {
-                    if (this.onEsc) this.onEsc();
-                    break;
-                }
+        }
+
+        if (!this._active) return;
+
+        let dx = 0, dy = 0, fire = false;
+
+        for (let i = 0; i < touches.length; i++) {
+            const t = touches[i];
+            const tx = t.clientX;
+            const ty = t.clientY;
+
+            // D-pad: only process the tracked touch (allows sliding beyond boundary)
+            if (t.identifier === this.dpadTouchId) {
+                const result = this.processDpadTouch(tx, ty, zones);
+                dx = result.dx;
+                dy = result.dy;
             }
+
+            if (Math.hypot(tx - fCx, ty - fCy) < fR * 1.6) fire = true;
         }
 
         this.input.setVirtualKey(Input.LEFT, dx < 0);
@@ -523,11 +626,4 @@ export class TouchControls {
         this.dpadArrows[2].style.color = dx < 0 ? '#0f0' : 'rgba(180,180,180,0.7)';
         this.dpadArrows[3].style.color = dx > 0 ? '#0f0' : 'rgba(180,180,180,0.7)';
     }
-}
-
-interface ZoneData {
-    dCx: number; dCy: number; dR: number;
-    fCx: number; fCy: number; fR: number;
-    cCx: number; cCy: number; cR: number;
-    eCx: number; eCy: number; eR: number;
 }
