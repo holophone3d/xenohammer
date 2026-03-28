@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>XenoHammer</title>
   <style>
     @font-face {
@@ -16,22 +16,88 @@
       padding: 0;
       box-sizing: border-box;
     }
+    html {
+      height: 100%;
+      overflow: hidden;
+    }
     body {
       background: #000;
       display: flex;
       justify-content: center;
       align-items: center;
-      min-height: 100vh;
+      height: 100dvh;
+      height: 100vh; /* fallback for browsers without dvh */
       overflow: hidden;
+    }
+    /* Modern browsers: use dynamic viewport height (iOS Safari friendly) */
+    @supports (height: 100dvh) {
+      body { height: 100dvh; }
     }
     canvas {
       display: block;
       transform-origin: center center;
     }
+    /* Loading overlay — visible immediately, no JS required */
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      transition: opacity 0.4s;
+    }
+    #loading-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #loading-title {
+      color: #0f0;
+      font-family: 'XenoFont', monospace;
+      font-size: 32px;
+      margin-bottom: 24px;
+    }
+    #loading-bar-bg {
+      width: 300px;
+      height: 20px;
+      background: #222;
+      border: 1px solid #444;
+    }
+    #loading-bar {
+      height: 100%;
+      width: 0%;
+      background: #0f0;
+      transition: width 0.15s;
+    }
+    #loading-pct {
+      color: #666;
+      font-family: 'XenoFont', monospace;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+    #loading-text {
+      color: #888;
+      font-family: 'XenoFont', monospace;
+      font-size: 14px;
+      margin-top: 16px;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
   </style>
-  <script type="module" crossorigin src="./assets/index-NT5sMBBO.js"></script>
+  <script type="module" crossorigin src="./assets/index-DiPcjVaw.js"></script>
 </head>
 <body>
+  <div id="loading-overlay">
+    <div id="loading-title">XENOHAMMER</div>
+    <div id="loading-bar-bg"><div id="loading-bar"></div></div>
+    <div id="loading-pct">0%</div>
+    <div id="loading-text">Loading...</div>
+  </div>
   <canvas id="game-canvas" width="800" height="600"></canvas>
 </body>
 </html>
