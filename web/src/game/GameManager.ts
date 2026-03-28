@@ -1155,7 +1155,7 @@ export class GameManager {
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, 800, 600);
 
-        // Starfield scrolling behind (no Earth/Moon — aftermath is deep space)
+        // Starfield scrolling behind (no Earth/Moon — aftermath is after Level 3 boss)
         this.starField.draw(ctx, false);
 
         // Aftermath graphic scrolling upward
