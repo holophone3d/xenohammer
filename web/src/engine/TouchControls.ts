@@ -164,18 +164,19 @@ export class TouchControls {
 
         const w = window.innerWidth;
         const pad = h * 0.08;
-        const dpadSize = Math.min(h - pad * 2, w * 0.33);
+        const cy = h * 0.4;  // shifted up 10%
+        const dpadSize = Math.min(h - pad * 2, w * 0.38);
         const fireSize = Math.min(h - pad * 2, w * 0.18);
         const cfgSize = Math.min(h * 0.45, w * 0.10);
         const escSize = cfgSize * 0.5;
 
-        const cfgCx = w * 0.50;
-        this.positionCircle(this.dpadBg, w * 0.22, h * 0.5, dpadSize / 2);
-        this.positionCircle(this.fireEl, w * 0.78, h * 0.5, fireSize / 2);
-        this.positionCircle(this.cfgEl, cfgCx, h * 0.5, cfgSize / 2);
+        const cfgCx = w * 0.58;
+        this.positionCircle(this.dpadBg, w * 0.22, cy, dpadSize / 2);
+        this.positionCircle(this.fireEl, w * 0.78, cy, fireSize / 2);
+        this.positionCircle(this.cfgEl, cfgCx, cy, cfgSize / 2);
 
         // ESC above MODE — bottom of ESC aligns with top of dpad
-        const dpadTop = h * 0.5 - dpadSize / 2;
+        const dpadTop = cy - dpadSize / 2;
         const escCy = dpadTop - escSize;  // escBottom = escCy + escSize = dpadTop
         const escD = escSize * 2;
         this.escEl.style.width = `${escD}px`;
@@ -562,19 +563,20 @@ export class TouchControls {
             const top = cr.top;
             const left = cr.left;
 
-            const dpadSize = Math.min(ch * 0.84, cw * 0.33);
+            const dpadSize = Math.min(ch * 0.84, cw * 0.38);
             const fireSize = Math.min(ch * 0.84, cw * 0.18);
             const cfgSize = Math.min(ch * 0.45, cw * 0.10);
             const escSize = cfgSize * 0.5;
 
-            const cfgCx = left + cw * 0.50;
-            const dpadTop = top + ch * 0.5 - dpadSize / 2;
+            const cy = top + ch * 0.4;
+            const cfgCx = left + cw * 0.58;
+            const dpadTop = cy - dpadSize / 2;
             const escCy = dpadTop - escSize;
 
             return {
-                dCx: left + cw * 0.22, dCy: top + ch * 0.5, dR: dpadSize / 2,
-                fCx: left + cw * 0.78, fCy: top + ch * 0.5, fR: fireSize / 2,
-                cCx: cfgCx, cCy: top + ch * 0.5, cR: cfgSize / 2,
+                dCx: left + cw * 0.22, dCy: cy, dR: dpadSize / 2,
+                fCx: left + cw * 0.78, fCy: cy, fR: fireSize / 2,
+                cCx: cfgCx, cCy: cy, cR: cfgSize / 2,
                 eCx: cfgCx, eCy: escCy, eR: escSize,
             };
         }
