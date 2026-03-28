@@ -661,9 +661,6 @@ export class Boss {
             this.state = BossState.Morph1;
             this.morphTickAccum = 0;
             this.stateTimer = 0;
-            // Make U-components and their turrets damageable as they descend
-            for (const u of this.uComponents) u.damageable = true;
-            for (const ai of this.uTurretAIs) ai.comp.damageable = true;
         }
 
         this.updateTurretFiring(dt, playerX, playerY);
@@ -1111,11 +1108,7 @@ export class Boss {
         for (const conn of this.connectors) {
             if (check(conn)) return conn;
         }
-        // 7. U-components (144×288 arms — hittable during Morph1/Morph2/Final)
-        for (const u of this.uComponents) {
-            if (check(u)) return u;
-        }
-        // 8. U-turrets (hittable once arms are visible)
+        // 7. U-turrets (on the arms — always damageable, arms themselves are not)
         for (const ai of this.uTurretAIs) {
             if (!ai.destroyed && check(ai.comp)) return ai.comp;
         }

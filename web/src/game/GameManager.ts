@@ -2381,15 +2381,14 @@ export class GameManager {
 
     private debugMaxPower(): void {
         if (!this.player) return;
-        // Set cells to 3 (2.5× multiplier) — strong but not absurd
-        const val = 3;
+        const max = this.player.powerPlant.maxPowerPerCell;
         for (const s of this.player.powerPlant.settings) {
-            s.blasterCell1 = val; s.blasterCell2 = val;
-            s.leftTurretCell1 = val; s.leftTurretCell2 = val;
-            s.rightTurretCell1 = val; s.rightTurretCell2 = val;
-            s.leftMissileCell1 = val; s.leftMissileCell2 = val;
-            s.rightMissileCell1 = val; s.rightMissileCell2 = val;
-            s.shipPowerCell1 = val; s.shipPowerCell2 = val;
+            s.blasterCell1 = max; s.blasterCell2 = max;
+            s.leftTurretCell1 = max; s.leftTurretCell2 = max;
+            s.rightTurretCell1 = max; s.rightTurretCell2 = max;
+            s.leftMissileCell1 = max; s.leftMissileCell2 = max;
+            s.rightMissileCell1 = max; s.rightMissileCell2 = max;
+            s.shipPowerCell1 = max; s.shipPowerCell2 = max;
         }
     }
 
