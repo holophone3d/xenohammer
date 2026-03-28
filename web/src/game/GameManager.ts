@@ -1669,6 +1669,14 @@ export class GameManager {
             return;
         }
 
+        // "Select All Systems" click (right-aligned text near x=300-500, y=245-270)
+        if (mx >= 300 && mx <= 500 && my >= 245 && my <= 275) {
+            this.audio.playSound('MenuSelect');
+            this.custSelectedSystem = -1;
+            this.custHoverSystem = -1;
+            return;
+        }
+
         const sel = this.custSelectedSystem;
 
         // Settings click (right panel: x=520-800)
@@ -1889,7 +1897,7 @@ export class GameManager {
         for (const p of this.custDemoProjectiles) {
             p.x += p.vx;
             p.y += p.vy;
-            if (p.y < 45 || p.y > 600 || p.x < 510 || p.x > 800) p.alive = false;
+            if (p.y < 200 || p.y > 600 || p.x < 510 || p.x > 800) p.alive = false;
         }
         this.custDemoProjectiles = this.custDemoProjectiles.filter(p => p.alive);
         // Cap array size
@@ -1928,16 +1936,27 @@ export class GameManager {
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, 800, 40);           // top stat bar
         ctx.fillRect(0, 301, 512, 299);         // bottom-left info panel
-        ctx.fillRect(512, 45, 288, 508);        // right panel
+        ctx.fillRect(512, 45, 288, 150);        // right panel: user settings
+        ctx.fillRect(512, 195, 288, 358);       // right panel: ship demo
         ctx.fillRect(512, 553, 5, 47);          // thin divider next to exit button
 
-        // 3b. Green divider lines at section boundaries
-        ctx.fillStyle = '#0f0';
-        ctx.fillRect(0, 40, 800, 1);            // bottom of stats bar
-        ctx.fillRect(0, 301, 512, 1);           // bottom of ship diagram
-        ctx.fillRect(512, 45, 1, 508);          // left edge of right panel
-        ctx.fillRect(512, 553, 5, 1);           // above exit button divider
-        ctx.fillRect(517, 553, 283, 1);         // above exit button
+        // 3b. Green panel border lines (each UX region gets its own rectangle)
+        ctx.strokeStyle = '#0f0';
+        ctx.lineWidth = 1;
+        // Stats bar
+        ctx.strokeRect(0.5, 0.5, 799, 39);
+        // Ship diagram
+        ctx.strokeRect(0.5, 41.5, 511, 259);
+        // Bottom-left info panel
+        ctx.strokeRect(0.5, 301.5, 511, 198);
+        // Bottom-left touch arrow zone
+        ctx.strokeRect(0.5, 500.5, 511, 99);
+        // User Settings panel (right top)
+        ctx.strokeRect(512.5, 41.5, 287, 153);
+        // Ship Demo panel (right middle)
+        ctx.strokeRect(512.5, 195.5, 287, 357);
+        // Exit button
+        ctx.strokeRect(517.5, 553.5, 282, 46);
 
         // 4. Stats at top (y=35)
         if (this.player) {
@@ -2018,7 +2037,7 @@ export class GameManager {
     private drawCustPowerBars(ctx: CanvasRenderingContext2D): void {
         if (!this.player) return;
         const setting = this.player.powerPlant.getSetting();
-        const W = 14, H = 10; // C_BAR_WIDTH, C_BAR_HEIGHT
+        const W = 14, H = 6; // C_BAR_WIDTH, reduced height to fit within diagram
 
         // All bar positions from Console.h customization constants
         const bars: Array<{x: number, y: number, count: number}> = [
@@ -2039,8 +2058,8 @@ export class GameManager {
         ctx.fillStyle = '#0f0';
         for (const bar of bars) {
             for (let i = 0; i < bar.count; i++) {
-                // C++ formula: y = Y_POS - ((temp * C_BAR_HEIGHT) + 4), height = C_BAR_HEIGHT
-                const barY = bar.y - ((i * H) + 4) - H;
+                // Stack upward with 2px gap between cells for distinct visibility
+                const barY = bar.y - ((i * (H + 2)) + 4) - H;
                 ctx.fillRect(bar.x, barY, W, H);
             }
         }
@@ -2222,9 +2241,9 @@ export class GameManager {
             ctx.font = '18px XenoFont, monospace';
             ctx.fillStyle = '#0f0';
             ctx.textAlign = 'left';
-            ctx.fillText('Shields', 740, 345);
+            ctx.fillText('Shields', 720, 345);
 
-            // Shield bar: fills from (740, 545) upward, height = shields * 0.666
+            // Shield bar: fills from (720, 545) upward, height = shields * 0.666
             const shields = this.custShieldDemo;
             const barHeight = shields * 0.666;
             let r: number, g: number;
@@ -2236,7 +2255,7 @@ export class GameManager {
                 g = Math.min(1, Math.max(0, shields * 0.0066));
             }
             ctx.fillStyle = `rgb(${Math.floor(r * 255)},${Math.floor(g * 255)},0)`;
-            ctx.fillRect(740, 545 - barHeight, 45, barHeight);
+            ctx.fillRect(720, 545 - barHeight, 45, barHeight);
         }
     }
 
