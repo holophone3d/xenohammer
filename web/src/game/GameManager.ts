@@ -1317,8 +1317,8 @@ export class GameManager {
                 // Quit to system — reload page
                 window.location.reload();
             }
-            // Debug button (small, bottom-right of CRT area)
-            if (mx >= 700 && mx <= 790 && my >= 510 && my <= 540) {
+            // Debug button (top-left of CRT area)
+            if (mx >= 10 && mx <= 160 && my >= 10 && my <= 50) {
                 this.audio.playSound('MenuSelect');
                 this.debugMenuOpen = true;
             }
@@ -1361,17 +1361,17 @@ export class GameManager {
             tooltipText = this.optionsSaveTooltip;
         }
 
-        // Small "Debug" button — bottom-right of CRT area, above tooltip bar
-        const dbgHover = mx >= 700 && mx <= 790 && my >= 510 && my <= 540;
-        ctx.fillStyle = dbgHover ? 'rgba(0,255,100,0.2)' : 'rgba(0,255,100,0.07)';
-        ctx.fillRect(700, 510, 90, 30);
-        ctx.strokeStyle = dbgHover ? 'rgba(0,255,100,0.5)' : 'rgba(0,255,100,0.15)';
+        // "Debug" button — top-left, prominent (conditions user to double-tap this corner)
+        const dbgHover = mx >= 10 && mx <= 160 && my >= 10 && my <= 50;
+        ctx.fillStyle = dbgHover ? 'rgba(0,255,100,0.25)' : 'rgba(0,255,100,0.1)';
+        ctx.fillRect(10, 10, 150, 40);
+        ctx.strokeStyle = dbgHover ? 'rgba(0,255,100,0.6)' : 'rgba(0,255,100,0.2)';
         ctx.lineWidth = 1;
-        ctx.strokeRect(700, 510, 90, 30);
-        ctx.fillStyle = dbgHover ? '#0f0' : 'rgba(0,255,100,0.5)';
-        ctx.font = '14px XenoFont, monospace';
+        ctx.strokeRect(10, 10, 150, 40);
+        ctx.fillStyle = dbgHover ? '#0f0' : 'rgba(0,255,100,0.6)';
+        ctx.font = '22px XenoFont, monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('Debug', 745, 530);
+        ctx.fillText('Debug', 85, 37);
         ctx.textAlign = 'left';
         if (dbgHover) tooltipText = 'Open the debug menu';
 
@@ -2740,7 +2740,7 @@ export class GameManager {
             ctx.fillStyle = 'rgba(0,255,100,0.4)';
             ctx.textAlign = 'center';
             ctx.fillText('Double-click/tap top-left', W / 2, H - 28);
-            ctx.fillText('corner to toggle this menu', W / 2, H - 16);
+            ctx.fillText('corner for this menu anytime', W / 2, H - 16);
         }
 
         ctx.restore();
