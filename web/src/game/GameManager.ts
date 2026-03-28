@@ -2442,11 +2442,26 @@ export class GameManager {
         this.debugKeyDebounce = 15;
     }
 
+    private debugSavedSettings: import('./PowerPlant').PowerSetting[] | null = null;
+    private debugSavedRU = 0;
+
     private debugToggleGodMode(): void {
         this.debugActive = !this.debugActive;
         if (this.player) {
             this.player.godMode = this.debugActive;
-            if (this.debugActive) this.debugMaxPower();
+            if (this.debugActive) {
+                // Save current state before overwriting
+                this.debugSavedSettings = this.player.powerPlant.settings.map(s => ({ ...s }));
+                this.debugSavedRU = this.player.powerPlant.resourceUnits;
+                this.debugMaxPower();
+            } else {
+                // Restore original settings
+                if (this.debugSavedSettings) {
+                    this.player.powerPlant.settings = this.debugSavedSettings.map(s => ({ ...s }));
+                    this.debugSavedSettings = null;
+                }
+                this.player.powerPlant.resourceUnits = this.debugSavedRU;
+            }
         }
     }
 
@@ -2614,14 +2629,37 @@ export class GameManager {
     private debugMaxPower(): void {
         if (!this.player) return;
         const max = this.player.powerPlant.maxPowerPerCell;
-        for (const s of this.player.powerPlant.settings) {
-            s.blasterCell1 = max; s.blasterCell2 = max;
-            s.leftTurretCell1 = max; s.leftTurretCell2 = max;
-            s.rightTurretCell1 = max; s.rightTurretCell2 = max;
-            s.leftMissileCell1 = max; s.leftMissileCell2 = max;
-            s.rightMissileCell1 = max; s.rightMissileCell2 = max;
-            s.shipPowerCell1 = max; s.shipPowerCell2 = max;
-        }
+        const pp = this.player.powerPlant;
+
+        // Q setting: all max power, default turret angles
+        const q = pp.settings[0];
+        q.blasterCell1 = max; q.blasterCell2 = max;
+        q.leftTurretCell1 = max; q.leftTurretCell2 = max;
+        q.rightTurretCell1 = max; q.rightTurretCell2 = max;
+        q.leftMissileCell1 = max; q.leftMissileCell2 = max;
+        q.rightMissileCell1 = max; q.rightMissileCell2 = max;
+        q.shipPowerCell1 = max; q.shipPowerCell2 = max;
+        q.leftTurretAngle = 135; q.rightTurretAngle = 45;
+
+        // W setting: all max power, all weapons forward (turrets at 90°)
+        const w = pp.settings[1];
+        w.blasterCell1 = max; w.blasterCell2 = max;
+        w.leftTurretCell1 = max; w.leftTurretCell2 = max;
+        w.rightTurretCell1 = max; w.rightTurretCell2 = max;
+        w.leftMissileCell1 = max; w.leftMissileCell2 = max;
+        w.rightMissileCell1 = max; w.rightMissileCell2 = max;
+        w.shipPowerCell1 = max; w.shipPowerCell2 = max;
+        w.leftTurretAngle = 90; w.rightTurretAngle = 90;
+
+        // E setting: all max power, turrets facing backward (270°)
+        const e = pp.settings[2];
+        e.blasterCell1 = max; e.blasterCell2 = max;
+        e.leftTurretCell1 = max; e.leftTurretCell2 = max;
+        e.rightTurretCell1 = max; e.rightTurretCell2 = max;
+        e.leftMissileCell1 = max; e.leftMissileCell2 = max;
+        e.rightMissileCell1 = max; e.rightMissileCell2 = max;
+        e.shipPowerCell1 = max; e.shipPowerCell2 = max;
+        e.leftTurretAngle = 270; e.rightTurretAngle = 270;
     }
 
     private debugCycleTouchMode(mode: 'portrait' | 'landscape'): void {
