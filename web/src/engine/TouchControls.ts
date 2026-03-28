@@ -128,6 +128,8 @@ export class TouchControls {
             this.input.setVirtualKey(Input.DOWN, false);
             this.input.setVirtualKey(Input.SPACE, false);
             this.resetDpadNub();
+            this.dpadArrows.forEach(el => el.style.color = 'rgba(180,180,180,0.7)');
+            this.fireEl.style.background = 'rgba(120,0,0,0.45)';
         }
     }
 
