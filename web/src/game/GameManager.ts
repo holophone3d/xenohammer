@@ -2009,9 +2009,9 @@ export class GameManager {
         // 11. Status message at bottom (large font, y=590)
         if (this.custStatusMsg) {
             ctx.fillStyle = '#0f0';
-            ctx.font = '26px XenoFont, monospace';
-            ctx.textAlign = 'left';
-            ctx.fillText(this.custStatusMsg, 20, 590);
+            ctx.font = '18px XenoFont, monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(this.custStatusMsg, 256, 520);
         }
 
         // 12. Green panel border lines — drawn last so they're always on top
