@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>XenoHammer  A Tribute to the 2001 Space Shooter</title>
 <meta name="description" content="XenoHammer: A top-down space combat arcade shooter made by Georgia Tech seniors in 2001. Selected for the IGF 2002 Student Showcase at GDC. Now playable in your browser.">
+<link rel="icon" href="play/favicon.ico" type="image/x-icon">
 <style>
 /* ===== RESET & BASE ===== */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -189,6 +190,19 @@ nav .nav-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;width:100%;displa
 .cactaur-block h4{color:var(--text-bright);font-size:1.1rem;margin-bottom:.5rem;text-transform:none;letter-spacing:0}
 .cactaur-block p{color:var(--text-dim);font-size:.85rem;max-width:500px;margin:0 auto;line-height:1.6}
 
+/* ===== ANNIVERSARY BADGE ===== */
+.anniversary-badge{display:inline-block;padding:.4rem 1.2rem;background:rgba(0,255,102,.1);border:1px solid var(--green);border-radius:20px;color:var(--green);font-size:.8rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:1rem;animation:badge-pulse 3s ease-in-out infinite}
+@keyframes badge-pulse{0%,100%{box-shadow:0 0 8px rgba(0,255,102,.2)}50%{box-shadow:0 0 20px rgba(0,255,102,.4)}}
+.hero-mobile{font-size:.8rem;color:var(--text-dim);margin-top:.5rem}
+
+/* ===== HOW TO PLAY ===== */
+.howto-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1.25rem;margin-top:1.5rem}
+.howto-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1.5rem;text-align:center;transition:border-color .3s,transform .3s}
+.howto-card:hover{border-color:var(--green-dim);transform:translateY(-3px)}
+.howto-icon{font-size:2rem;margin-bottom:.75rem}
+.howto-card h4{font-size:1rem;color:var(--text-bright);margin-bottom:.5rem;text-transform:none;letter-spacing:0}
+.howto-card p{font-size:.85rem;color:var(--text-dim);line-height:1.6}
+
 /* ===== FOOTER ===== */
 footer{position:relative;z-index:1;border-top:1px solid var(--border);padding:3rem 0 2rem;text-align:center}
 footer .footer-cta{display:inline-flex;align-items:center;gap:.5rem;padding:.65rem 2rem;background:transparent;border:1px solid var(--green);color:var(--green);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;border-radius:4px;transition:all .2s;margin-bottom:2rem}
@@ -258,6 +272,7 @@ footer .heart{color:var(--green)}
     <img src="screenshots/10_gameplay_combat.png" alt="" loading="eager">
   </div>
   <div class="hero-content">
+    <div class="anniversary-badge">&#127881; 25th Anniversary &mdash; 2001&ndash;2026</div>
     <h1 class="hero-title">XenoHammer</h1>
     <div class="hero-codename">Codename: XenoHammerGL</div>
     <p class="hero-tagline">A top-down space combat arcade shooter</p>
@@ -265,6 +280,7 @@ footer .heart{color:var(--green)}
     <div class="hero-meta">Georgia Tech &middot; 2001 &middot; IGF Student Showcase 2002</div>
     <a href="play/index.html" class="hero-play">&#9654; Play Now</a>
     <p class="hero-note">Web rewrite in TypeScript &mdash; faithful to the original</p>
+    <p class="hero-mobile">&#128241; Works on desktop &amp; mobile &mdash; portrait or landscape!</p>
   </div>
 </section>
 
@@ -324,7 +340,7 @@ footer .heart{color:var(--green)}
       <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Jan 2002</span><h4 class="tl-title">IGF Student Showcase Selection</h4><p class="tl-desc">Selected as 1 of 10 games from 31 entries for the Independent Games Festival 2002 Student Showcase, judged by the Seattle IGDA chapter.</p></div>
       <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Mar 2002</span><h4 class="tl-title">GDC 2002 &mdash; San Jose</h4><p class="tl-desc">The team showcases XenoHammer at the Game Developers Conference. Reviewers praise the physics-based explosions and graphical polish for a student project.</p></div>
       <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">2002 &ndash; 2025</span><h4 class="tl-title">Legacy</h4><p class="tl-desc">The game lives on in academic references, GDC archives, and the memories of the ClanLib community. The original Tripod site fades but is archived.</p></div>
-      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">2026</span><h4 class="tl-title">Reborn for the Web</h4><p class="tl-desc">XenoHammer is faithfully rewritten in TypeScript and Canvas, making it playable in any modern browser. This tribute site preserves the full history.</p></div>
+      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">2026</span><h4 class="tl-title">25th Anniversary &mdash; Reborn for the Web</h4><p class="tl-desc">Celebrating 25 years since development began, XenoHammer is faithfully rewritten in TypeScript and Canvas. Playable on any device&mdash;desktop or mobile, portrait or landscape&mdash;this tribute preserves the full history for a new generation.</p></div>
     </div>
   </div>
 </section>
@@ -503,6 +519,30 @@ footer .heart{color:var(--green)}
       <img src="archives/images/tripod/cactaur.jpg" alt="Cult of Cactaur Logo">
       <h4>Cult of Cactaur</h4>
       <p>The team&rsquo;s identity and calling card. The Cactaur community recognized XenoHammer as having &ldquo;the most stunning visuals ever seen in a ClanLib powered game.&rdquo;</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== HOW TO PLAY ===== -->
+<section id="howtoplay">
+  <div class="container">
+    <div class="reveal"><div class="section-line"></div><h2>How to Play</h2><p class="section-sub">Desktop, Tablet &amp; Phone</p></div>
+    <div class="howto-grid">
+      <div class="howto-card reveal">
+        <div class="howto-icon">&#128421;</div>
+        <h4>Desktop</h4>
+        <p>Arrow keys to move, <strong>Space</strong> to fire, <strong>A/Q/W/E</strong> to cycle weapon settings. Works in any modern browser.</p>
+      </div>
+      <div class="howto-card reveal reveal-delay-1">
+        <div class="howto-icon">&#128241;</div>
+        <h4>Mobile &amp; Tablet</h4>
+        <p>On-screen D-pad and fire button. Plays in both <strong>portrait</strong> and <strong>landscape</strong> orientation. Touch controls appear automatically.</p>
+      </div>
+      <div class="howto-card reveal reveal-delay-2">
+        <div class="howto-icon">&#127823;</div>
+        <h4>iOS Safari &mdash; Best Experience</h4>
+        <p>For fullscreen, no-bar gameplay: tap <strong>Share</strong> (&#9757;) &rarr; <strong>&ldquo;Add to Home Screen&rdquo;</strong>. Launch from your home screen and it runs as a standalone web app!</p>
+      </div>
     </div>
   </div>
 </section>

@@ -128,6 +128,11 @@ export class AudioManager {
         const buffer = this.sfxBuffers.get(id);
         if (!buffer || !this.ctx) return AudioManager.nullInstance();
 
+        // iOS Safari can re-suspend — always try to resume
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => {});
+        }
+
         const source = this.ctx.createBufferSource();
         source.buffer = buffer;
         source.loop = loop;
@@ -197,6 +202,10 @@ export class AudioManager {
         const buffer = this.musicBuffers.get(id);
         const ctx = this.ctx;
         if (buffer && ctx) {
+            // iOS Safari can re-suspend the AudioContext — always resume before playing
+            if (ctx.state === 'suspended') {
+                ctx.resume().catch(() => {});
+            }
             try {
                 const source = ctx.createBufferSource();
                 source.buffer = buffer;
