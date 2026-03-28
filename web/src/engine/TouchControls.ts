@@ -174,8 +174,9 @@ export class TouchControls {
         this.positionCircle(this.fireEl, w * 0.78, h * 0.5, fireSize / 2);
         this.positionCircle(this.cfgEl, cfgCx, h * 0.5, cfgSize / 2);
 
-        // ESC above MODE, gap = 2× the gap between MODE edge and FIRE edge
-        const modeFireGap = (w * 0.78 - fireSize / 2) - (cfgCx + cfgSize / 2);
+        // ESC above MODE — same vertical distance as landscape
+        // Landscape: modeFireGap = margin*0.6, escGap = modeFireGap*2
+        const modeFireGap = pad * 0.6;
         const escGap = modeFireGap * 2;
         const escCy = h * 0.5 - cfgSize / 2 - escSize / 2 - escGap;
         const escD = escSize * 2;
@@ -568,15 +569,15 @@ export class TouchControls {
             const cfgSize = Math.min(ch * 0.45, cw * 0.10);
             const escSize = cfgSize * 0.5;
 
-            const cfgCx = left+ cw * 0.50;
+            const cfgCx = left + cw * 0.50;
             const cfgCy = top + ch * 0.5;
-            const fireCx2 = left + cw * 0.78;
-            const modeFireGap = (fireCx2 - fireSize / 2) - (cfgCx + cfgSize / 2);
+            const pad = ch * 0.08;
+            const modeFireGap = pad * 0.6;
             const escCy = cfgCy - cfgSize / 2 - escSize / 2 - modeFireGap * 2;
 
             return {
                 dCx: left + cw * 0.22, dCy: top + ch * 0.5, dR: dpadSize / 2,
-                fCx: fireCx2, fCy: top + ch * 0.5, fR: fireSize / 2,
+                fCx: left + cw * 0.78, fCy: top + ch * 0.5, fR: fireSize / 2,
                 cCx: cfgCx, cCy: cfgCy, cR: cfgSize / 2,
                 eCx: cfgCx, eCy: escCy, eR: escSize,
             };
