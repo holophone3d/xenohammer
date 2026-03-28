@@ -1,10 +1,9 @@
 /**
- * Virtual touch controls — HTML bar below the game canvas.
+ * Virtual touch controls — HTML overlays for touch devices.
  *
- * On touch devices the game canvas scales down to leave room at the
- * bottom of the viewport. This module creates a fixed-bottom container
- * with a D-pad, Fire button, and Config-cycle button, all sized
- * proportionally to the available space.
+ * **Portrait:** fixed bar below the game canvas (reserves bottom space).
+ * **Landscape:** semi-transparent overlays on left/right sides of screen,
+ *   game canvas fills 100% of the viewport.
  *
  * Multi-touch: a single container-level touch handler checks every
  * active touch against zone hit-boxes, so D-pad + Fire works
@@ -27,6 +26,8 @@ export class TouchControls {
     private cfgEl!: HTMLElement;
     private cfgLabel!: HTMLElement;
 
+    private landscape = false;
+
     constructor(input: Input) {
         this.input = input;
         this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 1;
@@ -48,8 +49,14 @@ export class TouchControls {
     /** How much vertical space (px) to reserve for controls. */
     getReservedHeight(): number {
         if (!this.isTouchDevice) return 0;
-        // Use up to 25% of viewport height, min 100px, max 180px
+        // Landscape: controls overlay the sides, no bottom reservation
+        if (this.isLandscape()) return 0;
+        // Portrait: up to 25% of viewport height, min 100px, max 180px
         return Math.max(100, Math.min(180, Math.round(window.innerHeight * 0.25)));
+    }
+
+    private isLandscape(): boolean {
+        return window.innerWidth > window.innerHeight;
     }
 
     setActive(gameplay: boolean): void {
@@ -75,7 +82,6 @@ export class TouchControls {
     private applyContainerStyle(): void {
         const s = this.container.style;
         s.position = 'fixed';
-        s.bottom = '0';
         s.left = '0';
         s.right = '0';
         s.touchAction = 'none';
@@ -87,11 +93,25 @@ export class TouchControls {
     // ── Layout: size container & position elements to fill space ──
 
     layout(): void {
+        this.landscape = this.isLandscape();
+
+        if (this.landscape) {
+            this.layoutLandscape();
+        } else {
+            this.layoutPortrait();
+        }
+    }
+
+    /** Portrait: bottom bar (original behavior). */
+    private layoutPortrait(): void {
+        const s = this.container.style;
+        s.bottom = '0';
+        s.top = '';
         const h = this.getReservedHeight();
-        this.container.style.height = `${h}px`;
+        s.height = `${h}px`;
 
         const w = window.innerWidth;
-        const pad = h * 0.08; // padding around elements
+        const pad = h * 0.08;
         const dpadSize = Math.min(h - pad * 2, w * 0.33);
         const fireSize = Math.min(h - pad * 2, w * 0.18);
         const cfgSize = Math.min(h * 0.45, w * 0.10);
@@ -100,18 +120,58 @@ export class TouchControls {
         this.positionCircle(this.fireEl, w * 0.78, h * 0.5, fireSize / 2);
         this.positionCircle(this.cfgEl, w * 0.58, h * 0.5, cfgSize / 2);
 
-        // Arrow offsets scale with dpad size
+        this.layoutArrows(dpadSize);
+        this.scaleLabelFonts(fireSize, cfgSize);
+    }
+
+    /** Landscape: fullscreen overlay, controls on left/right edges. */
+    private layoutLandscape(): void {
+        const s = this.container.style;
+        s.bottom = '0';
+        s.top = '0';
+        s.height = '';
+
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+
+        // Controls sized relative to screen height
+        const dpadSize = Math.min(h * 0.52, w * 0.16);
+        const fireSize = Math.min(h * 0.40, w * 0.12);
+        const cfgSize = Math.min(h * 0.22, w * 0.06);
+
+        // D-pad: bottom-left with margin
+        const margin = h * 0.08;
+        const dpadCx = margin + dpadSize / 2;
+        const dpadCy = h - margin - dpadSize / 2;
+        this.positionCircle(this.dpadBg, dpadCx, dpadCy, dpadSize / 2);
+
+        // Fire: bottom-right
+        const fireCx = w - margin - fireSize / 2;
+        const fireCy = h - margin - fireSize / 2;
+        this.positionCircle(this.fireEl, fireCx, fireCy, fireSize / 2);
+
+        // Config: above fire button
+        const cfgCx = fireCx;
+        const cfgCy = fireCy - fireSize / 2 - cfgSize / 2 - margin * 0.6;
+        this.positionCircle(this.cfgEl, cfgCx, cfgCy, cfgSize / 2);
+
+        this.layoutArrows(dpadSize);
+        this.scaleLabelFonts(fireSize, cfgSize);
+    }
+
+    private layoutArrows(dpadSize: number): void {
         const ao = dpadSize * 0.33;
         const positions = [
-            [0, -ao], [0, ao], [-ao, 0], [ao, 0] // up, down, left, right
+            [0, -ao], [0, ao], [-ao, 0], [ao, 0]
         ];
         this.dpadArrows.forEach((el, i) => {
             el.style.fontSize = `${Math.round(dpadSize * 0.22)}px`;
             el.style.left = `${dpadSize / 2 + positions[i][0]}px`;
             el.style.top = `${dpadSize / 2 + positions[i][1]}px`;
         });
+    }
 
-        // Scale fire/cfg labels
+    private scaleLabelFonts(fireSize: number, cfgSize: number): void {
         const fireLabel = this.fireEl.querySelector('span') as HTMLElement;
         if (fireLabel) fireLabel.style.fontSize = `${Math.round(fireSize * 0.22)}px`;
         if (this.cfgLabel) this.cfgLabel.style.fontSize = `${Math.round(cfgSize * 0.36)}px`;
@@ -204,16 +264,40 @@ export class TouchControls {
         const h = cr.height;
         const w = cr.width;
 
-        // Zone centers & radii (match layout percentages)
-        const dpadSize = Math.min(h * 0.84, w * 0.33);
-        const dCx = w * 0.22, dCy = h * 0.5, dR = dpadSize / 2;
+        // Recompute zone centers & radii to match current layout
+        let dCx: number, dCy: number, dR: number;
+        let fCx: number, fCy: number, fR: number;
+        let cCx: number, cCy: number, cR: number;
+
+        if (this.landscape) {
+            const margin = h * 0.08;
+            const dpadSize = Math.min(h * 0.52, w * 0.16);
+            const fireSize = Math.min(h * 0.40, w * 0.12);
+            const cfgSize = Math.min(h * 0.22, w * 0.06);
+
+            dCx = margin + dpadSize / 2;
+            dCy = h - margin - dpadSize / 2;
+            dR = dpadSize / 2;
+
+            fCx = w - margin - fireSize / 2;
+            fCy = h - margin - fireSize / 2;
+            fR = fireSize / 2;
+
+            cCx = fCx;
+            cCy = fCy - fireSize / 2 - cfgSize / 2 - margin * 0.6;
+            cR = cfgSize / 2;
+        } else {
+            const dpadSize = Math.min(h * 0.84, w * 0.33);
+            dCx = w * 0.22; dCy = h * 0.5; dR = dpadSize / 2;
+
+            const fireSize = Math.min(h * 0.84, w * 0.18);
+            fCx = w * 0.78; fCy = h * 0.5; fR = fireSize / 2;
+
+            const cfgSize = Math.min(h * 0.45, w * 0.10);
+            cCx = w * 0.58; cCy = h * 0.5; cR = cfgSize / 2;
+        }
+
         const dead = dR * 0.22;
-
-        const fireSize = Math.min(h * 0.84, w * 0.18);
-        const fCx = w * 0.78, fCy = h * 0.5, fR = fireSize / 2;
-
-        const cfgSize = Math.min(h * 0.45, w * 0.10);
-        const cCx = w * 0.58, cCy = h * 0.5, cR = cfgSize / 2;
 
         let dx = 0, dy = 0, fire = false;
 
