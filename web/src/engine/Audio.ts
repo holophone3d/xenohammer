@@ -30,6 +30,10 @@ export class AudioManager {
     private musicSource: AudioBufferSourceNode | null = null;
     private musicGain: GainNode | null = null;
     private activeMusicId: string | null = null;
+    private musicStartCtxTime = 0;   // ctx.currentTime when source started
+    private musicStartOffset = 0;    // offset into buffer (for resume)
+    private musicLoop = true;
+    private musicPaused = false;
 
     private activeSounds: SoundInstance[] = [];
     private musicVolume = 0.5;
@@ -196,6 +200,7 @@ export class AudioManager {
     /** Play a named music track. Uses Web Audio for gapless looping, HTML5 Audio as fallback. */
     playMusic(id: string, loop = true, volume?: number): void {
         this.stopMusicSource();
+        this.musicPaused = false;
         const vol = volume !== undefined ? Math.max(0, Math.min(1, volume)) : this.musicVolume;
 
         // Prefer Web Audio buffer for gapless looping
@@ -218,6 +223,9 @@ export class AudioManager {
                 this.musicSource = source;
                 this.musicGain = gain;
                 this.activeMusicId = id;
+                this.musicLoop = loop;
+                this.musicStartCtxTime = ctx.currentTime;
+                this.musicStartOffset = 0;
                 return;
             } catch (e) {
                 console.warn(`Music "${id}" Web Audio play failed, falling back to HTML5:`, e);
@@ -268,6 +276,63 @@ export class AudioManager {
                 audio.currentTime = 0;
             }
         }
+    }
+
+    /** Pause music — stops the source and remembers playback position. */
+    pauseMusic(): void {
+        if (this.musicPaused) return;
+        this.musicPaused = true;
+
+        // Web Audio: calculate current offset into the buffer, then stop
+        if (this.musicSource && this.ctx && this.activeMusicId) {
+            const buffer = this.musicBuffers.get(this.activeMusicId);
+            if (buffer) {
+                const elapsed = this.ctx.currentTime - this.musicStartCtxTime + this.musicStartOffset;
+                this.musicStartOffset = elapsed % buffer.duration;
+            }
+            this.stopMusicSource();
+        }
+
+        // HTML5 fallback
+        if (this.activeMusicId) {
+            const audio = this.musicElements.get(this.activeMusicId);
+            if (audio && !audio.paused) audio.pause();
+        }
+    }
+
+    /** Resume music from where it was paused. */
+    resumeMusic(): void {
+        if (!this.musicPaused) return;
+        this.musicPaused = false;
+
+        if (!this.activeMusicId) return;
+
+        // Web Audio: recreate source and start from saved offset
+        const buffer = this.musicBuffers.get(this.activeMusicId);
+        const ctx = this.ctx;
+        if (buffer && ctx) {
+            if (ctx.state === 'suspended') {
+                ctx.resume().catch(() => {});
+            }
+            try {
+                const source = ctx.createBufferSource();
+                source.buffer = buffer;
+                source.loop = this.musicLoop;
+                const gain = ctx.createGain();
+                gain.gain.value = this.musicVolume;
+                source.connect(gain);
+                gain.connect(ctx.destination);
+                source.start(0, this.musicStartOffset);
+                this.musicSource = source;
+                this.musicGain = gain;
+                this.musicStartCtxTime = ctx.currentTime;
+                return;
+            } catch { /* fall through to HTML5 */ }
+        }
+
+        // HTML5 fallback
+        const audio = this.musicElements.get(this.activeMusicId);
+        if (audio && audio.paused) audio.play().catch(() => {});
     }
 
     /** Stop all active sound effect instances. */

@@ -96,6 +96,8 @@ export class GameManager {
     private playerFireSound: SoundInstance | null = null;
     private playerRapidFireActive = false;
     private newGamePlusRound = 0; // how many times the player has looped through all levels
+    private paused = false;
+    private pauseHover = -1; // 0=Resume, 1=Quit to Ready Room
 
     constructor(canvasId: string) {
         this.canvas = new GameCanvas(canvasId);
@@ -222,6 +224,14 @@ export class GameManager {
             return;
         }
 
+        // Pause menu (during gameplay only)
+        if (this.paused) {
+            this.updatePauseMenu();
+            this.handleDebugKeys();
+            this.input.endFrame();
+            return;
+        }
+
         switch (this.state) {
             case GameState.Loading:
                 break;
@@ -269,9 +279,9 @@ export class GameManager {
                 break;
         }
 
-        // ESC during gameplay → return to Ready Room
+        // ESC during gameplay → pause
         if (!this.debugMenuOpen && this.state === GameState.Playing && this.input.isKeyPressed('Escape')) {
-            this.returnToReadyRoom();
+            this.enterPause();
         }
 
         this.handleDebugKeys();
@@ -327,6 +337,11 @@ export class GameManager {
             case GameState.ShipCustomization:
                 this.renderShipCustomization();
                 break;
+        }
+
+        // Pause overlay (renders on top of frozen game scene)
+        if (this.paused) {
+            this.renderPauseMenu();
         }
 
         // Debug overlay hint (top-left, small)
@@ -2349,6 +2364,93 @@ export class GameManager {
             this.player.armor = this.player.maxArmor;
             return true;
         } catch { return false; }
+    }
+
+    // ========== PAUSE MENU ==========
+
+    private enterPause(): void {
+        this.paused = true;
+        this.pauseHover = -1;
+        this.audio.pauseMusic();
+        this.audio.stopAllSounds();
+        // Keep ambient background running — it's Web Audio so it pauses with context.
+        // We resume context just for ambient, but music stays paused via HTML5.
+    }
+
+    private leavePause(): void {
+        this.paused = false;
+        this.audio.resumeMusic();
+    }
+
+    private updatePauseMenu(): void {
+        const mouse = this.input.getMousePos();
+        const mx = mouse.x, my = mouse.y;
+
+        // Two buttons centered on screen
+        const btnW = 300, btnH = 50;
+        const bx = (800 - btnW) / 2;
+        const byResume = 260, byQuit = 330;
+
+        let newHover = -1;
+        if (mx >= bx && mx <= bx + btnW) {
+            if (my >= byResume && my <= byResume + btnH) newHover = 0;
+            else if (my >= byQuit && my <= byQuit + btnH) newHover = 1;
+        }
+
+        if (newHover !== this.pauseHover) {
+            this.pauseHover = newHover;
+            if (newHover >= 0) this.audio.playSound('MenuChange');
+        }
+
+        if (this.input.isKeyPressed('Escape')) {
+            this.leavePause();
+            return;
+        }
+
+        if (this.input.isMousePressed()) {
+            if (newHover === 0) {
+                this.audio.playSound('MenuSelect');
+                this.leavePause();
+            } else if (newHover === 1) {
+                this.audio.playSound('MenuSelect');
+                this.paused = false;
+                this.returnToReadyRoom();
+            }
+        }
+    }
+
+    private renderPauseMenu(): void {
+        const ctx = this.canvas.ctx;
+
+        // Dim overlay
+        ctx.fillStyle = 'rgba(0,0,0,0.65)';
+        ctx.fillRect(0, 0, 800, 600);
+
+        // Title
+        ctx.font = '32px XenoFont, monospace';
+        ctx.fillStyle = '#0f0';
+        ctx.textAlign = 'center';
+        ctx.fillText('PAUSED', 400, 220);
+
+        // Buttons
+        const btnW = 300, btnH = 50;
+        const bx = (800 - btnW) / 2;
+        const labels = ['Resume', 'Quit to Ready Room'];
+        const yPositions = [260, 330];
+
+        for (let i = 0; i < labels.length; i++) {
+            const hover = this.pauseHover === i;
+            ctx.fillStyle = hover ? 'rgba(0,255,0,0.2)' : 'rgba(0,255,0,0.07)';
+            ctx.fillRect(bx, yPositions[i], btnW, btnH);
+            ctx.strokeStyle = hover ? 'rgba(0,255,0,0.6)' : 'rgba(0,255,0,0.2)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(bx, yPositions[i], btnW, btnH);
+            ctx.fillStyle = hover ? '#fff' : '#0f0';
+            ctx.font = '22px XenoFont, monospace';
+            ctx.fillText(labels[i], 400, yPositions[i] + 33);
+        }
+
+        ctx.textAlign = 'left';
     }
 
     // ========== DEBUG: Backtick (`) menu ==========
