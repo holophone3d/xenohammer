@@ -157,13 +157,18 @@ export interface BossComponent {
     maskHeight: number;
 }
 
+// C++ weapon.ready_to_fire(): BLASTER_DELAY / power_MUX(cell1) = 100 / 1.5 ≈ 67ms
+// Boss turrets have power_cell_1=1 (default), so multiplier is 1.5×
+const BOSS_TURRET_WEAPON_DELAY = 67; // ms — independent of AI fireRate
+
 // Frame-based turret AI state (matching C++ TurretAI)
 interface BossTurretAI {
     frame: number;           // current turret frame 0-31
     type: TurretAIType;
-    fireRate: number;        // ms between shots
+    fireRate: number;        // ms between shots (AI-level cooldown)
     lastTurnMs: number;      // last turn timestamp (ms)
-    lastFireMs: number;      // last fire timestamp (ms)
+    lastFireMs: number;      // last AI fire timestamp (ms)
+    lastWeaponFireMs: number; // last actual projectile creation (weapon cooldown)
     sweepState: number;      // 0=waiting, 1=sweeping (for SWEEPING type)
     turnTarget: number;      // target frame for DoTurn
     destroyed: boolean;
@@ -233,7 +238,7 @@ function makeTurretAI(
     const comp = makeComp('Turret', offX, offY, armor, 64, 64, true);
     return {
         frame: 0, type, fireRate,
-        lastTurnMs: 0, lastFireMs: 0,
+        lastTurnMs: 0, lastFireMs: 0, lastWeaponFireMs: 0,
         sweepState: 0, turnTarget: 0,
         destroyed: false, offsetX: offX, offsetY: offY,
         armor, maxArmor: armor, comp,
@@ -674,10 +679,12 @@ export class Boss {
             for (const ai of this.outerTurretAIs) {
                 ai.lastTurnMs = t;
                 ai.lastFireMs = t;
+                ai.lastWeaponFireMs = t;
             }
             for (const ai of this.uTurretAIs) {
                 ai.lastTurnMs = t;
                 ai.lastFireMs = t;
+                ai.lastWeaponFireMs = t;
             }
         }
 
@@ -691,7 +698,11 @@ export class Boss {
                 const ty = this.y + ai.offsetY + 16;
                 const result = this.runTurretAI(ai, playerX, playerY, tx, ty);
                 if (result.fire) {
-                    this.fireTurret(ai.frame, tx, ty);
+                    // C++ weapon.ready_to_fire() — separate cooldown from AI
+                    if (this.nowMs - ai.lastWeaponFireMs >= BOSS_TURRET_WEAPON_DELAY) {
+                        ai.lastWeaponFireMs = this.nowMs;
+                        this.fireTurret(ai.frame, tx, ty);
+                    }
                 }
             }
         }
@@ -705,7 +716,11 @@ export class Boss {
                 const ty = this.y + ai.offsetY + 16;
                 const result = this.runTurretAI(ai, playerX, playerY, tx, ty);
                 if (result.fire) {
-                    this.fireTurret(ai.frame, tx, ty);
+                    // C++ weapon.ready_to_fire() — separate cooldown from AI
+                    if (this.nowMs - ai.lastWeaponFireMs >= BOSS_TURRET_WEAPON_DELAY) {
+                        ai.lastWeaponFireMs = this.nowMs;
+                        this.fireTurret(ai.frame, tx, ty);
+                    }
                 }
             }
         }
