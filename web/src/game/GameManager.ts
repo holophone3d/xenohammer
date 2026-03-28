@@ -66,8 +66,8 @@ export class GameManager {
     private engineSound: SoundInstance | null = null;
     private smallExpFrames: HTMLImageElement[] = [];
     private bigExpFrames: HTMLImageElement[] = [];
-    private levelAnimFrames: HTMLImageElement[][] = []; // per-level animation frames
-    private levelEndAnimFrames: HTMLImageElement[] = []; // "LEVEL COMPLETED" typewriter (in_game_9–22)
+    private levelAnimFrames: HTMLImageElement[][] = []; // per-level start animation frames
+    private levelEndAnimFrames: HTMLImageElement[][] = []; // per-level end animation frames
     private levelEndAnimStart = 0; // timestamp when end animation started
     private hasNewCustomization = true; // "NEW!" label in ready room
     private playerDiedLastLevel = false; // death message in ready room
@@ -183,12 +183,27 @@ export class GameManager {
         try { l3.push(this.assets.getImage('in_game_start3')); } catch { /* skip */ }
         this.levelAnimFrames = [l1, l2, l3];
 
-        // End-of-level "LEVEL COMPLETED" typewriter: in_game_9 through in_game_22 (14 frames)
-        const endFrames: HTMLImageElement[] = [];
+        // End-of-level animations (C++ level1_end, level2_end — 15 frames at 100ms)
+        // Level 1: in_game_1, in_game_9–22 (15 frames)
+        // Level 2: in_game_1, in_game_9–21, in_game_end2 (15 frames)
+        const safeImg = (id: string) => { try { return this.assets.getImage(id); } catch { return null; } };
+        const endL1: HTMLImageElement[] = [];
+        const img1 = safeImg('in_game_1');
+        if (img1) endL1.push(img1);
         for (let i = 9; i <= 22; i++) {
-            try { endFrames.push(this.assets.getImage(`in_game_${i}`)); } catch { break; }
+            const f = safeImg(`in_game_${i}`);
+            if (f) endL1.push(f); else break;
         }
-        this.levelEndAnimFrames = endFrames;
+        const endL2: HTMLImageElement[] = [];
+        const img1b = safeImg('in_game_1');
+        if (img1b) endL2.push(img1b);
+        for (let i = 9; i <= 21; i++) {
+            const f = safeImg(`in_game_${i}`);
+            if (f) endL2.push(f); else break;
+        }
+        const end2 = safeImg('in_game_end2');
+        if (end2) endL2.push(end2);
+        this.levelEndAnimFrames = [endL1, endL2, []]; // No end animation for boss level
     }
 
     update(dt: number): void {
@@ -1045,18 +1060,19 @@ export class GameManager {
         }
 
         // Level end animation overlay (last 5 seconds) — C++ "LEVEL COMPLETED" typewriter
-        // C++: GameAnimation at (223, 200), 14 frames at 100ms each, starts at levelDuration - 5000ms
+        // C++: GameAnimation at (223, 200), 15 frames at 100ms each, starts at levelDuration - 5000ms
         const levelDuration = this.waveManager.getLevelDuration();
         const levelTimer = this.waveManager.getLevelTimer();
         const timeLeft = levelDuration - levelTimer;
+        const endFrames = this.levelEndAnimFrames[this.level] ?? [];
         if (timeLeft <= 5 && timeLeft > 0 && this.level < 2) {
             if (this.levelEndAnimStart === 0) {
                 this.levelEndAnimStart = this.now;
             }
-            if (this.levelEndAnimFrames.length > 0) {
+            if (endFrames.length > 0) {
                 const elapsed = (this.now - this.levelEndAnimStart) / 1000;
-                const frameIndex = Math.min(Math.floor(elapsed / 0.1), this.levelEndAnimFrames.length - 1);
-                const frame = this.levelEndAnimFrames[frameIndex];
+                const frameIndex = Math.min(Math.floor(elapsed / 0.1), endFrames.length - 1);
+                const frame = endFrames[frameIndex];
                 if (frame) {
                     ctx.drawImage(frame, 223, 200);
                 }
@@ -1069,34 +1085,14 @@ export class GameManager {
     // ========== State: LevelComplete ==========
 
     private updateLevelComplete(dt: number): void {
-        this.stateTimer += dt;
-        this.starField.update(dt);
-        if (this.stateTimer >= 5) {
-            this.level++;
-            this.state = GameState.ReadyRoom;
-        }
+        // C++: when timer expires, immediately return to Ready Room (no hold screen)
+        this.level++;
+        this.state = GameState.ReadyRoom;
     }
 
     private renderLevelComplete(): void {
-        this.starField.draw(this.canvas.ctx);
-        const ctx = this.canvas.ctx;
-
-        // Show final "LEVEL COMPLETED" frame (last frame of end animation)
-        if (this.levelEndAnimFrames.length > 0) {
-            const frame = this.levelEndAnimFrames[this.levelEndAnimFrames.length - 1];
-            if (frame) {
-                ctx.drawImage(frame, 223, 200);
-            }
-        } else {
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#0f0';
-            ctx.font = '28px XenoFont, monospace';
-            ctx.fillText(`LEVEL ${this.level + 1} COMPLETED`, 400, 280);
-            ctx.textAlign = 'left';
-        }
-
-        // HUD still visible during transition
-        this.hud.draw(ctx, this.player, this.score, this.level, 0, this.player?.kills ?? 0);
+        // Not used — C++ has no separate level complete screen
+        // (end animation plays during last 5 seconds of gameplay, then straight to Ready Room)
     }
 
     // ========== State: GameOver ==========
