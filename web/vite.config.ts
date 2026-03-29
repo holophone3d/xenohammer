@@ -10,15 +10,16 @@ export default defineConfig({
   },
   plugins: [
     {
-      name: "exclude-reference-screenshots",
+      name: "exclude-unneeded-assets",
       closeBundle() {
-        try {
-          rmSync(resolve(__dirname, "dist/assets/reference_screenshots"), {
-            recursive: true,
-            force: true,
-          });
-        } catch {
-          /* already absent */
+        const toRemove = [
+          "dist/assets/reference_screenshots",
+          "dist/assets/icon-pack",
+        ];
+        for (const dir of toRemove) {
+          try {
+            rmSync(resolve(__dirname, dir), { recursive: true, force: true });
+          } catch { /* already absent */ }
         }
       },
     },
