@@ -24,6 +24,7 @@ export enum GameState {
     ReadyRoom,
     Playing,
     PlayerDying,
+    EscapeWarp,
     LevelComplete,
     GameOver,
     Victory,
@@ -102,7 +103,8 @@ export class GameManager {
     private playerRapidFireActive = false;
     private newGamePlusRound = 0; // how many times the player has looped through all levels
     private paused = false;
-    private pauseHover = -1; // 0=Resume, 1=Quit to Ready Room
+    private pauseHover = -1; // 0=Resume, 1=Emergency Warp, 2=Quit to Ready Room
+    private warpSpeed = 0; // current warp velocity (px/s, accelerates)
 
     constructor(canvasId: string) {
         this.canvas = new GameCanvas(canvasId);
@@ -252,6 +254,9 @@ export class GameManager {
             case GameState.PlayerDying:
                 this.updatePlayerDying(dt);
                 break;
+            case GameState.EscapeWarp:
+                this.updateEscapeWarp(dt);
+                break;
             case GameState.LevelComplete:
                 this.updateLevelComplete(dt);
                 break;
@@ -314,6 +319,9 @@ export class GameManager {
                 break;
             case GameState.PlayerDying:
                 this.renderPlayerDying();
+                break;
+            case GameState.EscapeWarp:
+                this.renderEscapeWarp();
                 break;
             case GameState.LevelComplete:
                 this.renderLevelComplete();
@@ -1307,7 +1315,130 @@ export class GameManager {
         }
     }
 
-    // ========== State: GameOver ==========
+    // ========== State: EscapeWarp ==========
+
+    private static readonly WARP_ACCEL = 1200; // px/s² acceleration
+    private static readonly WARP_MAX_SPEED = 2000; // px/s max speed
+
+    private updateEscapeWarp(dt: number): void {
+        if (!this.player) { this.returnToReadyRoom(); return; }
+        this.stateTimer += dt;
+
+        // Accelerate upward
+        this.warpSpeed = Math.min(
+            this.warpSpeed + GameManager.WARP_ACCEL * dt,
+            GameManager.WARP_MAX_SPEED,
+        );
+        this.player.y -= this.warpSpeed * dt;
+
+        // Intense warp exhaust — lots of bright particles
+        const exhaustCount = Math.min(12, 3 + Math.floor(this.warpSpeed / 100));
+        for (let i = 0; i < exhaustCount; i++) {
+            const tempVal = Math.random() * 0.5;
+            const angleDeg = 170 + Math.random() * 20;
+            const angleRad = (angleDeg * Math.PI) / 180;
+            // Blue-white warp trail when fast, orange exhaust when slow
+            const speedFrac = this.warpSpeed / GameManager.WARP_MAX_SPEED;
+            const r = 0.5 + (1 - speedFrac) * 0.5;
+            const g = 0.5 + speedFrac * 0.5;
+            const b = 0.8 + speedFrac * 0.2;
+            this.particles.emit(
+                this.player.x + 36 + (Math.random() - 0.5) * 8,
+                this.player.y + 47,
+                1, {
+                    color: { r, g, b: b + tempVal },
+                    speed: 20 + Math.random() * 40,
+                    life: 0.5 + speedFrac * 1.5,
+                    fade: 1.0 + (1 - speedFrac) * 4.0,
+                    direction: angleRad,
+                    spread: 0.1,
+                    baseVx: (Math.random() - 0.5) * 30,
+                    baseVy: this.warpSpeed * 0.6,
+                },
+            );
+        }
+
+        // Update particles and starfield
+        this.particles.update(dt);
+        this.starField.update(dt);
+
+        // Keep enemies/explosions updating for visual continuity
+        const px = this.player.x, py = this.player.y;
+        for (const e of this.enemies) if (e.alive) e.update(dt, px, py);
+        for (const exp of this.gameExplosions) exp.update(dt);
+        this.gameExplosions = this.gameExplosions.filter(e => !e.isFinished());
+
+        // Ship off screen → return to ready room with full health
+        if (this.player.y < -120) {
+            this.player.shields = this.player.maxShields;
+            this.player.armor = this.player.maxArmor;
+            this.player.alive = true;
+            this.returnToReadyRoom();
+        }
+    }
+
+    private renderEscapeWarp(): void {
+        if (!this.player) return;
+        const ctx = this.canvas.ctx;
+
+        this.starField.draw(ctx, this.level === 0);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, PLAY_AREA_W, PLAY_AREA_H);
+        ctx.clip();
+
+        // Draw remaining enemies/boss
+        for (const ship of this.capitalShips) ship.render(ctx);
+        if (this.boss && this.boss.isVisible()) this.boss.draw(ctx, this.assets);
+        for (const enemy of this.enemies) {
+            if (enemy.alive) enemy.draw(ctx);
+        }
+
+        // Warp streak trail — stretched additive glow behind ship
+        const speedFrac = this.warpSpeed / GameManager.WARP_MAX_SPEED;
+        if (speedFrac > 0.1) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            const trailLen = speedFrac * 300;
+            const cx = this.player.x + 38;
+            const topY = this.player.y + 47;
+            const grad = ctx.createLinearGradient(cx, topY, cx, topY + trailLen);
+            grad.addColorStop(0, `rgba(180,200,255,${speedFrac * 0.6})`);
+            grad.addColorStop(0.3, `rgba(100,150,255,${speedFrac * 0.3})`);
+            grad.addColorStop(1, 'rgba(50,80,200,0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(cx - 8 - speedFrac * 6, topY, 16 + speedFrac * 12, trailLen);
+            ctx.restore();
+        }
+
+        // Player ship
+        if (this.player.alive) {
+            this.player.draw(ctx);
+        }
+
+        // Explosions and particles
+        for (const exp of this.gameExplosions) exp.draw(ctx);
+        this.particles.draw(ctx);
+
+        ctx.restore();
+
+        // HUD stays visible
+        const timeRemaining = Math.max(0,
+            this.waveManager.getLevelDuration() - this.waveManager.getLevelTimer());
+        this.hud.draw(ctx, this.player, this.score, this.level,
+            timeRemaining, this.player?.kills ?? 0);
+
+        // "EMERGENCY WARP" flash text
+        if (Math.floor(this.stateTimer * 4) % 2 === 0) {
+            ctx.save();
+            ctx.font = '28px XenoFont, monospace';
+            ctx.fillStyle = '#ffcc00';
+            ctx.textAlign = 'center';
+            ctx.fillText('EMERGENCY WARP', 325, 280);
+            ctx.restore();
+        }
+    }
 
     private updateGameOver(dt: number): void {
         this.stateTimer += dt;
@@ -2578,15 +2709,16 @@ export class GameManager {
         const mouse = this.input.getMousePos();
         const mx = mouse.x, my = mouse.y;
 
-        // Two buttons centered on screen
+        // Three buttons centered on screen
         const btnW = 300, btnH = 50;
         const bx = (800 - btnW) / 2;
-        const byResume = 260, byQuit = 330;
+        const byResume = 230, byWarp = 300, byQuit = 370;
 
         let newHover = -1;
         if (mx >= bx && mx <= bx + btnW) {
             if (my >= byResume && my <= byResume + btnH) newHover = 0;
-            else if (my >= byQuit && my <= byQuit + btnH) newHover = 1;
+            else if (my >= byWarp && my <= byWarp + btnH) newHover = 1;
+            else if (my >= byQuit && my <= byQuit + btnH) newHover = 2;
         }
 
         if (newHover !== this.pauseHover) {
@@ -2604,6 +2736,18 @@ export class GameManager {
                 this.audio.playSound('MenuSelect');
                 this.leavePause();
             } else if (newHover === 1) {
+                // Emergency Warp — costs all RUs
+                if (this.player) {
+                    this.audio.playSound('MenuSelect');
+                    this.player.powerPlant.resourceUnits = 0;
+                    this.paused = false;
+                    this.warpSpeed = 0;
+                    this.stateTimer = 0;
+                    this.state = GameState.EscapeWarp;
+                    this.audio.resumeMusic();
+                    this.ensureSpaceAmbient();
+                }
+            } else if (newHover === 2) {
                 this.audio.playSound('MenuSelect');
                 this.paused = false;
                 this.returnToReadyRoom();
@@ -2622,22 +2766,30 @@ export class GameManager {
         ctx.font = '32px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.textAlign = 'center';
-        ctx.fillText('PAUSED', 400, 220);
+        ctx.fillText('PAUSED', 400, 195);
 
         // Buttons
         const btnW = 300, btnH = 50;
         const bx = (800 - btnW) / 2;
-        const labels = ['Resume', 'Quit to Ready Room'];
-        const yPositions = [260, 330];
+        const ru = this.player?.powerPlant.resourceUnits ?? 0;
+        const labels = ['Resume', `Emergency Warp (−${ru} RU)`, 'Quit to Ready Room'];
+        const yPositions = [230, 300, 370];
 
         for (let i = 0; i < labels.length; i++) {
             const hover = this.pauseHover === i;
-            ctx.fillStyle = hover ? 'rgba(0,255,0,0.2)' : 'rgba(0,255,0,0.07)';
-            ctx.fillRect(bx, yPositions[i], btnW, btnH);
-            ctx.strokeStyle = hover ? 'rgba(0,255,0,0.6)' : 'rgba(0,255,0,0.2)';
+            // Warp button has amber tint
+            if (i === 1) {
+                ctx.fillStyle = hover ? 'rgba(255,180,0,0.2)' : 'rgba(255,180,0,0.07)';
+                ctx.fillRect(bx, yPositions[i], btnW, btnH);
+                ctx.strokeStyle = hover ? 'rgba(255,180,0,0.6)' : 'rgba(255,180,0,0.2)';
+            } else {
+                ctx.fillStyle = hover ? 'rgba(0,255,0,0.2)' : 'rgba(0,255,0,0.07)';
+                ctx.fillRect(bx, yPositions[i], btnW, btnH);
+                ctx.strokeStyle = hover ? 'rgba(0,255,0,0.6)' : 'rgba(0,255,0,0.2)';
+            }
             ctx.lineWidth = 1;
             ctx.strokeRect(bx, yPositions[i], btnW, btnH);
-            ctx.fillStyle = hover ? '#fff' : '#0f0';
+            ctx.fillStyle = hover ? '#fff' : (i === 1 ? '#ffcc00' : '#0f0');
             ctx.font = '22px XenoFont, monospace';
             ctx.fillText(labels[i], 400, yPositions[i] + 33);
         }
