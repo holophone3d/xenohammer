@@ -1253,8 +1253,17 @@ export class Boss {
     /** Return homing-targetable positions with priority (1=weapon, 2=passive). */
     getHomingTargets(): { x: number; y: number; priority: number }[] {
         const targets: { x: number; y: number; priority: number }[] = [];
-        // Priority 1: turrets (weapons)
+        // Priority 1: turrets (weapons) — outer + U-component turrets
         for (const ai of this.outerTurretAIs) {
+            if (!ai.destroyed && !ai.comp.destroyed) {
+                targets.push({
+                    x: ai.comp.x + ai.comp.width / 2,
+                    y: ai.comp.y + ai.comp.height / 2,
+                    priority: 1,
+                });
+            }
+        }
+        for (const ai of this.uTurretAIs) {
             if (!ai.destroyed && !ai.comp.destroyed) {
                 targets.push({
                     x: ai.comp.x + ai.comp.width / 2,
