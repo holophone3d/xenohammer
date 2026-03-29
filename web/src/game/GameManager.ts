@@ -415,12 +415,14 @@ export class GameManager {
             ctx.strokeStyle = '#0f0';
             ctx.lineWidth = 2;
             ctx.strokeRect(bx, by, bw, bh);
-            // Text centered in button
+            // Text centered in button (use measured ascent for pixel-accurate vertical centering)
             ctx.fillStyle = '#0f0';
             ctx.font = '36px XenoFont, monospace';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('READY', bx + bw / 2, by + bh / 2);
             ctx.textBaseline = 'alphabetic';
+            const metrics = ctx.measureText('READY');
+            const textH = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+            const textY = by + bh / 2 + textH / 2 - metrics.actualBoundingBoxDescent;
+            ctx.fillText('READY', bx + bw / 2, textY);
             ctx.globalAlpha = 1.0;
         }
         ctx.textAlign = 'left';
@@ -857,7 +859,7 @@ export class GameManager {
             }
         }
         for (const proj of this.projectiles) {
-            if (proj.homing && proj.owner === 'player' && homingTargets.length > 0) {
+            if (proj.homing && proj.owner === 'player' && this.isHomingResearched && homingTargets.length > 0) {
                 const headingAngle = Math.atan2(proj.vy, proj.vx);
                 const hx = Math.cos(headingAngle);
                 const hy = Math.sin(headingAngle);
