@@ -874,7 +874,7 @@ export class GameManager {
         for (const e of this.enemies) {
             if (e.alive) homingTargets.push({ x: e.x + (e.width ?? 32) / 2, y: e.y + (e.height ?? 32) / 2, priority: 3 });
         }
-        if (this.boss?.alive) {
+        if (this.boss?.alive && this.boss.isVisible()) {
             for (const t of this.boss.getHomingTargets()) homingTargets.push(t);
         }
         for (const ship of this.capitalShips) {
