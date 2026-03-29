@@ -392,8 +392,8 @@ export class GameManager {
 
     private updateStartScreen(dt: number): void {
         this.startScreenTimer += dt;
-        // Play intro sound once AudioContext is running (needs user gesture on reload)
-        if (!this.introSound && this.audio.isReady()) {
+        // Queue intro sound immediately — it will play once AudioContext resumes on user gesture
+        if (!this.introSound) {
             this.introSound = this.audio.playSound('Intro');
         }
         // Fade audio out starting at 2s over 2s
@@ -410,7 +410,21 @@ export class GameManager {
             this.input.isMousePressed() ||
             this.input.isKeyPressed(Input.SPACE) ||
             this.input.isKeyPressed(Input.ENTER))) {
-            if (this.introSound) { this.introSound.stop(); this.introSound = null; }
+            // Fade out intro sound over 2s then stop it
+            if (this.introSound) {
+                const snd = this.introSound;
+                const startVol = 1.0;
+                const fadeMs = 2000;
+                const step = 50;
+                let elapsed = 0;
+                const iv = setInterval(() => {
+                    elapsed += step;
+                    const vol = Math.max(0, startVol * (1 - elapsed / fadeMs));
+                    snd.setVolume(vol);
+                    if (elapsed >= fadeMs) { clearInterval(iv); snd.stop(); }
+                }, step);
+                this.introSound = null;
+            }
             setTimeout(() => {
                 this.spaceAmbient = this.audio.playSoundLoopCrossfade('Space');
             }, 150);
