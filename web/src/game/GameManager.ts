@@ -669,9 +669,10 @@ export class GameManager {
 
             // Dual engine flames — frigate always flying downward, exhaust blasts upward
             // Frigate velocity modulates: faster descent = more exhaust
-            const frigateBaseExhaust = -140; // constant upward exhaust (negative = up on screen)
-            const frigateBoost = -ship.vy * 0.4; // vy positive=down, so negate to add upward
+            const frigateBaseExhaust = -140;
+            const frigateBoost = -ship.vy * 0.4;
             const frigateLateral = -ship.vx * 0.3;
+            const frigateExhaustVy = Math.min(-40, frigateBaseExhaust + frigateBoost); // always at least 40 px/s upward
             for (const engineOffX of [40, 57]) {
                 const tempVal = Math.random() * 2;
                 const fadePerSec = 2.5 + Math.random() * 3.0;
@@ -685,7 +686,7 @@ export class GameManager {
                     direction: angleRad,
                     spread: 0,
                     baseVx: frigateLateral,
-                    baseVy: frigateBaseExhaust + frigateBoost,
+                    baseVy: frigateExhaustVy,
                 });
             }
 

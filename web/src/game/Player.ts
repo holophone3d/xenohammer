@@ -284,11 +284,10 @@ export class Player {
         const fadePerSec = 2.5 + Math.random() * 3.0;
         // Ship is always flying forward — exhaust is always blasting out the back.
         // Moving up = more thrust, moving down = less thrust, but never zero.
-        const baseExhaust = 120;  // constant forward thrust exhaust (px/s downward)
-        // lastVy is negative when moving up — invert so "up" adds exhaust speed
+        const baseExhaust = 120;
         const thrustBoost = -this.lastVy * 0.4;
-        // Lateral movement shifts exhaust slightly opposite
         const lateralShift = -this.lastVx * 0.3;
+        const exhaustVy = Math.max(40, baseExhaust + thrustBoost); // always at least 40 px/s downward
         particles.emit(this.x + 38, this.y + 47, 1, {
             color: { r: 1.0, g: tempVal, b: tempVal },
             speed: 10 + Math.random() * 10,  // small random spread component
@@ -297,7 +296,7 @@ export class Player {
             direction: angleRad,
             spread: 0,
             baseVx: lateralShift,
-            baseVy: baseExhaust + thrustBoost,  // positive = downward on screen
+            baseVy: exhaustVy,
         });
     }
 }
