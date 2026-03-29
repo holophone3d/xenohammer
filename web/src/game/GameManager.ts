@@ -667,21 +667,25 @@ export class GameManager {
                 this.audio.playSound(fs.sound, false, fs.volume);
             }
 
-            // Dual engine flames (C++ make_CapShipEngine: two exhaust points at x+40, x+57)
-            // Color: R=G=tempVal(0-2), B=1.0 (blue/cyan); short-lived directional exhaust
-            // C++ angle: -10+Random(20) = -10° to +10° from UP (exhaust behind ship)
+            // Dual engine flames — frigate always flying downward, exhaust blasts upward
+            // Frigate velocity modulates: faster descent = more exhaust
+            const frigateBaseExhaust = -140; // constant upward exhaust (negative = up on screen)
+            const frigateBoost = -ship.vy * 0.4; // vy positive=down, so negate to add upward
+            const frigateLateral = -ship.vx * 0.3;
             for (const engineOffX of [40, 57]) {
-                const tempVal = Math.random() * 2; // C++ allows > 1.0 for overbright additive
-                const fadePerSec = 2.5 + Math.random() * 3.0; // 2.5-5.5/s → lifetime 0.13-0.28s
-                const angleDeg = -10 + Math.random() * 20; // -10° to +10° from UP
+                const tempVal = Math.random() * 2;
+                const fadePerSec = 2.5 + Math.random() * 3.0;
+                const angleDeg = -10 + Math.random() * 20;
                 const angleRad = (angleDeg * Math.PI) / 180;
                 this.particles.emit(ship.x + engineOffX, ship.y, 1, {
                     color: { r: tempVal, g: tempVal, b: 1.0 },
-                    speed: 100 + Math.random() * 60,  // 100-160 px/s — blasts out the top
-                    life: 0.7,// Slightly reduced from 1.0 for tighter trail
+                    speed: 10 + Math.random() * 10,
+                    life: 0.7,
                     fade: fadePerSec,
                     direction: angleRad,
                     spread: 0,
+                    baseVx: frigateLateral,
+                    baseVy: frigateBaseExhaust + frigateBoost,
                 });
             }
 

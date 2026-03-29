@@ -34,6 +34,9 @@ export class Player {
     private lastFireAll = 0;         // unified 150ms fire gate (C++ PlayerShip.cpp)
     private spriteFrame = 8;
     private shieldTexture: HTMLImageElement | null = null;
+    /** Last frame velocity in px/s — used for exhaust particle offset. */
+    lastVx = 0;
+    lastVy = 0;
 
     constructor() {
         this.x = PLAYER_START.x;
@@ -97,6 +100,10 @@ export class Player {
         }
 
         const moveScale = dt * 1000 / VELOCITY_DIVISOR;
+        const dxPerSec = mx * currentSpeed * 1000 / VELOCITY_DIVISOR;
+        const dyPerSec = my * currentSpeed * 1000 / VELOCITY_DIVISOR;
+        this.lastVx = dxPerSec;
+        this.lastVy = dyPerSec;
         this.x += mx * currentSpeed * moveScale;
         this.y += my * currentSpeed * moveScale;
 
@@ -271,17 +278,26 @@ export class Player {
      * Life starts at intensity (0.4), NOT 1.0 */
     emitEngineFlame(particles: import('../engine').ParticleSystem): void {
         if (!this.alive) return;
-        const tempVal = Math.random() * 2; // C++ allows > 1.0 — additive blend handles overbright
-        const angleDeg = 175 + Math.random() * 10; // ~downward with slight spread
+        const tempVal = Math.random() * 2;
+        const angleDeg = 175 + Math.random() * 10;
         const angleRad = (angleDeg * Math.PI) / 180;
-        const fadePerSec = 2.5 + Math.random() * 3.0; // 2.5-5.5/s → lifetime 0.07-0.16s
+        const fadePerSec = 2.5 + Math.random() * 3.0;
+        // Ship is always flying forward — exhaust is always blasting out the back.
+        // Moving up = more thrust, moving down = less thrust, but never zero.
+        const baseExhaust = 120;  // constant forward thrust exhaust (px/s downward)
+        // lastVy is negative when moving up — invert so "up" adds exhaust speed
+        const thrustBoost = -this.lastVy * 0.4;
+        // Lateral movement shifts exhaust slightly opposite
+        const lateralShift = -this.lastVx * 0.3;
         particles.emit(this.x + 38, this.y + 47, 1, {
             color: { r: 1.0, g: tempVal, b: tempVal },
-            speed: 80 + Math.random() * 60,  // 80-140 px/s — blasts out the back
-            life: 0.4,   // C++ intensity = 0.4f (max alpha)
+            speed: 10 + Math.random() * 10,  // small random spread component
+            life: 0.4,
             fade: fadePerSec,
             direction: angleRad,
             spread: 0,
+            baseVx: lateralShift,
+            baseVy: baseExhaust + thrustBoost,  // positive = downward on screen
         });
     }
 }

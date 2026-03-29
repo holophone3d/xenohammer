@@ -33,6 +33,10 @@ export interface ParticleOptions {
     spread?: number;
     /** Base direction in radians (default: 0, up). */
     direction?: number;
+    /** Additional velocity added after angle-based calculation (px/s). */
+    baseVx?: number;
+    /** Additional velocity added after angle-based calculation (px/s). */
+    baseVy?: number;
 }
 
 export class ParticleSystem {
@@ -88,8 +92,8 @@ export class ParticleSystem {
             p.y = y;
             p.originX = x;
             p.originY = y;
-            p.vx = Math.sin(angle) * spd;
-            p.vy = -Math.cos(angle) * spd;
+            p.vx = Math.sin(angle) * spd + (options.baseVx ?? 0);
+            p.vy = -Math.cos(angle) * spd + (options.baseVy ?? 0);
             p.life = life;
             p.fade = fade;
             p.r = r;
