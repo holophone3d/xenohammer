@@ -29,7 +29,7 @@ const BOSS_HOVER_Y = -50;           // C++: boss stops at y=-50
 const BOSS_DESCENT_SPEED = 50;      // px/s — tuned for feel (C++ literal is 10px/s but too slow)
 const BOSS_WAIT_TIME = 110_000;     // ms before boss enters
 const BOSS_MUSIC_TIME = 96_000;     // ms before boss music starts
-const MORPH_TICK_MS = 10;           // ms per 1px morph step — tuned for feel (C++ literal is 100ms)
+const MORPH_TICK_MS = 7;            // ms per 1px morph step — 30% faster than original 10ms
 
 const ORB_FRAME_COUNT = 32;         // orb00–orb31 (C++ uses % 32, frame 32 never shown)
 const ORB_ANIM_SPEED = 60;          // ms per frame
@@ -1208,8 +1208,9 @@ export class Boss {
         for (const node of this.outerNodes) addComp(node);
         for (const plat of this.platforms) addComp(plat);
         for (const conn of this.connectors) addComp(conn);
-        // U-turrets only collidable in Final state
-        if (this.state === BossState.Final) {
+        // U-turrets collidable during Morph and Final states (arms are visible)
+        if (this.state === BossState.Morph1 || this.state === BossState.Morph2 ||
+            this.state === BossState.Final) {
             for (const ai of this.uTurretAIs) addComp(ai.comp);
         }
         addComp(this.bossShield);
