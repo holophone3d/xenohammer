@@ -3045,6 +3045,7 @@ export class GameManager {
 
     private debugSavedSettings: import('./PowerPlant').PowerSetting[] | null = null;
     private debugSavedRU = 0;
+    private debugSavedHoming = false;
 
     private debugToggleGodMode(): void {
         this.debugActive = !this.debugActive;
@@ -3054,6 +3055,8 @@ export class GameManager {
                 // Save current state before overwriting
                 this.debugSavedSettings = this.player.powerPlant.settings.map(s => ({ ...s }));
                 this.debugSavedRU = this.player.powerPlant.resourceUnits;
+                this.debugSavedHoming = this.isHomingResearched;
+                this.isHomingResearched = true;
                 this.debugMaxPower();
             } else {
                 // Restore original settings
@@ -3062,6 +3065,7 @@ export class GameManager {
                     this.debugSavedSettings = null;
                 }
                 this.player.powerPlant.resourceUnits = this.debugSavedRU;
+                this.isHomingResearched = this.debugSavedHoming;
             }
         }
     }
