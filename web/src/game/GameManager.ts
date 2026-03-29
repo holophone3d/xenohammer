@@ -380,15 +380,16 @@ export class GameManager {
         // Debug overlay hint (top-left, small)
         this.renderDebugHint();
 
-        // FPS counter (top-right when enabled)
+        // FPS counter (top-left, below god mode indicator)
         if (this.debugShowFps) {
             const ctx = this.canvas.ctx;
             ctx.save();
-            ctx.font = 'bold 12px monospace';
+            ctx.font = 'bold 10px monospace';
             ctx.fillStyle = '#0f0';
-            ctx.textAlign = 'right';
+            ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
-            ctx.fillText(`${this.debugFpsDisplay} FPS`, 795, 4);
+            const fpsY = this.debugActive ? 16 : 4;
+            ctx.fillText(`${this.debugFpsDisplay} FPS`, 4, fpsY);
             ctx.restore();
         }
     }

@@ -34,6 +34,12 @@ export class Player {
     private lastFireAll = 0;         // unified 150ms fire gate (C++ PlayerShip.cpp)
     private spriteFrame = 8;
     private shieldTexture: HTMLImageElement | null = null;
+    private shieldMask: Uint8Array | null = null;
+    // Shield bubble dimensions from C++: center at (x+38, y+24), 129×89px
+    private static readonly SHIELD_W = 129;
+    private static readonly SHIELD_H = 89;
+    private static readonly SHIELD_CX = 38;   // offset from ship x to shield center
+    private static readonly SHIELD_CY = 24;   // offset from ship y to shield center
     /** Last frame velocity in px/s — used for exhaust particle offset. */
     lastVx = 0;
     lastVy = 0;
@@ -75,6 +81,16 @@ export class Player {
     }
 
     getCollider(): Collider {
+        // When shields are active, the shield bubble is the collision target
+        if (this.shields > 0 && this.shieldMask) {
+            const sx = this.x + Player.SHIELD_CX - Player.SHIELD_W / 2;
+            const sy = this.y + Player.SHIELD_CY - Player.SHIELD_H / 2;
+            return {
+                x: sx, y: sy, w: Player.SHIELD_W, h: Player.SHIELD_H,
+                mask: this.shieldMask,
+            };
+        }
+        // No shields — use ship sprite mask
         const w = this.sprite ? this.sprite.width : 48;
         const h = this.sprite ? this.sprite.height : 48;
         return {
@@ -224,7 +240,22 @@ export class Player {
         } catch {
             // Sprite frames not available
         }
-        try { this.shieldTexture = assets.getImage('Shield'); } catch { /* not available */ }
+        try {
+            this.shieldTexture = assets.getImage('Shield');
+            // Build an elliptical mask at rendered size (129×89) matching the shield bubble
+            const sw = Player.SHIELD_W;
+            const sh = Player.SHIELD_H;
+            const mask = new Uint8Array(sw * sh);
+            const rx = sw / 2, ry = sh / 2;
+            for (let row = 0; row < sh; row++) {
+                for (let col = 0; col < sw; col++) {
+                    const dx = (col - rx) / rx;
+                    const dy = (row - ry) / ry;
+                    mask[row * sw + col] = (dx * dx + dy * dy <= 1.0) ? 1 : 0;
+                }
+            }
+            this.shieldMask = mask;
+        } catch { /* not available */ }
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
