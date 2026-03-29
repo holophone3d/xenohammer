@@ -388,7 +388,7 @@ export class GameManager {
             // Delay Space ambient slightly — on iOS the AudioContext needs
             // time to resume after the gesture handler's ctx.resume() call
             setTimeout(() => {
-                this.spaceAmbient = this.audio.playSound('Space', true);
+                this.spaceAmbient = this.audio.playSoundLoopCrossfade('Space');
             }, 150);
             this.started = true;
             this.state = GameState.ReadyRoom;
@@ -413,7 +413,7 @@ export class GameManager {
     /** Ensure the looping space ambient is alive (restarts if killed by stopAllSounds, etc.) */
     private ensureSpaceAmbient(): void {
         if (!this.spaceAmbient || !this.spaceAmbient.isPlaying()) {
-            this.spaceAmbient = this.audio.playSound('Space', true);
+            this.spaceAmbient = this.audio.playSoundLoopCrossfade('Space');
         }
     }
 

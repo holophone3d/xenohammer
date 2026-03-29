@@ -168,6 +168,88 @@ export class AudioManager {
         return inst;
     }
 
+    /**
+     * Play a looping sound with crossfade to eliminate the pop at loop boundaries.
+     * Instead of source.loop=true, we schedule overlapping buffer sources with
+     * a short gain crossfade at each seam.
+     */
+    playSoundLoopCrossfade(id: string, volumeScale = 1.0, fadeDuration = 0.05): SoundInstance {
+        const buffer = this.sfxBuffers.get(id);
+        if (!buffer || !this.ctx) return AudioManager.nullInstance();
+
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => {});
+        }
+
+        const ctx = this.ctx;
+        const masterGain = ctx.createGain();
+        masterGain.gain.value = Math.min(1, this.sfxVolume * volumeScale);
+        masterGain.connect(this.sfxGain);
+
+        let playing = true;
+        let currentSource: AudioBufferSourceNode | null = null;
+        let nextScheduled = false;
+        let scheduleTimer: number | null = null;
+
+        const scheduleNext = (startTime: number) => {
+            if (!playing) return;
+            const src = ctx.createBufferSource();
+            src.buffer = buffer;
+
+            // Per-iteration gain for fade-in/fade-out
+            const iterGain = ctx.createGain();
+            src.connect(iterGain);
+            iterGain.connect(masterGain);
+
+            // Fade in at start
+            iterGain.gain.setValueAtTime(0, startTime);
+            iterGain.gain.linearRampToValueAtTime(1, startTime + fadeDuration);
+
+            // Fade out at end
+            const fadeOutTime = startTime + buffer.duration - fadeDuration;
+            if (fadeOutTime > startTime + fadeDuration) {
+                iterGain.gain.setValueAtTime(1, fadeOutTime);
+                iterGain.gain.linearRampToValueAtTime(0, startTime + buffer.duration);
+            }
+
+            src.start(startTime);
+            src.stop(startTime + buffer.duration + 0.01);
+            currentSource = src;
+            nextScheduled = false;
+
+            // Schedule the next iteration before this one ends (overlap by fadeDuration)
+            const nextStart = startTime + buffer.duration - fadeDuration;
+            const msUntilSchedule = (nextStart - ctx.currentTime - 0.5) * 1000;
+            scheduleTimer = window.setTimeout(() => {
+                if (playing) {
+                    scheduleNext(nextStart);
+                }
+            }, Math.max(100, msUntilSchedule));
+        };
+
+        scheduleNext(ctx.currentTime);
+
+        const inst: SoundInstance = {
+            stop() {
+                if (playing) {
+                    playing = false;
+                    if (scheduleTimer !== null) clearTimeout(scheduleTimer);
+                    if (currentSource) {
+                        try { currentSource.stop(); } catch { /* ok */ }
+                    }
+                    masterGain.disconnect();
+                }
+            },
+            isPlaying() { return playing; },
+            setVolume(vol: number) {
+                masterGain.gain.value = Math.max(0, Math.min(1, vol));
+            }
+        };
+
+        this.activeSounds.push(inst);
+        return inst;
+    }
+
     /** Load a music track as both HTML5 Audio (iOS primer) and Web Audio buffer (gapless loop). */
     async loadMusic(id: string, url: string): Promise<void> {
         try {
