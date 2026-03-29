@@ -243,6 +243,7 @@ export class GameManager {
 
         switch (this.state) {
             case GameState.Loading:
+                this.updateLoading(dt);
                 break;
             case GameState.StartScreen:
                 this.updateStartScreen(dt);
@@ -371,17 +372,47 @@ export class GameManager {
 
     // ========== State: Loading ==========
 
+    private loadingComplete = false;
+    private loadingReadyTimer = 0;
+
+    private updateLoading(dt: number): void {
+        if (this.assets.getProgress() >= 1.0) {
+            this.loadingComplete = true;
+            this.loadingReadyTimer += dt;
+        }
+        // Wait for user gesture to unlock AudioContext, then go to StartScreen
+        if (this.loadingComplete && (
+            this.input.isMousePressed() ||
+            this.input.isKeyPressed(Input.SPACE) ||
+            this.input.isKeyPressed(Input.ENTER))) {
+            this.audio.resumeContext();
+            this.startScreenTimer = 0;
+            this.introSound = null;
+            this.state = GameState.StartScreen;
+        }
+    }
+
     private renderLoading(): void {
         const ctx = this.canvas.ctx;
         ctx.fillStyle = '#0f0';
         ctx.font = '24px XenoFont, monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('XENOHAMMER Loading...', 400, 300);
-        const progress = this.assets.getProgress();
-        ctx.fillStyle = '#333';
-        ctx.fillRect(250, 330, 300, 20);
-        ctx.fillStyle = '#0f0';
-        ctx.fillRect(250, 330, 300 * progress, 20);
+
+        if (!this.loadingComplete) {
+            ctx.fillText('XENOHAMMER Loading...', 400, 300);
+            const progress = this.assets.getProgress();
+            ctx.fillStyle = '#333';
+            ctx.fillRect(250, 330, 300, 20);
+            ctx.fillStyle = '#0f0';
+            ctx.fillRect(250, 330, 300 * progress, 20);
+        } else {
+            // Pulsing "READY" text
+            const pulse = 0.5 + 0.5 * Math.sin(this.loadingReadyTimer * 3);
+            ctx.globalAlpha = 0.4 + 0.6 * pulse;
+            ctx.font = '36px XenoFont, monospace';
+            ctx.fillText('READY', 400, 310);
+            ctx.globalAlpha = 1.0;
+        }
         ctx.textAlign = 'left';
     }
 
@@ -392,7 +423,7 @@ export class GameManager {
 
     private updateStartScreen(dt: number): void {
         this.startScreenTimer += dt;
-        // Queue intro sound immediately — it will play once AudioContext resumes on user gesture
+        // Play intro sound immediately — AudioContext is running from Loading gesture
         if (!this.introSound) {
             this.introSound = this.audio.playSound('Intro');
         }
@@ -405,16 +436,21 @@ export class GameManager {
             this.state = GameState.ReadyRoom;
             return;
         }
-        // Require user interaction after fade-in (1s)
-        if (this.startScreenTimer > 1.0 && (
-            this.input.isMousePressed() ||
+        // User can click through any time
+        if (this.input.isMousePressed() ||
             this.input.isKeyPressed(Input.SPACE) ||
-            this.input.isKeyPressed(Input.ENTER))) {
-            // Stop intro sound immediately
-            if (this.introSound) {
-                this.introSound.stop();
-                this.introSound = null;
-            }
+            this.input.isKeyPressed(Input.ENTER)) {
+            if (this.introSound) { this.introSound.stop(); this.introSound = null; }
+            setTimeout(() => {
+                this.spaceAmbient = this.audio.playSoundLoopCrossfade('Space');
+            }, 150);
+            this.started = true;
+            this.state = GameState.ReadyRoom;
+            return;
+        }
+        // Auto-advance to ready room at 4s
+        if (this.startScreenTimer >= 4.0) {
+            if (this.introSound) { this.introSound.stop(); this.introSound = null; }
             setTimeout(() => {
                 this.spaceAmbient = this.audio.playSoundLoopCrossfade('Space');
             }, 150);
@@ -426,10 +462,12 @@ export class GameManager {
     private renderStartScreen(): void {
         const ctx = this.canvas.ctx;
 
-        // Fade in over first 1 second, stay visible after
+        // Fade in over first 1s, fade out from 3s→4s
         let alpha = 1.0;
         if (this.startScreenTimer < 1.0) {
-            alpha = this.startScreenTimer; // fade in 0→1 over 1s
+            alpha = this.startScreenTimer;
+        } else if (this.startScreenTimer > 3.0) {
+            alpha = Math.max(0, 1 - (this.startScreenTimer - 3.0));
         }
 
         ctx.globalAlpha = alpha;
@@ -438,7 +476,7 @@ export class GameManager {
             ctx.drawImage(splash, 0, 0, 800, 600);
         }
 
-        // "Start Game" text only after fade-in
+        // "Start Game" text
         if (this.startScreenTimer > 1.0) {
             ctx.fillStyle = '#0f0';
             ctx.font = '20px XenoFont, monospace';

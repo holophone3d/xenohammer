@@ -132,6 +132,13 @@ export class AudioManager {
         return !!this.ctx && this.ctx.state === 'running';
     }
 
+    /** Resume the AudioContext (call from a user gesture handler). */
+    resumeContext(): void {
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => {});
+        }
+    }
+
     /** Play a loaded sound effect via Web Audio. */
     playSound(id: string, loop = false, volumeScale = 1.0): SoundInstance {
         const buffer = this.sfxBuffers.get(id);
