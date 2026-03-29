@@ -780,6 +780,9 @@ export class GameManager {
                 this.state = GameState.Aftermath;
                 this.aftermathY = 600;
                 this.stateTimer = 0;
+                // Keep space ambience running through aftermath
+                this.engineSound = this.audio.playSound('ShipEngine', true);
+                this.engineSound.setVolume(0.1);
             }
         } else {
             if (this.waveManager.isTimeUp()) {
@@ -1185,6 +1188,10 @@ export class GameManager {
             this.state = GameState.ReadyRoom;
             this.stateTimer = 0;
             this.audio.stopMusic();
+            if (this.engineSound) {
+                this.engineSound.stop();
+                this.engineSound = null;
+            }
         }
     }
 
