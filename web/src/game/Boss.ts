@@ -1283,8 +1283,8 @@ export class Boss {
         // Center node
         this.drawComp(ctx, this.centerNode, '#889');
 
-        // Energy beam effects (glowing orbs, connector beams, glowy bars)
-        this.drawEnergyEffects(ctx);
+        // Energy beam dense layer (under sprites — no hard edges visible)
+        this.drawEnergyBeams(ctx);
 
         // Center orb
         if (!this.centerOrb.destroyed) {
@@ -1319,8 +1319,8 @@ export class Boss {
             this.drawTurretSet(ctx, this.uTurretAIs);
         }
 
-        // Boss shield — rendered via drawEnergyEffects() as additive purple glow
-        // (C++ uses OpenGL textured quad with additive blending, not a sprite)
+        // Energy glow effects on top of all sprites (radial glows, orb points, U-arm lights)
+        this.drawEnergyGlows(ctx);
 
         // Hit flash — subtle glow at hit component center (not a white rectangle)
         if (this.hitFlashTimer > 0 && this.hitFlashComp) {
@@ -1440,18 +1440,20 @@ export class Boss {
     }
 
     /**
-     * C++ GL_Handler energy effects: glowing orbs, connector beams, shield glow,
-     * connector points, glowy bars, and U-arm red lights. All use alpha-blended
-     * additive-style rendering with pulsing warningAlpha and bossAlpha values.
+     * Dense transparent beams rendered UNDER sprites — no hard edges visible on top.
+     * Beams go directly from each outer orb to the center orb.
      */
-    private drawEnergyEffects(ctx: CanvasRenderingContext2D): void {
+    private drawEnergyBeams(ctx: CanvasRenderingContext2D): void {
         ctx.save();
-        ctx.globalCompositeOperation = 'lighter'; // additive blending like OpenGL
+        ctx.globalCompositeOperation = 'lighter';
 
         const bx = this.x;
         const by = this.y;
+        const centerOrbX = this.centerOrb.x + 32;
+        const centerOrbY = this.centerOrb.y + 32;
+        const beamAlpha = this.warningAlpha * 0.5;
 
-        // --- Boss shield (C++: Shield.bmp, purple (0.4,0.15,1.0), orbCount/4 alpha, 130×115 at center+80) ---
+        // --- Boss shield (under sprites) ---
         if (this.orbCount > 0 && !this.bossShield.destroyed) {
             const shieldAlpha = this.orbCount / 4;
             const scx = bx + 80;
@@ -1459,7 +1461,6 @@ export class Boss {
             const shw = 130, shh = 115;
 
             if (this.shieldTexture) {
-                // Same approach as player shield: multiply-tint texture to purple
                 if (!Boss._shieldCanvas) {
                     Boss._shieldCanvas = document.createElement('canvas');
                     Boss._shieldCanvas.width = shw * 2;
@@ -1469,7 +1470,7 @@ export class Boss {
                 sc.clearRect(0, 0, shw * 2, shh * 2);
                 sc.drawImage(this.shieldTexture, 0, 0, shw * 2, shh * 2);
                 sc.globalCompositeOperation = 'multiply';
-                sc.fillStyle = 'rgb(102,38,255)'; // C++: (0.4, 0.15, 1.0)
+                sc.fillStyle = 'rgb(102,38,255)';
                 sc.fillRect(0, 0, shw * 2, shh * 2);
                 sc.globalCompositeOperation = 'source-over';
                 ctx.globalAlpha = shieldAlpha;
@@ -1480,10 +1481,46 @@ export class Boss {
             }
         }
 
-        // --- Central red glowing orb (C++: 90×90 at center+80, bossAlpha) ---
+        // --- Direct beams: each outer orb → center orb (purple, under sprites) ---
+        for (let i = 0; i < 4; i++) {
+            if (this.outerOrbs[i].destroyed) continue;
+            const orbX = this.outerOrbs[i].x + 32;
+            const orbY = this.outerOrbs[i].y + 32;
+            this.drawBeam(ctx, orbX, orbY, centerOrbX, centerOrbY, 40, 0.4, 0.15, 1.0, beamAlpha);
+        }
+
+        // --- 3 glowy bars between orb pairs (blue, under sprites) ---
+        if (!this.outerOrbs[0].destroyed && !this.outerOrbs[1].destroyed) {
+            const orbA = this.outerOrbs[0], orbB = this.outerOrbs[1];
+            this.drawBeam(ctx, orbA.x + 32, orbA.y + 32, orbB.x + 32, orbB.y + 32, 50, 0.0, 0.0, 1.0, this.bossAlpha);
+        }
+        if (!this.outerOrbs[2].destroyed && !this.outerOrbs[3].destroyed) {
+            const orbA = this.outerOrbs[3], orbB = this.outerOrbs[2];
+            this.drawBeam(ctx, orbA.x + 32, orbA.y + 32, orbB.x + 32, orbB.y + 32, 50, 0.0, 0.0, 1.0, this.bossAlpha);
+        }
+        if (!this.outerOrbs[1].destroyed && !this.outerOrbs[2].destroyed) {
+            const orbA = this.outerOrbs[1], orbB = this.outerOrbs[2];
+            this.drawBeam(ctx, orbA.x + 32, orbA.y + 32, orbB.x + 32, orbB.y + 32, 25, 0.0, 0.0, 1.0, this.bossAlpha);
+        }
+
+        ctx.restore();
+    }
+
+    /**
+     * Radial glow effects rendered ON TOP of all sprites — orb glows, connector
+     * points, and U-arm lights.
+     */
+    private drawEnergyGlows(ctx: CanvasRenderingContext2D): void {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+
+        const bx = this.x;
+        const by = this.y;
+
+        // --- Central red glowing orb ---
         this.drawGlow(ctx, bx + 80, by + 80, 90, 90, 1.0, 0.0, 0.0, this.bossAlpha);
 
-        // --- 4 outer node glowing orbs (C++: red 90×90, bossAlpha, only when orb visible) ---
+        // --- 4 outer node glowing orbs ---
         for (let i = 0; i < 4; i++) {
             if (this.outerOrbs[i].destroyed) continue;
             const nx = bx + NODE_OFFSETS[i].x + 64;
@@ -1491,15 +1528,12 @@ export class Boss {
             this.drawGlow(ctx, nx, ny, 90, 90, 1.0, 0.0, 0.0, this.bossAlpha);
         }
 
-        // --- Center connector points (C++: white 30×30, warningAlpha) ---
-        // These anchor at the center node edges pointing toward each connector
-        const cnLeft  = this.connectors[0]; // UL connector
-        const cnHoriz = this.connectors[1]; // H connector
-        const cnRight = this.connectors[2]; // UR connector
-
-        // Center platform edge points — aligned with connector directions
-        const cp1x = bx + 12, cp1y = by + 148;   // left edge of center node → UL connector
-        const cp2x = bx + 148, cp2y = by + 148;  // right edge of center node → UR connector
+        // --- Center connector points (white) ---
+        const cnLeft  = this.connectors[0];
+        const cnHoriz = this.connectors[1];
+        const cnRight = this.connectors[2];
+        const cp1x = bx + 12, cp1y = by + 148;
+        const cp2x = bx + 148, cp2y = by + 148;
 
         if (!this.outerOrbs[0].destroyed || !this.outerOrbs[1].destroyed) {
             this.drawGlow(ctx, cp1x, cp1y, 30, 30, 1.0, 1.0, 1.0, this.warningAlpha);
@@ -1508,93 +1542,25 @@ export class Boss {
             this.drawGlow(ctx, cp2x, cp2y, 30, 30, 1.0, 1.0, 1.0, this.warningAlpha);
         }
 
-        // --- Energy beams: center → through connectors → to outer orbs ---
-        // These represent shield power flowing from center to outer orbs via the structural connectors.
-        const beamAlpha = this.warningAlpha * 0.5;
-
-        // Center → UL connector center → outer orb 0
-        if (!this.outerOrbs[0].destroyed) {
-            const orbX = this.outerOrbs[0].x + 32;
-            const orbY = this.outerOrbs[0].y + 32;
-            const connCX = cnLeft.destroyed ? orbX : cnLeft.x + cnLeft.width / 2;
-            const connCY = cnLeft.destroyed ? orbY : cnLeft.y + cnLeft.height / 2;
-            this.drawBeam(ctx, cp1x, cp1y, connCX, connCY, 40, 0.4, 0.15, 1.0, beamAlpha);
-            if (!cnLeft.destroyed) {
-                this.drawBeam(ctx, connCX, connCY, orbX, orbY, 35, 0.4, 0.15, 1.0, beamAlpha * 0.8);
-            }
-        }
-        // Center → UL connector center → outer orb 1
-        if (!this.outerOrbs[1].destroyed) {
-            const orbX = this.outerOrbs[1].x + 32;
-            const orbY = this.outerOrbs[1].y + 32;
-            const connCX = cnLeft.destroyed ? orbX : cnLeft.x + cnLeft.width / 2;
-            const connCY = cnLeft.destroyed ? orbY : cnLeft.y + cnLeft.height / 2;
-            this.drawBeam(ctx, cp1x, cp1y, connCX, connCY, 40, 0.4, 0.15, 1.0, beamAlpha);
-            if (!cnLeft.destroyed) {
-                this.drawBeam(ctx, connCX, connCY, orbX, orbY, 35, 0.4, 0.15, 1.0, beamAlpha * 0.8);
-            }
-        }
-        // Center → UR connector center → outer orb 2
-        if (!this.outerOrbs[2].destroyed) {
-            const orbX = this.outerOrbs[2].x + 32;
-            const orbY = this.outerOrbs[2].y + 32;
-            const connCX = cnRight.destroyed ? orbX : cnRight.x + cnRight.width / 2;
-            const connCY = cnRight.destroyed ? orbY : cnRight.y + cnRight.height / 2;
-            this.drawBeam(ctx, cp2x, cp2y, connCX, connCY, 40, 0.4, 0.15, 1.0, beamAlpha);
-            if (!cnRight.destroyed) {
-                this.drawBeam(ctx, connCX, connCY, orbX, orbY, 35, 0.4, 0.15, 1.0, beamAlpha * 0.8);
-            }
-        }
-        // Center → UR connector center → outer orb 3
-        if (!this.outerOrbs[3].destroyed) {
-            const orbX = this.outerOrbs[3].x + 32;
-            const orbY = this.outerOrbs[3].y + 32;
-            const connCX = cnRight.destroyed ? orbX : cnRight.x + cnRight.width / 2;
-            const connCY = cnRight.destroyed ? orbY : cnRight.y + cnRight.height / 2;
-            this.drawBeam(ctx, cp2x, cp2y, connCX, connCY, 40, 0.4, 0.15, 1.0, beamAlpha);
-            if (!cnRight.destroyed) {
-                this.drawBeam(ctx, connCX, connCY, orbX, orbY, 35, 0.4, 0.15, 1.0, beamAlpha * 0.8);
-            }
-        }
-
-        // --- Connector center glow points (white, where energy passes through) ---
+        // --- Connector center glow points ---
         if (!cnLeft.destroyed && (!this.outerOrbs[0].destroyed || !this.outerOrbs[1].destroyed)) {
             this.drawGlow(ctx, cnLeft.x + cnLeft.width / 2, cnLeft.y + cnLeft.height / 2, 25, 25, 1.0, 1.0, 1.0, this.warningAlpha);
         }
         if (!cnRight.destroyed && (!this.outerOrbs[2].destroyed || !this.outerOrbs[3].destroyed)) {
             this.drawGlow(ctx, cnRight.x + cnRight.width / 2, cnRight.y + cnRight.height / 2, 25, 25, 1.0, 1.0, 1.0, this.warningAlpha);
         }
-        // H connector glow (bottom, between orbs 1-2)
         if (!cnHoriz.destroyed && !this.outerOrbs[1].destroyed && !this.outerOrbs[2].destroyed) {
             this.drawGlow(ctx, cnHoriz.x + cnHoriz.width / 2, cnHoriz.y + cnHoriz.height / 2, 20, 20, 1.0, 1.0, 1.0, this.warningAlpha);
         }
 
-        // --- Outer orb connector points (white glow at each living orb) ---
+        // --- Outer orb glow points (white) ---
         for (let i = 0; i < 4; i++) {
             if (!this.outerOrbs[i].destroyed) {
                 this.drawGlow(ctx, this.outerOrbs[i].x + 32, this.outerOrbs[i].y + 32, 25, 25, 1.0, 1.0, 1.0, this.warningAlpha);
             }
         }
 
-        // --- 3 glowy bars between node pairs (blue energy flowing along structural connectors) ---
-        // Left bar: Node0→Node1 (along UL connector)
-        if (!this.outerOrbs[0].destroyed && !this.outerOrbs[1].destroyed) {
-            const orbA = this.outerOrbs[0], orbB = this.outerOrbs[1];
-            this.drawBeam(ctx, orbA.x + 32, orbA.y + 32, orbB.x + 32, orbB.y + 32, 50, 0.0, 0.0, 1.0, this.bossAlpha);
-        }
-        // Right bar: Node3→Node2 (along UR connector)
-        if (!this.outerOrbs[2].destroyed && !this.outerOrbs[3].destroyed) {
-            const orbA = this.outerOrbs[3], orbB = this.outerOrbs[2];
-            this.drawBeam(ctx, orbA.x + 32, orbA.y + 32, orbB.x + 32, orbB.y + 32, 50, 0.0, 0.0, 1.0, this.bossAlpha);
-        }
-        // Center bar: Node1→Node2 (along H connector)
-        if (!this.outerOrbs[1].destroyed && !this.outerOrbs[2].destroyed) {
-            const orbA = this.outerOrbs[1], orbB = this.outerOrbs[2];
-            this.drawBeam(ctx, orbA.x + 32, orbA.y + 32, orbB.x + 32, orbB.y + 32, 25, 0.0, 0.0, 1.0, this.bossAlpha);
-        }
-
-        // --- U-arm red lights (C++: red 20×20, bossAlpha, only when all orbs destroyed) ---
-        // C++ draws one light per arm: LeftU at x+96, RightU at x+43 (asymmetric — mirror images)
+        // --- U-arm red lights ---
         if (this.orbCount <= 0 && this.state !== BossState.Dying) {
             this.drawGlow(ctx, this.uComponents[0].x + 96, this.uComponents[0].y + 281, 20, 20, 1.0, 0.0, 0.0, this.bossAlpha);
             this.drawGlow(ctx, this.uComponents[1].x + 43, this.uComponents[1].y + 281, 20, 20, 1.0, 0.0, 0.0, this.bossAlpha);
