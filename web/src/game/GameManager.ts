@@ -406,11 +406,19 @@ export class GameManager {
             ctx.fillStyle = '#0f0';
             ctx.fillRect(250, 330, 300 * progress, 20);
         } else {
-            // Pulsing "READY" text
-            const pulse = 0.5 + 0.5 * Math.sin(this.loadingReadyTimer * 3);
-            ctx.globalAlpha = 0.4 + 0.6 * pulse;
+            // Pulsing "READY" button
+            const pulse = 0.5 + 0.5 * Math.sin(this.loadingReadyTimer * 4);
+            const alpha = 0.3 + 0.7 * pulse;
+            const bx = 320, by = 278, bw = 160, bh = 50;
+            // Pulsing green outline
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = '#0f0';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(bx, by, bw, bh);
+            // Text centered in button
+            ctx.fillStyle = '#0f0';
             ctx.font = '36px XenoFont, monospace';
-            ctx.fillText('READY', 400, 310);
+            ctx.fillText('READY', bx + bw / 2, by + 36);
             ctx.globalAlpha = 1.0;
         }
         ctx.textAlign = 'left';
