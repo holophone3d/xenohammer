@@ -423,8 +423,8 @@ export class GameManager {
 
     private updateStartScreen(dt: number): void {
         this.startScreenTimer += dt;
-        // Play intro sound immediately — AudioContext is running from Loading gesture
-        if (!this.introSound) {
+        // Defer intro sound until AudioContext is actually running (iOS needs time after resume)
+        if (!this.introSound && this.audio.isReady()) {
             this.introSound = this.audio.playSound('Intro');
         }
         // Fade audio out starting at 3s over 2s
