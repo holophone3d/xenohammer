@@ -281,13 +281,13 @@ export class Player {
         const tempVal = Math.random() * 2;
         const angleDeg = 175 + Math.random() * 10;
         const angleRad = (angleDeg * Math.PI) / 180;
-        const fadePerSec = 2.5 + Math.random() * 3.0;
+        const fadePerSec = 1.8 + Math.random() * 2.0; // 1.8-3.8/s → lifetime 0.1-0.22s
         // Ship is always flying forward — exhaust is always blasting out the back.
         // Moving up = more thrust, moving down = less thrust, but never zero.
-        const baseExhaust = 120;
+        const baseExhaust = 140;
         const thrustBoost = -this.lastVy * 0.4;
         const lateralShift = -this.lastVx * 0.3;
-        const exhaustVy = Math.max(40, baseExhaust + thrustBoost); // always at least 40 px/s downward
+        const exhaustVy = Math.max(80, baseExhaust + thrustBoost);
         particles.emit(this.x + 38, this.y + 47, 1, {
             color: { r: 1.0, g: tempVal, b: tempVal },
             speed: 10 + Math.random() * 10,  // small random spread component
