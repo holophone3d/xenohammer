@@ -69,7 +69,7 @@ export class Explosion {
 
         // Additive glow behind explosion — C++ uses glColor4f(5,2,0,0.15) with additive blend.
         // The overbright color (5.0 red) creates intense hot-core glow with additive blending.
-        const frameIdx = Math.max(0, this.currentFrame);
+        const frameIdx = Math.max(0, Math.floor(this.currentFrame));
         const progress = frameIdx / (this.frames.length || FRAME_COUNT);
         const glowAlpha = 0.25 * (1 - progress * 0.7);
         if (glowAlpha > 0.01) {
