@@ -127,6 +127,11 @@ export class AudioManager {
         }
     }
 
+    /** Returns true when the AudioContext is running (not suspended). */
+    isReady(): boolean {
+        return !!this.ctx && this.ctx.state === 'running';
+    }
+
     /** Play a loaded sound effect via Web Audio. */
     playSound(id: string, loop = false, volumeScale = 1.0): SoundInstance {
         const buffer = this.sfxBuffers.get(id);

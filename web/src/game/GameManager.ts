@@ -392,12 +392,13 @@ export class GameManager {
 
     private updateStartScreen(dt: number): void {
         this.startScreenTimer += dt;
-        if (!this.introSound) {
+        // Play intro sound once AudioContext is running (needs user gesture on reload)
+        if (!this.introSound && this.audio.isReady()) {
             this.introSound = this.audio.playSound('Intro');
         }
-        // Fade audio out starting at 3s over 2s
-        if (this.introSound && this.startScreenTimer > 3.0) {
-            const fadeProgress = Math.min(1, (this.startScreenTimer - 3.0) / 2.0);
+        // Fade audio out starting at 2s over 2s
+        if (this.introSound && this.startScreenTimer > 2.0) {
+            const fadeProgress = Math.min(1, (this.startScreenTimer - 2.0) / 2.0);
             this.introSound.setVolume(1.0 - fadeProgress);
         }
         if (this.started) {
