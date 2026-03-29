@@ -130,6 +130,9 @@ game.init().then(() => {
             renderFpsAccum = 0;
         }
 
+        // Set interpolation alpha for smooth rendering between fixed ticks
+        game.renderAlpha = accumulator / TICK_RATE;
+
         // Check for state transition → refit canvas
         syncLayout();
 

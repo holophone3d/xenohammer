@@ -22,6 +22,9 @@ export class Projectile {
     height: number;
     sprite: Sprite | null;
 
+    prevX: number;
+    prevY: number;
+
     homing = false;
     homingTrackDist = 64;
     homingMinDist = 16;
@@ -39,6 +42,8 @@ export class Projectile {
     ) {
         this.x = x;
         this.y = y;
+        this.prevX = x;
+        this.prevY = y;
         this.vx = vx;
         this.vy = vy;
         this.damage = damage;
@@ -62,8 +67,10 @@ export class Projectile {
 
     update(dt: number, targetX?: number, targetY?: number): void {
         if (!this.alive) return;
+        this.prevX = this.x;
+        this.prevY = this.y;
 
-        // Homing guidance — continuous steering after 50px traveled
+        // Homing guidance— continuous steering after 50px traveled
         if (this.homing && this.distanceTraveled > 50 &&
             targetX !== undefined && targetY !== undefined) {
             const dx = targetX - this.x;

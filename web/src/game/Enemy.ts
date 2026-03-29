@@ -18,6 +18,8 @@ import { AIBehavior, LightFighterAI, FighterBAI, GunshipAI } from './AI';
 export class Enemy {
     x: number;
     y: number;
+    prevX: number;
+    prevY: number;
     vx = 0;
     vy = 0;
     armor: number;
@@ -56,6 +58,8 @@ export class Enemy {
     ) {
         this.x = x;
         this.y = y;
+        this.prevX = x;
+        this.prevY = y;
         this.config = config;
         this.type = type;
         this.armor = config.armor;
@@ -87,6 +91,8 @@ export class Enemy {
 
     update(dt: number, playerX: number, playerY: number): void {
         if (!this.alive) return;
+        this.prevX = this.x;
+        this.prevY = this.y;
 
         // Delegate movement/state to AI
         this.ai.update(this, playerX, playerY, dt);

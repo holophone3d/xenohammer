@@ -286,6 +286,8 @@ function doShortestTurn(currentFrame: number, desiredFrame: number): number {
 export class Boss {
     x: number;
     y: number;
+    prevX: number;
+    prevY: number;
     alive = true;
     state: BossState = BossState.Waiting;
     musicTriggered = false;
@@ -354,6 +356,8 @@ export class Boss {
         this.hpOffset = difficulty === 0 ? -200 : difficulty === 2 ? 200 : difficulty === 3 ? 1000 : 0;
         this.x = BOSS_START_X;
         this.y = BOSS_START_Y;
+        this.prevX = BOSS_START_X;
+        this.prevY = BOSS_START_Y;
 
         const hp = this.hpOffset;
 
@@ -538,6 +542,8 @@ export class Boss {
     // ---------------------------------------------------------------
 
     update(dt: number, playerX: number, playerY: number, now: number, levelTimeMs: number): void {
+        this.prevX = this.x;
+        this.prevY = this.y;
         this.levelTimeMs = levelTimeMs;
         this.nowMs = now;
         this.pendingProjectiles = [];

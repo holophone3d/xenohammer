@@ -42,6 +42,8 @@ export class PowerUp {
     }
     x: number;
     y: number;
+    prevX: number;
+    prevY: number;
     type: PowerUpType;
     active = true;
     private baseX: number;
@@ -51,6 +53,8 @@ export class PowerUp {
     constructor(x: number, y: number, type: PowerUpType, assets?: AssetLoader | null) {
         this.x = x;
         this.y = y;
+        this.prevX = x;
+        this.prevY = y;
         this.baseX = x;
         this.type = type;
 
@@ -61,8 +65,10 @@ export class PowerUp {
 
     update(dt: number): void {
         if (!this.active) return;
+        this.prevX = this.x;
+        this.prevY = this.y;
 
-        // Gentle downward drift (time-scaled like all game objects)
+        // Gentle downward drift(time-scaled like all game objects)
         this.y += DRIFT_SPEED * dt * 1000 / VELOCITY_DIVISOR;
 
         // Slight horizontal bob (sin wave)

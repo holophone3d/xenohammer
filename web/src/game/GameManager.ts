@@ -321,8 +321,74 @@ export class GameManager {
         this.input.endFrame();
     }
 
+    // ========== Render interpolation for smooth visuals ==========
+    // Fixed-timestep ticks quantize positions; interpolation smooths them
+    // between the last two logic states using renderAlpha (0–1).
+
+    /** Temporarily shift all gameplay object positions to interpolated values. */
+    private lerpPositions(): void {
+        const a = this.renderAlpha;
+        // Player
+        if (this.player) {
+            (this.player as any)._sx = this.player.x;
+            (this.player as any)._sy = this.player.y;
+            this.player.x = this.player.prevX + (this.player.x - this.player.prevX) * a;
+            this.player.y = this.player.prevY + (this.player.y - this.player.prevY) * a;
+        }
+        // Projectiles
+        for (const p of this.projectiles) {
+            (p as any)._sx = p.x; (p as any)._sy = p.y;
+            p.x = p.prevX + (p.x - p.prevX) * a;
+            p.y = p.prevY + (p.y - p.prevY) * a;
+        }
+        // Enemies
+        for (const e of this.enemies) {
+            (e as any)._sx = e.x; (e as any)._sy = e.y;
+            e.x = e.prevX + (e.x - e.prevX) * a;
+            e.y = e.prevY + (e.y - e.prevY) * a;
+        }
+        // Boss
+        if (this.boss) {
+            (this.boss as any)._sx = this.boss.x;
+            (this.boss as any)._sy = this.boss.y;
+            this.boss.x = this.boss.prevX + (this.boss.x - this.boss.prevX) * a;
+            this.boss.y = this.boss.prevY + (this.boss.y - this.boss.prevY) * a;
+        }
+        // Power-ups
+        for (const pu of this.gamePowerUps) {
+            (pu as any)._sx = pu.x; (pu as any)._sy = pu.y;
+            pu.x = pu.prevX + (pu.x - pu.prevX) * a;
+            pu.y = pu.prevY + (pu.y - pu.prevY) * a;
+        }
+    }
+
+    /** Restore original (post-update) positions after rendering. */
+    private restorePositions(): void {
+        if (this.player) {
+            this.player.x = (this.player as any)._sx;
+            this.player.y = (this.player as any)._sy;
+        }
+        for (const p of this.projectiles) {
+            p.x = (p as any)._sx; p.y = (p as any)._sy;
+        }
+        for (const e of this.enemies) {
+            e.x = (e as any)._sx; e.y = (e as any)._sy;
+        }
+        if (this.boss) {
+            this.boss.x = (this.boss as any)._sx;
+            this.boss.y = (this.boss as any)._sy;
+        }
+        for (const pu of this.gamePowerUps) {
+            pu.x = (pu as any)._sx; pu.y = (pu as any)._sy;
+        }
+    }
+
     render(): void {
         this.canvas.clear();
+
+        // Interpolate positions for smooth rendering during gameplay
+        const needsLerp = this.isGameplay();
+        if (needsLerp) this.lerpPositions();
 
         switch (this.state) {
             case GameState.Loading:
@@ -377,6 +443,8 @@ export class GameManager {
                 this.renderShipCustomization();
                 break;
         }
+
+        if (needsLerp) this.restorePositions();
 
         // Pause overlay (renders on top of frozen game scene)
         if (this.paused) {
@@ -2972,6 +3040,9 @@ export class GameManager {
     private debugShowFps = false;
     // FPS display is set by main.ts from actual render-frame counting
     debugFpsDisplay = 0;
+    /** Interpolation alpha (0–1) for smooth rendering between fixed-timestep ticks.
+     *  Set by main.ts each frame: accumulator / TICK_RATE */
+    renderAlpha = 1;
 
     private setDebugMenuOpen(open: boolean): void {
         if (open === this.debugMenuOpen) return;

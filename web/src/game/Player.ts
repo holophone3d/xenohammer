@@ -17,6 +17,8 @@ import { PowerPlant } from './PowerPlant';
 export class Player {
     x: number;
     y: number;
+    prevX: number;
+    prevY: number;
     armor: number;
     maxArmor: number;
     shields: number;
@@ -47,6 +49,8 @@ export class Player {
     constructor() {
         this.x = PLAYER_START.x;
         this.y = PLAYER_START.y;
+        this.prevX = PLAYER_START.x;
+        this.prevY = PLAYER_START.y;
         this.armor = PLAYER_SHIP.armor;
         this.maxArmor = PLAYER_SHIP.armor;
         this.shields = PLAYER_SHIP.shields;
@@ -62,6 +66,8 @@ export class Player {
     resetForLevel(): void {
         this.x = PLAYER_START.x;
         this.y = PLAYER_START.y;
+        this.prevX = PLAYER_START.x;
+        this.prevY = PLAYER_START.y;
         this.armor = this.maxArmor;
         this.shields = this.maxShields;
         this.alive = true;
@@ -101,6 +107,8 @@ export class Player {
 
     update(dt: number, input: Input, now: number): void {
         if (!this.alive) return;
+        this.prevX = this.x;
+        this.prevY = this.y;
 
         // Power setting switches
         if (input.isKeyPressed(Input.KEY_Q)) this.powerPlant.selectSetting(0);
