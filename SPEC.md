@@ -182,6 +182,9 @@ Active setting uses green font (`font`), inactive uses dimmed font (`inactive_fo
 
 Sound effects: `MenuChange` on hover, `MenuSelect` on click.
 
+**Web build convenience:** a prominent **"Debug"** button appears at the top-left of the CRT area
+(`x: 10–160`, `y: 10–50`). Single-click opens the debug overlay.
+
 ### 3.6 Briefing Submenu (Briefing_Options_GUI)
 Same green CRT overlay background as Options_GUI. 5 menu buttons (same style):
 
@@ -247,7 +250,20 @@ Bottom text (y=580) shows currently selected difficulty.
 ### 3.9 Gameplay
 - Main combat loop — see Sections 4–11 for all mechanics
 - Waves spawn according to level wave tables
-- Player controls: Arrow keys (movement), Space (fire), Q/W/E (power settings), A (armor display), Escape (exit)
+- Player controls: Arrow keys (movement), Space (fire), Q/W/E (power settings), A (armor display), Escape (pause)
+
+### 3.9b Pause / Debug (Web Build)
+- Pressing **Escape** during gameplay opens a true pause overlay.
+- Pause freezes gameplay state, wave timers, boss logic, and projectile motion.
+- Pause menu options:
+  - **Resume**
+  - **Quit to Ready Room**
+- Music pauses while the pause menu is open and resumes when gameplay resumes.
+- The debug overlay uses the same gameplay freeze/pause behavior while open.
+- Debug overlay access:
+  - Single-click the **Debug** button on the Options screen, or
+  - Double-tap **backtick** (\`) during play, or
+  - Double-click / double-tap the **top-left corner** of the game screen.
 
 ### 3.10 Level End Animation
 - "END OF LEVEL X" text appears in last 5 seconds of level timer
@@ -267,16 +283,19 @@ Bottom text (y=580) shows currently selected difficulty.
 4. Return to menu
 
 ### 3.13 Boss Destruction (Level 3)
-1. Central node HP reaches 0
-2. Chain explosion sequence: 30 explosions over 3 seconds
-3. Random explosions within 200px radius of boss center
-4. 50% chance each explosion is big vs small
-5. After 3 seconds: boss marked dead, level can end
+1. Destroy all 4 outer orbs to drop the shield phase
+2. As soon as the shield phase ends, the **CenterNode** becomes shootable
+3. During morph/arm descent, the arm turrets are also shootable
+4. The **CenterOrb** remains protected until the **CenterNode** is destroyed
+5. Destroying the **CenterOrb** begins the death sequence
+6. Death sequence lasts ~11 seconds with sustained random explosions
+7. During the final second, the screen fades to black
 
-### 3.14 Victory
-- Aftermath screen with scrolling background image (`aftermath`)
-- Score and stats displayed
-- VictoryScreen: Gold text at Y=120, stats panel at center
+### 3.14 Aftermath
+- After the boss death fade, the `aftermath` image scrolls upward over the starfield
+- The **ShipEngine** ambient loop continues during aftermath
+- Escape or scroll completion returns directly to the Ready Room
+- Current web flow does **not** use a separate post-boss victory stats screen
 
 ---
 
@@ -769,34 +788,36 @@ BOSS_WAITING ──(110s)──→ BOSS_ENTERING_SCREEN ──(y reaches -50)─
 - Transition trigger: ALL 4 outer orbs at `curr_frame == num_frames - 1` (destroyed frame)
 
 **BOSS_MORPH1:**
-- U-components move **straight down** only: +1 Y per 100ms
-- All 6 U-turrets also move +1 Y per 100ms
+- U-components move **straight down** only: +1 Y per 7ms
+- All 6 U-turrets also move +1 Y per 7ms
+- U-turrets are already shootable during this phase
+- `CenterNode.damageable = true` at morph start
 - Target: `LeftU.offsetY == LEFTU_Y - 80` = −148
-- Distance: from −404 to −148 = **256 pixels = 25.6 seconds**
+- Distance: from −404 to −148 = **256 pixels ≈ 1.79 seconds**
 
 **BOSS_MORPH2:**
-- U-components move **down + inward**: +1 Y and ±1 X per 100ms
+- U-components move **down + inward**: +1 Y and ±1 X per 7ms
   - LeftU: +1 X (rightward), RightU: −1 X (leftward)
   - UTurrets 0–2: +1 X, UTurrets 3–5: −1 X
 - Target: `LeftU.offsetY == LEFTU_Y` = −68
-- Distance: from −148 to −68 = **80 pixels = 8.0 seconds**
+- Distance: from −148 to −68 = **80 pixels ≈ 0.56 seconds**
 
 **BOSS_FINAL:**
-- `CenterNode.damageable = true`, `CenterOrb.damageable = true`
+- `CenterOrb.damageable = true` only after `CenterNode` has been destroyed
 - U-turrets begin firing (in addition to outer turrets)
 - Win condition: destroy CenterOrb
 
 ### 8.5 Collision Detection — Priority Order
 
-C++ `collision_update()` checks components in this **exact order** (first hit wins):
+Current web gameplay resolves boss hits in this order (first solid hit wins):
 
-1. **CenterOrb** (highest priority — checked first)
+1. **bossShield** (while active, uses a solid circular hit test)
 2. **CenterNode**
-3. **OuterOrbs[0–3]**
-4. **OuterTurrets[0–7]**
-5. **Connectors[0–2]**
-6. **UTurrets[0–5]**
-7. **bossShield** (lowest priority — checked last)
+3. **CenterOrb** (only after CenterNode is destroyed)
+4. **OuterOrbs[0–3]**
+5. **OuterTurrets[0–7]**
+6. **Connectors[0–2]**
+7. **UTurrets[0–5]**
 
 Each component's `collision_update()` checks:
 - Component is not NULL
@@ -807,12 +828,10 @@ Each component's `collision_update()` checks:
 **Ship-body collision** (`collision_update_ship`) has a different order:
 CenterNode → OuterNodes[0–3] → LeftU → RightU → Connectors[0–2] → bossShield
 
-**Web implementation note:** The `bossShield.png` sprite has a transparent center, so pixel-mask
-collision would let bullets through. When `shieldActive` (orbCount > 0), the web version uses a
-**solid circle hitbox** (radius=128px, centered on boss) instead of the sprite mask. All internal
-components (platforms, connectors, centerNode, centerOrb, bossShield) are protected while shield
-is active — only outer orbs and outer turrets are targetable through the shield. When shield is
-inactive, normal sprite-mask collision applies.
+**Shield behavior note:** While `shieldActive` (`orbCount > 0`), the web version uses a
+**solid circle hitbox** (radius=128px, centered on boss). All internal components are protected;
+only **outer orbs** and **outer turrets** can actually take damage during the shield phase.
+Hits on protected internal components still consume the projectile.
 
 ### 8.6 Cascade Destruction (When Outer Orb Dies)
 
@@ -839,8 +858,11 @@ Do not draw them in a destroyed frame — simply skip rendering.
 
 1. CenterOrb destroyed → begin death sequence
 2. All 6 U-turrets: trigger `destroy_ship()` explosions, mark destroyed
-3. 11-second death timer begins with random chain explosions
-4. Boss marked dead when timer expires
+3. 11-second death timer begins
+4. Random explosions continue through the first 10 seconds
+5. U-arm red lights switch off during the death sequence
+6. Final second fades to black
+7. Boss marked dead when the death sequence completes, then aftermath fades in
 
 #### Explosion Positions — `destroy_ship(x, y)` (9 explosions per turret)
 
@@ -899,9 +921,11 @@ Uses OpenGL additive blending with textured quads.
 - CP2: `(+148, +148)` — shown if Orb[2] OR Orb[3] visible
 - Size: 60×60 (offset 30×30), Color: `(1.0, 1.0, 1.0, warningAlpha)`
 
-#### Energy Beams (node-to-center connector lines)
+#### Energy Beams (connector-routed shield power lines)
 - Color: `(0.4, 0.15, 1.0, warningAlpha × 0.5)` — purple, half-alpha
 - Texture: `bar.bmp` (texture[3])
+- In the web build, these are aligned to read as power flowing through the connector structure
+  between the center platform and outer orb assemblies.
 
 | Beam | From | To | Offset | Notes |
 |------|------|----|--------|-------|
@@ -931,11 +955,12 @@ Uses OpenGL additive blending with textured quads.
 | Right | Orb[2] AND Orb[3] | `(N4_X+26, N4_Y+104+16)` = (271, 231) | `(N3_X+104, N3_Y+26−16)` = (201, 269) | 30×30 |
 | Center | Orb[1] AND Orb[2] | `(N2_X+148, N2_Y+65)` = (83, 324) | same point | 50×25 |
 
-#### U-Arm Red Lights (only when `orbCount == -1`)
+#### U-Arm Red Lights
 - Color: `(1.0, 0.0, 0.0, bossAlpha)` — red
 - Size: 40×40 (offset 20×20)
 - LeftU light: `(LeftU.x + 96, LeftU.y + 281)`
 - RightU light: `(RightU.x + 43, RightU.y + 281)`
+- Visible after the outer shield phase is gone, but not during the death sequence
 
 #### Pulsing Alpha Values
 - `bossAlpha`: oscillates sinusoidally, used for orb glows + connector bars
@@ -1331,14 +1356,14 @@ Bar height = `value × 0.666` pixels (300 HP = 200 pixels tall)
 
 ### Music Tracks
 
-The original game has only **TWO music tracks** (from `Sound.cpp`):
+The game uses only **TWO music tracks**:
 
 | Variable | File | Usage | Loop |
 |----------|------|-------|:----:|
-| `sfx_backgroundMusic` | `Level2.ogg` | **ALL levels** (1, 2, and 3) | Yes |
-| `sfx_bossBackgroundMusic` | `bossTEST.ogg` | Boss fight (replaces level music when boss triggers) | Yes |
+| `sfx_backgroundMusic` | `Level2.mp3` | **ALL levels** (1, 2, and 3) | Yes |
+| `sfx_bossBackgroundMusic` | `bossTEST.mp3` | Boss fight (replaces level music when boss triggers) | Yes |
 
-> **Note:** Files `start.wav`, `SMC.wav`, `SMD.ogg`, `SMM.wav` exist in the assets but are NOT referenced in the original `Sound.cpp` as music. `start.wav` is a 13KB sound effect, not a music track.
+> **Note:** The current web build ships MP3 versions of the two in-game music tracks.
 
 ### Sound Effects
 
@@ -1348,7 +1373,7 @@ The original game has only **TWO music tracks** (from `Sound.cpp`):
 | Menu item hover | `MenuChange` | No | UI navigation |
 | Menu item select | `MenuSelect` | No | UI confirm |
 | Boss approaching | `BossNear1` | No | Sound effect at 96s into Level 3 |
-| Ship engine | `ShipEngine` | Yes | During gameplay, volume ~0.1 |
+| Ship engine | `ShipEngine` | Yes | During gameplay and aftermath, volume ~0.1 |
 | Player blaster fire | `PlayerGun1` | No | Nose blaster |
 | Player turret fire | `PlayerGun2` | No | Turret shots |
 | Player missile fire | `newFire` | No | Missile launch |

@@ -119,6 +119,7 @@ All content fetched March 28, 2026.
 
 **Source:** https://www.slideserve.com/sylviacampbell/iat-410-video-game-design-and-programming-powerpoint-ppt-presentation
 **Course:** IAT 410 - Video Game Design and Programming, taught by Chris Shaw, Ph.D.
+**Local Capture:** `external/slideserve_iat410_xenohammer.md`
 
 > **Past Winning Games:**
 > - XenoHammer — IGF Student Showcase 2002
@@ -133,6 +134,8 @@ All content fetched March 28, 2026.
 
 **Source:** https://repository.gatech.edu/server/api/core/bitstreams/4bd33c0d-8d42-4169-8aca-50210a301ba5/content
 **Format:** PDF
+**Local PDF:** `external/gt/gt_whistle_apr29.pdf`
+**OCR Excerpt:** `external/gt_whistle_apr29_xenohammer_excerpt.md`
 
 Mentions "XenoHammer Video Game" — confirms presence in Georgia Tech's academic records.
 
@@ -151,5 +154,30 @@ Forum discussion comparing Allegro, ClanLib, and PLib game libraries. XenoHammer
 
 **Source:** https://sources.debian.org/src/clanlib/1.0~svn3827-2/NEWS
 **Relevance:** ClanLib changelog documenting the engine that powered XenoHammer (v0.6.x era)
+**Local Capture:** `external/clanlib_news_relevant_excerpt.md`
 
 The NEWS file tracks ClanLib from 0.7.7 through 1.0.0 (2004-2009). XenoHammer used an earlier version (0.6.x, circa 2001) which predates this changelog, but the file confirms ClanLib's active development ecosystem during XenoHammer's era.
+
+---
+
+## 9. GameDev.net Showcase Entry
+
+**Source:** https://web.archive.org/web/20020626234113/http://gamedev.net/community/gds/projects/default.asp?projectID=367
+**Local Capture:** `external/gamedev_showcase_project_367.md`
+
+Key details preserved from the archived page:
+- Title: **XenoHammerGL**
+- Author: **Brian Smith**
+- IGF/GDC mention on the public project page
+- Download count snapshot: **2545**
+- Public description of the game and control list
+
+---
+
+## 10. GameDev.net Showcase Feedback Thread
+
+**Source:** https://web.archive.org/web/20020321200737/http://www.gamedev.net/community/forums/topic.asp?Topic_Title=XenoHammerGL&forum_id=22&key=gdshow&uid=367
+**Local Capture:** `external/gamedev_forum_xenohammergl.md`
+
+This archived forum thread preserves a short public congratulations post from GameDev.net staff
+on the XenoHammerGL showcase thread.

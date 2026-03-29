@@ -274,10 +274,10 @@ export class Player {
         const tempVal = Math.random() * 2; // C++ allows > 1.0 — additive blend handles overbright
         const angleDeg = 175 + Math.random() * 10; // ~downward with slight spread
         const angleRad = (angleDeg * Math.PI) / 180;
-        const fadePerSec = 1.5 + Math.random() * 2.5; // 1.5-4.0/s → lifetime 0.1-0.27s
+        const fadePerSec = 2.5 + Math.random() * 3.0; // 2.5-5.5/s → lifetime 0.07-0.16s
         particles.emit(this.x + 38, this.y + 47, 1, {
             color: { r: 1.0, g: tempVal, b: tempVal },
-            speed: 30 + Math.random() * 30,  // 30-60 px/s — visible exhaust trail
+            speed: 80 + Math.random() * 60,  // 80-140 px/s — blasts out the back
             life: 0.4,   // C++ intensity = 0.4f (max alpha)
             fade: fadePerSec,
             direction: angleRad,

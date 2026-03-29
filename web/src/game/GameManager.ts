@@ -672,13 +672,13 @@ export class GameManager {
             // C++ angle: -10+Random(20) = -10° to +10° from UP (exhaust behind ship)
             for (const engineOffX of [40, 57]) {
                 const tempVal = Math.random() * 2; // C++ allows > 1.0 for overbright additive
-                const fadePerSec = 1.5 + Math.random() * 2.5; // 1.5-4.0/s → lifetime 0.18-0.47s
+                const fadePerSec = 2.5 + Math.random() * 3.0; // 2.5-5.5/s → lifetime 0.13-0.28s
                 const angleDeg = -10 + Math.random() * 20; // -10° to +10° from UP
                 const angleRad = (angleDeg * Math.PI) / 180;
                 this.particles.emit(ship.x + engineOffX, ship.y, 1, {
                     color: { r: tempVal, g: tempVal, b: 1.0 },
-                    speed: 40 + Math.random() * 40,  // 40-80 px/s — visible upward exhaust
-                    life: 0.7,   // Slightly reduced from 1.0 for tighter trail
+                    speed: 100 + Math.random() * 60,  // 100-160 px/s — blasts out the top
+                    life: 0.7,// Slightly reduced from 1.0 for tighter trail
                     fade: fadePerSec,
                     direction: angleRad,
                     spread: 0,
