@@ -669,6 +669,9 @@ export class Boss {
             this.state = BossState.Morph1;
             this.morphTickAccum = 0;
             this.stateTimer = 0;
+            // Shield is down — center platform becomes shootable immediately
+            this.centerNode.damageable = true;
+            this.centerOrb.damageable = true;
         }
 
         this.updateTurretFiring(dt, playerX, playerY);
