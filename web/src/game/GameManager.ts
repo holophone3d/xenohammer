@@ -390,7 +390,7 @@ export class GameManager {
         // Interpolate positions for smooth rendering — only during active gameplay
         // where all objects get proper update() calls that save prevX/prevY.
         // Other states (pause, death, warp) move objects directly or skip updates.
-        const needsLerp = this.state === GameState.Playing && !this.paused;
+        const needsLerp = this.state === GameState.Playing && !this.paused && !this.bossVictoryWarp;
         if (needsLerp) this.lerpPositions();
 
         switch (this.state) {
