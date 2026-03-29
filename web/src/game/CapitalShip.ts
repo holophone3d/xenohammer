@@ -16,9 +16,10 @@
  */
 
 import { Sprite, AssetLoader } from '../engine';
-import { Rect, PLAY_AREA_W, PLAY_AREA_H } from './Collision';
+import { Rect, Collider, PLAY_AREA_W, PLAY_AREA_H } from './Collision';
 import { Projectile } from './Projectile';
 import { VELOCITY_DIVISOR } from '../data/ships';
+import { generateImageMask } from './maskUtil';
 
 // --- FrigateAI constants (from FrigateAI.h) ---
 const FAI_MAX_SPEED = 6;
@@ -68,6 +69,8 @@ export interface FrigateComponent {
     destroyedSprite: HTMLImageElement | null;
     width: number;
     height: number;
+    /** 1-bit alpha mask for pixel-level collision. */
+    mask: Uint8Array | null;
 }
 
 interface FrigateTurret extends FrigateComponent {
@@ -76,6 +79,7 @@ interface FrigateTurret extends FrigateComponent {
     lastFireTime: number;        // ms timestamp of last shot
     turretInit: boolean;         // first Think() hasn't run yet
     turretSprites: HTMLImageElement[];
+    turretMasks: (Uint8Array | null)[];   // per-frame masks for rotating turret
 }
 
 function makeComponent(
@@ -90,6 +94,7 @@ function makeComponent(
         alive: true, damageable,
         sprite: null, destroyedSprite: null,
         width: w, height: h,
+        mask: null,
     };
 }
 
@@ -143,6 +148,7 @@ export class CapitalShip {
             lastFireTime: 0,
             turretInit: true,
             turretSprites: [],
+            turretMasks: [],
         };
 
         this.leftTurret = {
@@ -152,6 +158,7 @@ export class CapitalShip {
             lastFireTime: 0,
             turretInit: true,
             turretSprites: [],
+            turretMasks: [],
         };
     }
 
@@ -182,9 +189,21 @@ export class CapitalShip {
         this.rightTurret.turretSprites = turretFrames;
         this.leftTurret.turretSprites  = turretFrames;
 
+        // Generate turret per-frame masks
+        const turretMasks = turretFrames.map(f => generateImageMask(f));
+        this.rightTurret.turretMasks = turretMasks;
+        this.leftTurret.turretMasks  = turretMasks;
+
         const destroyedTurret = tryImg('Turret32');
         this.rightTurret.destroyedSprite = destroyedTurret;
         this.leftTurret.destroyedSprite  = destroyedTurret;
+
+        // Generate per-component alpha masks for pixel-level collision
+        for (const comp of this.allComponents()) {
+            if (comp.sprite) {
+                comp.mask = generateImageMask(comp.sprite);
+            }
+        }
     }
 
     // ---------------------------------------------------------------
@@ -631,19 +650,24 @@ export class CapitalShip {
     // Collision
     // ---------------------------------------------------------------
 
-    getComponentRects(): Array<{ component: FrigateComponent; rect: Rect }> {
+    getComponentRects(): Array<{ component: FrigateComponent; rect: Rect; collider: Collider }> {
         this.updateDamageableFlags();
-        const results: Array<{ component: FrigateComponent; rect: Rect }> = [];
+        const results: Array<{ component: FrigateComponent; rect: Rect; collider: Collider }> = [];
         for (const comp of this.allComponents()) {
             if (!comp.alive) continue;
+            const cx = this.x + comp.offsetX;
+            const cy = this.y + comp.offsetY;
+            // Use per-frame mask for turrets (they rotate), static mask for others
+            let mask = comp.mask;
+            const turret = comp as FrigateTurret;
+            if (turret.turretMasks && turret.turretMasks.length > 0) {
+                const fi = turret.turretFrame % Math.min(32, turret.turretMasks.length);
+                mask = turret.turretMasks[fi] ?? mask;
+            }
             results.push({
                 component: comp,
-                rect: {
-                    x: this.x + comp.offsetX,
-                    y: this.y + comp.offsetY,
-                    w: comp.width,
-                    h: comp.height,
-                },
+                rect: { x: cx, y: cy, w: comp.width, h: comp.height },
+                collider: { x: cx, y: cy, w: comp.width, h: comp.height, mask },
             });
         }
         return results;

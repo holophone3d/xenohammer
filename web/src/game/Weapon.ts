@@ -119,6 +119,7 @@ export class Weapon {
                     frames.push(assets.getImage(id));
                 }
                 sprite = new Sprite(frames, 100);
+                sprite.generateMasks();
             } catch {
                 // Sprite frames not loaded
             }

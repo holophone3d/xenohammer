@@ -6,7 +6,7 @@ import { GameCanvas, Input, AudioManager, AssetLoader, ParticleSystem, SoundInst
 import type { TouchControls } from '../engine';
 import { LEVELS } from '../data/levels';
 import { ENEMY_SCORES, RANKINGS, TURRET_VELOCITY_TABLE } from '../data/ships';
-import { rectsOverlap, PLAY_AREA_W, PLAY_AREA_H } from './Collision';
+import { rectsOverlap, spriteCollide, Collider, PLAY_AREA_W, PLAY_AREA_H } from './Collision';
 import { Player } from './Player';
 import { Enemy } from './Enemy';
 import { Projectile } from './Projectile';
@@ -994,15 +994,14 @@ export class GameManager {
 
     private checkCollisions(): void {
         if (!this.player || !this.player.alive) return;
-        const playerRect = this.player.getRect();
+        const playerCol = this.player.getCollider();
 
         // 1. Enemy projectiles vs player
         for (const proj of this.projectiles) {
             if (!proj.alive || proj.owner !== 'enemy') continue;
-            if (rectsOverlap(proj.getRect(), playerRect)) {
+            if (spriteCollide(proj.getCollider(), playerCol)) {
                 this.player!.takeDamage(proj.damage, this.now);
                 proj.alive = false;
-                // C++ creates a small sprite explosion at projectile hit position
                 this.gameExplosions.push(new Explosion(
                     proj.x, proj.y, 'small', this.smallExpFrames,
                     proj.vx / 5, proj.vy / 5));
@@ -1015,12 +1014,12 @@ export class GameManager {
         // 2. Player projectiles vs enemies
         for (const proj of this.projectiles) {
             if (!proj.alive || proj.owner !== 'player') continue;
+            const projCol = proj.getCollider();
             for (const enemy of this.enemies) {
                 if (!enemy.alive) continue;
-                if (rectsOverlap(proj.getRect(), enemy.getRect())) {
+                if (spriteCollide(projCol, enemy.getCollider())) {
                     enemy.takeDamage(proj.damage);
                     proj.alive = false;
-                    // C++ creates a small sprite explosion at projectile hit position
                     this.gameExplosions.push(new Explosion(
                         proj.x, proj.y, 'small', this.smallExpFrames,
                         proj.vx / 5, proj.vy / 5));
@@ -1036,12 +1035,15 @@ export class GameManager {
         // 3. Player projectiles vs capital ship and boss components
         for (const proj of this.projectiles) {
             if (!proj.alive || proj.owner !== 'player') continue;
+            const projCol = proj.getCollider();
             for (const ship of this.capitalShips) {
                 if (!ship.isAlive()) continue;
-                for (const { component, rect } of ship.getComponentRects()) {
+                for (const { component, collider } of ship.getComponentRects()) {
                     if (!component.damageable || !component.alive) continue;
-                    if (rectsOverlap(proj.getRect(), rect)) {
-                        ship.takeDamage(proj.x, proj.y, proj.damage);
+                    if (spriteCollide(projCol, collider)) {
+                        const cx = proj.x + proj.width / 2;
+                        const cy = proj.y + proj.height / 2;
+                        ship.takeDamage(cx, cy, proj.damage);
                         proj.alive = false;
                         this.gameExplosions.push(new Explosion(
                             proj.x, proj.y, 'small', this.smallExpFrames,
@@ -1054,12 +1056,9 @@ export class GameManager {
                 }
             }
             if (proj.alive && this.boss && this.boss.alive) {
-                // Use projectile center for sprite-level collision accuracy.
-                // Boss.takeDamage handles priority ordering and per-pixel mask
-                // checks internally; returns false if bullet hit a transparent area.
-                for (const { component, rect } of this.boss.getComponentRects()) {
+                for (const { component, collider } of this.boss.getComponentRects()) {
                     if (!component.damageable || component.destroyed) continue;
-                    if (rectsOverlap(proj.getRect(), rect)) {
+                    if (spriteCollide(projCol, collider)) {
                         const cx = proj.x + proj.width / 2;
                         const cy = proj.y + proj.height / 2;
                         if (this.boss.takeDamage(cx, cy, proj.damage)) {
@@ -1080,7 +1079,7 @@ export class GameManager {
         // 4. Player vs enemies (ram damage)
         for (const enemy of this.enemies) {
             if (!enemy.alive) continue;
-            if (rectsOverlap(playerRect, enemy.getRect())) {
+            if (spriteCollide(playerCol, enemy.getCollider())) {
                 this.player!.takeDamage(20, this.now);
                 enemy.takeDamage(50);
                 if (!enemy.alive) this.onEnemyKilled(enemy);
@@ -1091,23 +1090,24 @@ export class GameManager {
         const BOSS_RAM_DAMAGE = 50;
         for (const ship of this.capitalShips) {
             if (!ship.isAlive()) continue;
-            for (const { rect } of ship.getComponentRects()) {
-                if (rectsOverlap(playerRect, rect)) {
+            for (const { collider } of ship.getComponentRects()) {
+                if (spriteCollide(playerCol, collider)) {
                     this.player!.takeDamage(BOSS_RAM_DAMAGE, this.now);
                     break;
                 }
             }
         }
         if (this.boss && this.boss.alive) {
-            for (const { rect } of this.boss.getComponentRects()) {
-                if (rectsOverlap(playerRect, rect)) {
+            for (const { collider } of this.boss.getComponentRects()) {
+                if (spriteCollide(playerCol, collider)) {
                     this.player!.takeDamage(BOSS_RAM_DAMAGE, this.now);
                     break;
                 }
             }
         }
 
-        // 5. Player vs power-ups
+        // 5. Player vs power-ups (AABB is fine — forgiving pickup radius)
+        const playerRect = this.player.getRect();
         for (const pu of this.gamePowerUps) {
             if (!pu.active) continue;
             if (rectsOverlap(playerRect, pu.getRect())) {

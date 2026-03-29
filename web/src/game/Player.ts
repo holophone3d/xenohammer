@@ -74,6 +74,15 @@ export class Player {
         return { x: this.x, y: this.y, w, h };
     }
 
+    getCollider(): Collider {
+        const w = this.sprite ? this.sprite.width : 48;
+        const h = this.sprite ? this.sprite.height : 48;
+        return {
+            x: this.x, y: this.y, w, h,
+            mask: this.sprite?.getCurrentMask() ?? null,
+        };
+    }
+
     update(dt: number, input: Input, now: number): void {
         if (!this.alive) return;
 
@@ -211,6 +220,7 @@ export class Player {
             }
             this.sprite = new Sprite(frames, 100);
             this.sprite.currentFrame = 8;
+            this.sprite.generateMasks();
         } catch {
             // Sprite frames not available
         }

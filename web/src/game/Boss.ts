@@ -18,7 +18,7 @@
  */
 
 import { Sprite, AssetLoader } from '../engine';
-import { Rect, PLAY_AREA_W, PLAY_AREA_H } from './Collision';
+import { Rect, Collider, PLAY_AREA_W, PLAY_AREA_H } from './Collision';
 import { Projectile } from './Projectile';
 import { Explosion, ChainExplosion } from './Explosion';
 
@@ -1195,16 +1195,20 @@ export class Boss {
         return sounds;
     }
 
-    getComponentRects(): Array<{ rect: Rect; component: BossComponent }> {
+    getComponentRects(): Array<{ rect: Rect; component: BossComponent; collider: Collider }> {
         if (this.state === BossState.Waiting ||
             this.state === BossState.Dying  || this.state === BossState.Dead) {
             return [];
         }
 
-        const results: Array<{ rect: Rect; component: BossComponent }> = [];
+        const results: Array<{ rect: Rect; component: BossComponent; collider: Collider }> = [];
         const addComp = (comp: BossComponent) => {
             if (comp.destroyed) return;
-            results.push({ component: comp, rect: { x: comp.x, y: comp.y, w: comp.width, h: comp.height } });
+            results.push({
+                component: comp,
+                rect: { x: comp.x, y: comp.y, w: comp.width, h: comp.height },
+                collider: { x: comp.x, y: comp.y, w: comp.width, h: comp.height, mask: comp.collisionMask },
+            });
         };
 
         // Damageable targets first

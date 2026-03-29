@@ -6,7 +6,7 @@
 
 import { AssetLoader } from '../engine';
 import { VELOCITY_DIVISOR } from '../data/ships';
-import { Rect, PLAY_AREA_H } from './Collision';
+import { Rect, Collider, PLAY_AREA_H } from './Collision';
 
 export type PowerUpType = 'armor' | 'shield' | 'weapon';
 
@@ -96,6 +96,10 @@ export class PowerUp {
 
     getRect(): Rect {
         return { x: this.x, y: this.y, w: POWERUP_W, h: POWERUP_H };
+    }
+
+    getCollider(): Collider {
+        return { x: this.x, y: this.y, w: POWERUP_W, h: POWERUP_H, mask: null };
     }
 
     getArmorRestore(): number {
