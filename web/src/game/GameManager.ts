@@ -418,7 +418,9 @@ export class GameManager {
             // Text centered in button
             ctx.fillStyle = '#0f0';
             ctx.font = '36px XenoFont, monospace';
-            ctx.fillText('READY', bx + bw / 2, by + 36);
+            ctx.textBaseline = 'middle';
+            ctx.fillText('READY', bx + bw / 2, by + bh / 2);
+            ctx.textBaseline = 'alphabetic';
             ctx.globalAlpha = 1.0;
         }
         ctx.textAlign = 'left';
