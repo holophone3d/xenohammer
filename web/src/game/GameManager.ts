@@ -2291,7 +2291,7 @@ export class GameManager {
 
         // Turret angle selector (450-472, 350-550) — when turret rotation researched
         if (this.turretAngleAvailable && (sel === 1 || sel === 2)) {
-            if (mx >= 440 && mx <= 510) {
+            if (mx >= 420 && mx <= 510) {
                 const anglesLeft = [90, 135, 180, 225, 270];
                 const anglesRight = [90, 45, 0, 315, 270];
                 const angles = sel === 1 ? anglesLeft : anglesRight;
