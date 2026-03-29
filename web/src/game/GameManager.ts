@@ -105,6 +105,7 @@ export class GameManager {
     private paused = false;
     private pauseHover = -1; // 0=Resume, 1=Emergency Warp, 2=Quit to Ready Room
     private warpSpeed = 0; // current warp velocity (px/s, accelerates)
+    private bossVictoryWarp = false; // true = warp ends at Aftermath, not ReadyRoom
 
     constructor(canvasId: string) {
         this.canvas = new GameCanvas(canvasId);
@@ -386,8 +387,10 @@ export class GameManager {
     render(): void {
         this.canvas.clear();
 
-        // Interpolate positions for smooth rendering during gameplay
-        const needsLerp = this.isGameplay();
+        // Interpolate positions for smooth rendering — only during active gameplay
+        // where all objects get proper update() calls that save prevX/prevY.
+        // Other states (pause, death, warp) move objects directly or skip updates.
+        const needsLerp = this.state === GameState.Playing && !this.paused;
         if (needsLerp) this.lerpPositions();
 
         switch (this.state) {
@@ -821,8 +824,8 @@ export class GameManager {
         // Update starfield
         this.starField.update(dt);
 
-        // Update player
-        if (this.player && this.player.alive) {
+        // Update player (skip input during victory warp — ship is auto-piloting out)
+        if (this.player && this.player.alive && !this.bossVictoryWarp) {
             this.player.update(dt, this.input, this.now);
             this.player.emitEngineFlame(this.particles);
             const playerProj = this.player.tryFire(this.input, this.now, this.assets);
@@ -962,6 +965,42 @@ export class GameManager {
             }
         }
 
+        // Victory warp: player accelerates off-screen during boss death explosions
+        if (this.player && this.boss && this.boss.isDying() && this.boss.getDeathTimer() >= 9.0 && this.player.alive) {
+            if (!this.bossVictoryWarp) {
+                this.bossVictoryWarp = true;
+                this.warpSpeed = 0;
+                this.audio.playSound('Warp');
+            }
+            this.warpSpeed = Math.min(
+                this.warpSpeed + GameManager.WARP_ACCEL * dt,
+                GameManager.WARP_MAX_SPEED,
+            );
+            this.player.y -= this.warpSpeed * dt;
+            // Warp exhaust particles
+            const speedFrac = this.warpSpeed / GameManager.WARP_MAX_SPEED;
+            const exhaustCount = Math.min(10, 2 + Math.floor(this.warpSpeed / 150));
+            for (let i = 0; i < exhaustCount; i++) {
+                const angleRad = (170 + Math.random() * 20) * Math.PI / 180;
+                const r = 0.5 + (1 - speedFrac) * 0.5;
+                const g = 0.5 + speedFrac * 0.5;
+                const b = 0.8 + speedFrac * 0.2 + Math.random() * 0.5;
+                this.particles.emit(
+                    this.player.x + 36 + (Math.random() - 0.5) * 8,
+                    this.player.y + 47, 1, {
+                        color: { r, g, b },
+                        speed: 20 + Math.random() * 40,
+                        life: 0.5 + speedFrac * 1.5,
+                        fade: 1.0 + (1 - speedFrac) * 4.0,
+                        direction: angleRad,
+                        spread: 0.1,
+                        baseVx: (Math.random() - 0.5) * 30,
+                        baseVy: this.warpSpeed * 0.6,
+                    },
+                );
+            }
+        }
+
         // Update projectiles with homing target finding (cone-based, priority-aware)
         const HOMING_CONE_COS = Math.cos(60 * Math.PI / 180); // 60° half-angle forward cone
         // Collect all homing targets: priority 1=weapons, 2=passive, 3=regular enemies
@@ -1071,6 +1110,7 @@ export class GameManager {
                 this.stopGameplaySounds();
                 // C++: lower boss music to 50%, transition to aftermath scrolling
                 this.audio.setMusicVolume(0.5);
+                this.bossVictoryWarp = false;
                 this.state = GameState.Aftermath;
                 this.aftermathY = 600;
                 this.stateTimer = 0;
@@ -1349,6 +1389,25 @@ export class GameManager {
             if (enemy.alive) enemy.draw(ctx);
         }
 
+        // Victory warp streak trail (during boss death)
+        if (this.bossVictoryWarp && this.player) {
+            const speedFrac = this.warpSpeed / GameManager.WARP_MAX_SPEED;
+            if (speedFrac > 0.1) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                const trailLen = speedFrac * 300;
+                const cx = this.player.x + 38;
+                const topY = this.player.y + 47;
+                const grad = ctx.createLinearGradient(cx, topY, cx, topY + trailLen);
+                grad.addColorStop(0, `rgba(180,200,255,${speedFrac * 0.6})`);
+                grad.addColorStop(0.3, `rgba(100,150,255,${speedFrac * 0.3})`);
+                grad.addColorStop(1, 'rgba(50,80,200,0)');
+                ctx.fillStyle = grad;
+                ctx.fillRect(cx - 8 - speedFrac * 6, topY, 16 + speedFrac * 12, trailLen);
+                ctx.restore();
+            }
+        }
+
         // Player
         if (this.player && this.player.alive) {
             this.player.draw(ctx);
@@ -1592,10 +1651,8 @@ export class GameManager {
         for (const exp of this.gameExplosions) exp.update(dt);
         this.gameExplosions = this.gameExplosions.filter(e => !e.isFinished());
 
-        // Ship off screen → start white fade, then return to ready room
+        // Ship off screen → transition
         if (this.player.y < -60 && this.warpSpeed > 0) {
-            // warpFadeTimer: use negative warpSpeed as sentinel — repurpose stateTimer
-            // Once ship passes y=-60, allow 0.5s of white fade
             if (this.player.y < -200) {
                 this.player.shields = this.player.maxShields;
                 this.player.armor = this.player.maxArmor;

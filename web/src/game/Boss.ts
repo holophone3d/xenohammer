@@ -1243,6 +1243,7 @@ export class Boss {
     isEntering(): boolean { return this.state === BossState.Entering; }
     isVisible(): boolean { return this.state !== BossState.Waiting; }
     isDying(): boolean { return this.state === BossState.Dying; }
+    getDeathTimer(): number { return this.deathTimer; }
 
     /** 0→1 fade-to-black during last 1s of death sequence */
     getDeathFade(): number {
@@ -1273,13 +1274,17 @@ export class Boss {
                 });
             }
         }
-        for (const ai of this.uTurretAIs) {
-            if (!ai.destroyed && !ai.comp.destroyed) {
-                targets.push({
-                    x: ai.comp.x + ai.comp.width / 2,
-                    y: ai.comp.y + ai.comp.height / 2,
-                    priority: 1,
-                });
+        // U-turrets only targetable during Morph/Final (off-screen in earlier phases)
+        if (this.state === BossState.Morph1 || this.state === BossState.Morph2 ||
+            this.state === BossState.Final) {
+            for (const ai of this.uTurretAIs) {
+                if (!ai.destroyed && !ai.comp.destroyed) {
+                    targets.push({
+                        x: ai.comp.x + ai.comp.width / 2,
+                        y: ai.comp.y + ai.comp.height / 2,
+                        priority: 1,
+                    });
+                }
             }
         }
         // Priority 2: damageable orbs, platforms
