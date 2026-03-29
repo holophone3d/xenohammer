@@ -388,23 +388,28 @@ export class GameManager {
     // ========== State: StartScreen ==========
 
     private startScreenTimer = 0;
-    private introSoundPlayed = false;
+    private introSound: SoundInstance | null = null;
 
     private updateStartScreen(dt: number): void {
         this.startScreenTimer += dt;
-        if (!this.introSoundPlayed) {
-            this.audio.playSound('Intro');
-            this.introSoundPlayed = true;
+        if (!this.introSound) {
+            this.introSound = this.audio.playSound('Intro');
+        }
+        // Fade audio out starting at 3s over 2s
+        if (this.introSound && this.startScreenTimer > 3.0) {
+            const fadeProgress = Math.min(1, (this.startScreenTimer - 3.0) / 2.0);
+            this.introSound.setVolume(1.0 - fadeProgress);
         }
         if (this.started) {
             this.state = GameState.ReadyRoom;
             return;
         }
-        // Only allow skipping after the fade-in completes (1s)
+        // Require user interaction after fade-in (1s)
         if (this.startScreenTimer > 1.0 && (
             this.input.isMousePressed() ||
             this.input.isKeyPressed(Input.SPACE) ||
             this.input.isKeyPressed(Input.ENTER))) {
+            if (this.introSound) { this.introSound.stop(); this.introSound = null; }
             setTimeout(() => {
                 this.spaceAmbient = this.audio.playSoundLoopCrossfade('Space');
             }, 150);
@@ -416,12 +421,10 @@ export class GameManager {
     private renderStartScreen(): void {
         const ctx = this.canvas.ctx;
 
-        // Fade in over first 1 second, fade out after 4s (gone by 5s)
+        // Fade in over first 1 second, stay visible after
         let alpha = 1.0;
         if (this.startScreenTimer < 1.0) {
             alpha = this.startScreenTimer; // fade in 0→1 over 1s
-        } else if (this.startScreenTimer > 4.0) {
-            alpha = Math.max(0, 1 - (this.startScreenTimer - 4.0)); // fade out 1→0 over 1s
         }
 
         ctx.globalAlpha = alpha;
@@ -439,15 +442,6 @@ export class GameManager {
             ctx.textAlign = 'left';
         }
         ctx.globalAlpha = 1.0;
-
-        // After 5s auto-advance to ready room
-        if (this.startScreenTimer >= 5.0 && !this.started) {
-            setTimeout(() => {
-                this.spaceAmbient = this.audio.playSoundLoopCrossfade('Space');
-            }, 150);
-            this.started = true;
-            this.state = GameState.ReadyRoom;
-        }
     }
 
     // ========== State: ReadyRoom ==========
