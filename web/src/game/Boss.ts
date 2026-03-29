@@ -27,8 +27,8 @@ const BOSS_START_X = 245;
 const BOSS_START_Y = -600;
 const BOSS_HOVER_Y = -50;           // C++: boss stops at y=-50
 const BOSS_DESCENT_SPEED = 50;      // px/s — tuned for feel (C++ literal is 10px/s but too slow)
-const BOSS_WAIT_TIME = 92_000;      // ms before boss enters (C++ was 110s but feels too long at 60fps)
-const BOSS_MUSIC_TIME = 86_000;     // ms before boss music starts (6s before entry)
+const BOSS_WAIT_TIME = 99_000;      // ms before boss enters (music at 95s, entry 4s later)
+const BOSS_MUSIC_TIME = 95_000;     // ms before boss music starts (10s after last wave at 85s)
 const MORPH_TICK_MS = 7;            // ms per 1px morph step — 30% faster than original 10ms
 
 const ORB_FRAME_COUNT = 32;         // orb00–orb31 (C++ uses % 32, frame 32 never shown)
