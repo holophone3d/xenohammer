@@ -151,7 +151,7 @@ function buildLevel2(): LevelDefinition {
 }
 
 // Level 3: 600s (10 min), boss fight + support waves (C++ level==2, lines 723-783)
-// Boss spawned at level start (245, -600), appears at 110s.
+// Boss spawned at level start (245, -600), enters at 92s (C++ was 110s, tightened for 60fps feel).
 function buildLevel3(): LevelDefinition {
     const waves: WaveDefinition[] = [];
     const waveData: [number, number, number, number][] = [
