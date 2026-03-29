@@ -1383,31 +1383,31 @@ export class Boss {
         // C++: Sound::playExplosionSound() on every component destruction
         this.pendingSoundEmits.push('ExploMini1');
 
-        // Big center explosion (C++: at SourceX-48, SourceY-48, velocity=dx/4)
+        // Big center explosion with random offset
+        const cx = x + (Math.random() - 0.5) * 20;
+        const cy = y + (Math.random() - 0.5) * 20;
         this.componentExplosions.push(
-            new Explosion(x, y, 'big', this.bigExpFrames));
+            new Explosion(cx, cy, 'big', this.bigExpFrames));
 
-        // 5 trails with parabolic arc spawn positions (C++ TRAIL_COUNT=5, TRAIL_LENGTH=4)
+        // 5 trails with parabolic arc spawn positions — randomized
         const TRAIL_COUNT = 5;
         const TRAIL_LENGTH = 4;
         const EXPLOSION_SIZE = 32;
-        const GRAVITY = EXPLOSION_SIZE / 16; // 2.0
+        const GRAVITY = EXPLOSION_SIZE / 16;
 
         for (let trail = 0; trail < TRAIL_COUNT; trail++) {
             const dir = Math.random() * Math.PI * 2;
-            const speed = (Math.random() + 0.5) * (EXPLOSION_SIZE / 4); // 4-12
+            const speed = (Math.random() * 1.5 + 0.3) * (EXPLOSION_SIZE / 4); // wider range: 2.4-14.4
             let tvx = speed * Math.cos(dir);
             let tvy = -speed * Math.sin(dir);
-            let px = x;
-            let py = y;
+            let px = x + (Math.random() - 0.5) * 16; // randomize start position
+            let py = y + (Math.random() - 0.5) * 16;
 
             for (let t = 0; t < TRAIL_LENGTH; t++) {
-                // Trail position is pre-calculated along parabolic arc
-                px += tvx;
-                py += tvy;
-                tvy += GRAVITY;
-                const delay = t * 2; // C++: -explosionnum*2 frame stagger
-                // C++: explosion velocity = source_dx/2 (boss is hovering, so ~0)
+                px += tvx * (0.8 + Math.random() * 0.4); // slight step variation
+                py += tvy * (0.8 + Math.random() * 0.4);
+                tvy += GRAVITY * (0.7 + Math.random() * 0.6);
+                const delay = t * 2 + Math.random() * 1.5; // stagger with jitter
                 this.componentExplosions.push(
                     new Explosion(px, py, 'small', this.smallExpFrames, 0, 0, 0, delay));
             }
@@ -1453,9 +1453,11 @@ export class Boss {
         const centerOrbY = this.centerOrb.y + 32;
         const beamAlpha = this.warningAlpha * 0.5;
 
-        // --- Boss shield (under sprites) ---
+        // --- Boss shield (under sprites, pulses with bossAlpha) ---
         if (this.orbCount > 0 && !this.bossShield.destroyed) {
-            const shieldAlpha = this.orbCount / 4;
+            const shieldBase = this.orbCount / 4;
+            const shieldPulse = 0.7 + this.bossAlpha * 0.5; // light pulse 0.77–1.0
+            const shieldAlpha = shieldBase * shieldPulse;
             const scx = bx + 80;
             const scy = by + 80;
             const shw = 130, shh = 115;
@@ -1517,41 +1519,41 @@ export class Boss {
         const bx = this.x;
         const by = this.y;
 
-        // --- Central red glowing orb ---
-        this.drawGlow(ctx, bx + 80, by + 80, 90, 90, 1.0, 0.0, 0.0, this.bossAlpha);
+        // --- Central red glowing orb (pulsating with warningAlpha) ---
+        const centerPulse = 0.5 + this.warningAlpha * 0.5; // pulses between 0.65–1.0
+        this.drawGlow(ctx, bx + 80, by + 80, 90, 90, 1.0, 0.0, 0.0, this.bossAlpha * centerPulse);
 
-        // --- 4 outer node glowing orbs ---
+        // --- 4 outer node glowing orbs (circular, pulsating) ---
         for (let i = 0; i < 4; i++) {
             if (this.outerOrbs[i].destroyed) continue;
             const nx = bx + NODE_OFFSETS[i].x + 64;
             const ny = by + NODE_OFFSETS[i].y + 64;
-            this.drawGlow(ctx, nx, ny, 90, 90, 1.0, 0.0, 0.0, this.bossAlpha);
+            this.drawGlow(ctx, nx, ny, 90, 90, 1.0, 0.0, 0.0, this.bossAlpha * centerPulse);
         }
 
-        // --- Center connector points (white, aligned with beam toward connectors) ---
+        // --- Center connector points (inverted orientation: narrow along beam, wide perpendicular) ---
         const cnLeft  = this.connectors[0];
         const cnHoriz = this.connectors[1];
         const cnRight = this.connectors[2];
         const cp1x = bx + 12, cp1y = by + 148;
         const cp2x = bx + 148, cp2y = by + 148;
 
-        // Left center point → aligned toward UL connector center
+        // Left center point — perpendicular to beam direction (rAcross=40, rAlong=15)
         if (!this.outerOrbs[0].destroyed || !this.outerOrbs[1].destroyed) {
             const tgtX = cnLeft.destroyed ? cp1x : cnLeft.x + cnLeft.width / 2;
             const tgtY = cnLeft.destroyed ? cp1y - 50 : cnLeft.y + cnLeft.height / 2;
-            this.drawAlignedGlow(ctx, cp1x, cp1y, 40, 15, cp1x, cp1y, tgtX, tgtY, 1.0, 1.0, 1.0, this.warningAlpha);
+            this.drawAlignedGlow(ctx, cp1x, cp1y, 15, 40, cp1x, cp1y, tgtX, tgtY, 1.0, 1.0, 1.0, this.warningAlpha);
         }
-        // Right center point → aligned toward UR connector center
+        // Right center point — perpendicular to beam direction
         if (!this.outerOrbs[2].destroyed || !this.outerOrbs[3].destroyed) {
             const tgtX = cnRight.destroyed ? cp2x : cnRight.x + cnRight.width / 2;
             const tgtY = cnRight.destroyed ? cp2y - 50 : cnRight.y + cnRight.height / 2;
-            this.drawAlignedGlow(ctx, cp2x, cp2y, 40, 15, cp2x, cp2y, tgtX, tgtY, 1.0, 1.0, 1.0, this.warningAlpha);
+            this.drawAlignedGlow(ctx, cp2x, cp2y, 15, 40, cp2x, cp2y, tgtX, tgtY, 1.0, 1.0, 1.0, this.warningAlpha);
         }
 
         // --- Connector center glow points (ellipsoids aligned with their beam) ---
         if (!cnLeft.destroyed && (!this.outerOrbs[0].destroyed || !this.outerOrbs[1].destroyed)) {
             const ccx = cnLeft.x + cnLeft.width / 2, ccy = cnLeft.y + cnLeft.height / 2;
-            // Aligned along the left bar (orb0 ↔ orb1)
             const o0 = this.outerOrbs[0], o1 = this.outerOrbs[1];
             this.drawAlignedGlow(ctx, ccx, ccy, 35, 12,
                 o0.x + 32, o0.y + 32, o1.x + 32, o1.y + 32,
@@ -1572,37 +1574,12 @@ export class Boss {
                 1.0, 1.0, 1.0, this.warningAlpha);
         }
 
-        // --- Outer orb glow points (ellipsoids aligned with their nearest fixed beam) ---
-        // Orb 0 & 1: aligned along left bar
-        if (!this.outerOrbs[0].destroyed && !this.outerOrbs[1].destroyed) {
-            const o0 = this.outerOrbs[0], o1 = this.outerOrbs[1];
-            this.drawAlignedGlow(ctx, o0.x + 32, o0.y + 32, 35, 12,
-                o0.x + 32, o0.y + 32, o1.x + 32, o1.y + 32,
-                1.0, 1.0, 1.0, this.warningAlpha);
-            this.drawAlignedGlow(ctx, o1.x + 32, o1.y + 32, 35, 12,
-                o0.x + 32, o0.y + 32, o1.x + 32, o1.y + 32,
-                1.0, 1.0, 1.0, this.warningAlpha);
-        } else {
-            // Lone orbs without a pair get a regular circular glow
-            if (!this.outerOrbs[0].destroyed)
-                this.drawGlow(ctx, this.outerOrbs[0].x + 32, this.outerOrbs[0].y + 32, 25, 25, 1.0, 1.0, 1.0, this.warningAlpha);
-            if (!this.outerOrbs[1].destroyed)
-                this.drawGlow(ctx, this.outerOrbs[1].x + 32, this.outerOrbs[1].y + 32, 25, 25, 1.0, 1.0, 1.0, this.warningAlpha);
-        }
-        // Orb 2 & 3: aligned along right bar
-        if (!this.outerOrbs[2].destroyed && !this.outerOrbs[3].destroyed) {
-            const o2 = this.outerOrbs[2], o3 = this.outerOrbs[3];
-            this.drawAlignedGlow(ctx, o2.x + 32, o2.y + 32, 35, 12,
-                o3.x + 32, o3.y + 32, o2.x + 32, o2.y + 32,
-                1.0, 1.0, 1.0, this.warningAlpha);
-            this.drawAlignedGlow(ctx, o3.x + 32, o3.y + 32, 35, 12,
-                o3.x + 32, o3.y + 32, o2.x + 32, o2.y + 32,
-                1.0, 1.0, 1.0, this.warningAlpha);
-        } else {
-            if (!this.outerOrbs[2].destroyed)
-                this.drawGlow(ctx, this.outerOrbs[2].x + 32, this.outerOrbs[2].y + 32, 25, 25, 1.0, 1.0, 1.0, this.warningAlpha);
-            if (!this.outerOrbs[3].destroyed)
-                this.drawGlow(ctx, this.outerOrbs[3].x + 32, this.outerOrbs[3].y + 32, 25, 25, 1.0, 1.0, 1.0, this.warningAlpha);
+        // --- Outer orb glow points (circular, pulsating) ---
+        for (let i = 0; i < 4; i++) {
+            if (!this.outerOrbs[i].destroyed) {
+                this.drawGlow(ctx, this.outerOrbs[i].x + 32, this.outerOrbs[i].y + 32,
+                    25, 25, 1.0, 1.0, 1.0, this.warningAlpha);
+            }
         }
 
         // --- U-arm red lights ---
