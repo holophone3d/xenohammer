@@ -2291,13 +2291,13 @@ export class GameManager {
 
         // Turret angle selector (450-472, 350-550) — when turret rotation researched
         if (this.turretAngleAvailable && (sel === 1 || sel === 2)) {
-            if (mx >= 450 && mx <= 472) {
+            if (mx >= 440 && mx <= 510) {
                 const anglesLeft = [90, 135, 180, 225, 270];
                 const anglesRight = [90, 45, 0, 315, 270];
                 const angles = sel === 1 ? anglesLeft : anglesRight;
                 const yPos = [320, 362, 404, 446, 488];
                 for (let i = 0; i < 5; i++) {
-                    if (my >= yPos[i] && my <= yPos[i] + 32) {
+                    if (my >= yPos[i] - 5 && my <= yPos[i] + 40) {
                         this.audio.playSound('MenuSelect');
                         if (sel === 1) {
                             setting.leftTurretAngle = angles[i];
