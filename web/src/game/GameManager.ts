@@ -427,9 +427,9 @@ export class GameManager {
         if (!this.introSound) {
             this.introSound = this.audio.playSound('Intro');
         }
-        // Fade audio out starting at 2s over 2s
-        if (this.introSound && this.startScreenTimer > 2.0) {
-            const fadeProgress = Math.min(1, (this.startScreenTimer - 2.0) / 2.0);
+        // Fade audio out starting at 3s over 2s
+        if (this.introSound && this.startScreenTimer > 3.0) {
+            const fadeProgress = Math.min(1, (this.startScreenTimer - 3.0) / 2.0);
             this.introSound.setVolume(1.0 - fadeProgress);
         }
         if (this.started) {
@@ -448,8 +448,8 @@ export class GameManager {
             this.state = GameState.ReadyRoom;
             return;
         }
-        // Auto-advance to ready room at 4s
-        if (this.startScreenTimer >= 4.0) {
+        // Auto-advance to ready room at 5s
+        if (this.startScreenTimer >= 5.0) {
             if (this.introSound) { this.introSound.stop(); this.introSound = null; }
             setTimeout(() => {
                 this.spaceAmbient = this.audio.playSoundLoopCrossfade('Space');
@@ -462,12 +462,12 @@ export class GameManager {
     private renderStartScreen(): void {
         const ctx = this.canvas.ctx;
 
-        // Fade in over first 1s, fade out from 3s→4s
+        // Fade in over first 1s, fade out from 4s→5s
         let alpha = 1.0;
         if (this.startScreenTimer < 1.0) {
             alpha = this.startScreenTimer;
-        } else if (this.startScreenTimer > 3.0) {
-            alpha = Math.max(0, 1 - (this.startScreenTimer - 3.0));
+        } else if (this.startScreenTimer > 4.0) {
+            alpha = Math.max(0, 1 - (this.startScreenTimer - 4.0));
         }
 
         ctx.globalAlpha = alpha;
