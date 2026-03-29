@@ -2709,16 +2709,15 @@ export class GameManager {
         const mouse = this.input.getMousePos();
         const mx = mouse.x, my = mouse.y;
 
-        // Three buttons centered on screen
+        // Two buttons centered on screen
         const btnW = 300, btnH = 50;
         const bx = (800 - btnW) / 2;
-        const byResume = 230, byWarp = 300, byQuit = 370;
+        const byResume = 250, byWarp = 330;
 
         let newHover = -1;
         if (mx >= bx && mx <= bx + btnW) {
             if (my >= byResume && my <= byResume + btnH) newHover = 0;
             else if (my >= byWarp && my <= byWarp + btnH) newHover = 1;
-            else if (my >= byQuit && my <= byQuit + btnH) newHover = 2;
         }
 
         if (newHover !== this.pauseHover) {
@@ -2747,10 +2746,6 @@ export class GameManager {
                     this.audio.resumeMusic();
                     this.ensureSpaceAmbient();
                 }
-            } else if (newHover === 2) {
-                this.audio.playSound('MenuSelect');
-                this.paused = false;
-                this.returnToReadyRoom();
             }
         }
     }
@@ -2766,33 +2761,40 @@ export class GameManager {
         ctx.font = '32px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.textAlign = 'center';
-        ctx.fillText('PAUSED', 400, 195);
+        ctx.fillText('PAUSED', 400, 220);
 
-        // Buttons
         const btnW = 300, btnH = 50;
         const bx = (800 - btnW) / 2;
         const ru = this.player?.powerPlant.resourceUnits ?? 0;
-        const labels = ['Resume', `Emergency Warp (−${ru} RU)`, 'Quit to Ready Room'];
-        const yPositions = [230, 300, 370];
 
-        for (let i = 0; i < labels.length; i++) {
-            const hover = this.pauseHover === i;
-            // Warp button has amber tint
-            if (i === 1) {
-                ctx.fillStyle = hover ? 'rgba(255,180,0,0.2)' : 'rgba(255,180,0,0.07)';
-                ctx.fillRect(bx, yPositions[i], btnW, btnH);
-                ctx.strokeStyle = hover ? 'rgba(255,180,0,0.6)' : 'rgba(255,180,0,0.2)';
-            } else {
-                ctx.fillStyle = hover ? 'rgba(0,255,0,0.2)' : 'rgba(0,255,0,0.07)';
-                ctx.fillRect(bx, yPositions[i], btnW, btnH);
-                ctx.strokeStyle = hover ? 'rgba(0,255,0,0.6)' : 'rgba(0,255,0,0.2)';
-            }
-            ctx.lineWidth = 1;
-            ctx.strokeRect(bx, yPositions[i], btnW, btnH);
-            ctx.fillStyle = hover ? '#fff' : (i === 1 ? '#ffcc00' : '#0f0');
-            ctx.font = '22px XenoFont, monospace';
-            ctx.fillText(labels[i], 400, yPositions[i] + 33);
-        }
+        // Resume button
+        const byResume = 250;
+        const resumeHover = this.pauseHover === 0;
+        ctx.fillStyle = resumeHover ? 'rgba(0,255,0,0.2)' : 'rgba(0,255,0,0.07)';
+        ctx.fillRect(bx, byResume, btnW, btnH);
+        ctx.strokeStyle = resumeHover ? 'rgba(0,255,0,0.6)' : 'rgba(0,255,0,0.2)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(bx, byResume, btnW, btnH);
+        ctx.fillStyle = resumeHover ? '#fff' : '#0f0';
+        ctx.font = '22px XenoFont, monospace';
+        ctx.fillText('Resume', 400, byResume + 33);
+
+        // Emergency Warp button (amber)
+        const byWarp = 330;
+        const warpHover = this.pauseHover === 1;
+        ctx.fillStyle = warpHover ? 'rgba(255,180,0,0.2)' : 'rgba(255,180,0,0.07)';
+        ctx.fillRect(bx, byWarp, btnW, btnH);
+        ctx.strokeStyle = warpHover ? 'rgba(255,180,0,0.6)' : 'rgba(255,180,0,0.2)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(bx, byWarp, btnW, btnH);
+        ctx.fillStyle = warpHover ? '#fff' : '#ffcc00';
+        ctx.font = '22px XenoFont, monospace';
+        ctx.fillText('Emergency Warp', 400, byWarp + 33);
+
+        // Subtitle under warp button
+        ctx.fillStyle = 'rgba(255,200,100,0.6)';
+        ctx.font = '13px XenoFont, monospace';
+        ctx.fillText(`Returns to ready room  −${ru} RUs`, 400, byWarp + btnH + 18);
 
         ctx.textAlign = 'left';
     }
