@@ -410,11 +410,15 @@ export class GameManager {
 
     // ========== State: ReadyRoom ==========
 
-    private updateReadyRoom(): void {
-        // Ensure space ambient is playing (may have been killed by death sequence / pause)
+    /** Ensure the looping space ambient is alive (restarts if killed by stopAllSounds, etc.) */
+    private ensureSpaceAmbient(): void {
         if (!this.spaceAmbient || !this.spaceAmbient.isPlaying()) {
             this.spaceAmbient = this.audio.playSound('Space', true);
         }
+    }
+
+    private updateReadyRoom(): void {
+        this.ensureSpaceAmbient();
 
         const mouse = this.input.getMousePos();
         const mx = mouse.x;
@@ -566,12 +570,6 @@ export class GameManager {
         if (levelDef?.hasBoss) {
             this.boss = new Boss(this.difficulty);
             this.boss.loadSprites(this.assets);
-        }
-
-        // Stop space ambient — gameplay has its own soundscape
-        if (this.spaceAmbient) {
-            this.spaceAmbient.stop();
-            this.spaceAmbient = null;
         }
 
         // Start level music — original uses Level2.mp3 for ALL levels
@@ -2546,6 +2544,7 @@ export class GameManager {
     private leavePause(): void {
         this.paused = false;
         this.audio.resumeMusic();
+        this.ensureSpaceAmbient();
     }
 
     private updatePauseMenu(): void {
@@ -2637,6 +2636,7 @@ export class GameManager {
             this.audio.stopAllSounds();
         } else if (!open && this.state === GameState.Playing && !this.paused) {
             this.audio.resumeMusic();
+            this.ensureSpaceAmbient();
         }
     }
 
