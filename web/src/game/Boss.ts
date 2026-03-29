@@ -1595,7 +1595,7 @@ export class Boss {
 
         // --- U-arm red lights (C++: red 20×20, bossAlpha, only when all orbs destroyed) ---
         // C++ draws one light per arm: LeftU at x+96, RightU at x+43 (asymmetric — mirror images)
-        if (this.orbCount <= 0) {
+        if (this.orbCount <= 0 && this.state !== BossState.Dying) {
             this.drawGlow(ctx, this.uComponents[0].x + 96, this.uComponents[0].y + 281, 20, 20, 1.0, 0.0, 0.0, this.bossAlpha);
             this.drawGlow(ctx, this.uComponents[1].x + 43, this.uComponents[1].y + 281, 20, 20, 1.0, 0.0, 0.0, this.bossAlpha);
         }
