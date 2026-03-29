@@ -1249,6 +1249,20 @@ export class Boss {
         };
     }
 
+    /** Return center positions of all living, damageable components for homing targeting. */
+    getHomingTargets(): { x: number; y: number }[] {
+        const targets: { x: number; y: number }[] = [];
+        const addComp = (c: BossComponent) => {
+            if (!c.destroyed && c.damageable) {
+                targets.push({ x: c.x + c.width / 2, y: c.y + c.height / 2 });
+            }
+        };
+        for (const orb of this.outerOrbs) addComp(orb);
+        addComp(this.centerOrb);
+        for (const plat of this.platforms) addComp(plat);
+        return targets;
+    }
+
     // ---------------------------------------------------------------
     // Rendering
     // ---------------------------------------------------------------

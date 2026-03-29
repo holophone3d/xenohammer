@@ -793,8 +793,16 @@ export class GameManager {
 
         // Update projectiles with homing target finding (cone-based)
         const HOMING_CONE_COS = Math.cos(60 * Math.PI / 180); // 60° half-angle forward cone
+        // Collect all possible homing targets (enemies + boss components)
+        const homingTargets: { x: number; y: number }[] = [];
+        for (const e of this.enemies) {
+            if (e.alive) homingTargets.push({ x: e.x + (e.width ?? 32) / 2, y: e.y + (e.height ?? 32) / 2 });
+        }
+        if (this.boss?.alive) {
+            for (const t of this.boss.getHomingTargets()) homingTargets.push(t);
+        }
         for (const proj of this.projectiles) {
-            if (proj.homing && proj.owner === 'player' && this.enemies.length > 0) {
+            if (proj.homing && proj.owner === 'player' && homingTargets.length > 0) {
                 const headingAngle = Math.atan2(proj.vy, proj.vx);
                 const hx = Math.cos(headingAngle);
                 const hy = Math.sin(headingAngle);
@@ -804,26 +812,23 @@ export class GameManager {
                 // Also track nearest overall as fallback
                 let fallbackDist = Infinity;
                 let fallbackX = 0, fallbackY = 0;
-                for (const e of this.enemies) {
-                    if (!e.alive) continue;
-                    const ecx = e.x + (e.width ?? 32) / 2;
-                    const ecy = e.y + (e.height ?? 32) / 2;
-                    const dx = ecx - proj.x;
-                    const dy = ecy - proj.y;
+                for (const t of homingTargets) {
+                    const dx = t.x - proj.x;
+                    const dy = t.y - proj.y;
                     const d2 = dx * dx + dy * dy;
                     if (d2 < fallbackDist) {
                         fallbackDist = d2;
-                        fallbackX = ecx;
-                        fallbackY = ecy;
+                        fallbackX = t.x;
+                        fallbackY = t.y;
                     }
-                    // Check if enemy is within forward cone
+                    // Check if target is within forward cone
                     const dist = Math.sqrt(d2);
                     if (dist < 1) continue;
                     const dot = (dx / dist) * hx + (dy / dist) * hy;
                     if (dot >= HOMING_CONE_COS && d2 < bestDist) {
                         bestDist = d2;
-                        bestX = ecx;
-                        bestY = ecy;
+                        bestX = t.x;
+                        bestY = t.y;
                     }
                 }
                 // Prefer cone target; fall back to nearest if nothing in cone
