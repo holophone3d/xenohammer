@@ -278,25 +278,26 @@ export class Player {
      * Life starts at intensity (0.4), NOT 1.0 */
     emitEngineFlame(particles: import('../engine').ParticleSystem): void {
         if (!this.alive) return;
-        const tempVal = Math.random() * 2;
-        const angleDeg = 175 + Math.random() * 10;
-        const angleRad = (angleDeg * Math.PI) / 180;
-        const fadePerSec = 1.8 + Math.random() * 2.0; // 1.8-3.8/s → lifetime 0.1-0.22s
-        // Ship is always flying forward — exhaust is always blasting out the back.
-        // Moving up = more thrust, moving down = less thrust, but never zero.
-        const baseExhaust = 140;
+        // Emit a burst of fast particles that fade almost instantly — creates a dense jet
+        const baseExhaust = 150;
         const thrustBoost = -this.lastVy * 0.4;
         const lateralShift = -this.lastVx * 0.3;
         const exhaustVy = Math.max(80, baseExhaust + thrustBoost);
-        particles.emit(this.x + 38, this.y + 47, 1, {
-            color: { r: 1.0, g: tempVal, b: tempVal },
-            speed: 10 + Math.random() * 10,  // small random spread component
-            life: 0.4,
-            fade: fadePerSec,
-            direction: angleRad,
-            spread: 0,
-            baseVx: lateralShift,
-            baseVy: exhaustVy,
-        });
+        const count = 3; // multiple particles per frame for density
+        for (let i = 0; i < count; i++) {
+            const tempVal = Math.random() * 2;
+            const angleDeg = 170 + Math.random() * 20; // wider cone: ±10° from straight down
+            const angleRad = (angleDeg * Math.PI) / 180;
+            particles.emit(this.x + 36 + Math.random() * 4, this.y + 47, 1, {
+                color: { r: 1.0, g: tempVal, b: tempVal },
+                speed: 40 + Math.random() * 60, // 40-100 random spread for texture
+                life: 0.3 + Math.random() * 0.2, // start alpha 0.3-0.5
+                fade: 4.0 + Math.random() * 6.0, // 4-10/s — dies in 0.03-0.12s
+                direction: angleRad,
+                spread: 0,
+                baseVx: lateralShift,
+                baseVy: exhaustVy,
+            });
+        }
     }
 }

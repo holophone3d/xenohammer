@@ -667,27 +667,27 @@ export class GameManager {
                 this.audio.playSound(fs.sound, false, fs.volume);
             }
 
-            // Dual engine flames — frigate always flying downward, exhaust blasts upward
-            // Frigate velocity modulates: faster descent = more exhaust
-            const frigateBaseExhaust = -160;
+            // Dual engine flames — burst of fast-fading particles for dense jet
+            const frigateBaseExhaust = -170;
             const frigateBoost = -ship.vy * 0.4;
             const frigateLateral = -ship.vx * 0.3;
             const frigateExhaustVy = Math.min(-80, frigateBaseExhaust + frigateBoost);
             for (const engineOffX of [40, 57]) {
-                const tempVal = Math.random() * 2;
-                const fadePerSec = 1.8 + Math.random() * 2.0;
-                const angleDeg = -10 + Math.random() * 20;
-                const angleRad = (angleDeg * Math.PI) / 180;
-                this.particles.emit(ship.x + engineOffX, ship.y, 1, {
-                    color: { r: tempVal, g: tempVal, b: 1.0 },
-                    speed: 10 + Math.random() * 10,
-                    life: 0.7,
-                    fade: fadePerSec,
-                    direction: angleRad,
-                    spread: 0,
-                    baseVx: frigateLateral,
-                    baseVy: frigateExhaustVy,
-                });
+                for (let ep = 0; ep < 3; ep++) {
+                    const tempVal = Math.random() * 2;
+                    const angleDeg = -15 + Math.random() * 30;
+                    const angleRad = (angleDeg * Math.PI) / 180;
+                    this.particles.emit(ship.x + engineOffX - 2 + Math.random() * 4, ship.y, 1, {
+                        color: { r: tempVal, g: tempVal, b: 1.0 },
+                        speed: 40 + Math.random() * 60,
+                        life: 0.4 + Math.random() * 0.3,
+                        fade: 4.0 + Math.random() * 6.0,
+                        direction: angleRad,
+                        spread: 0,
+                        baseVx: frigateLateral,
+                        baseVy: frigateExhaustVy,
+                    });
+                }
             }
 
             // Capital ship death: C++ Frigate::destroy_ship() — 8× MakeExplosions
