@@ -10,7 +10,7 @@
 import { Sprite, AssetLoader } from '../engine';
 import { ShipConfig, LIGHT_FIGHTER, FIGHTER_B, GUNSHIP, VELOCITY_DIVISOR } from '../data/ships';
 import type { EnemyType } from '../data/levels';
-import { Rect } from './Collision';
+import { Rect, Collider } from './Collision';
 import { Weapon } from './Weapon';
 import { Projectile } from './Projectile';
 import { AIBehavior, LightFighterAI, FighterBAI, GunshipAI } from './AI';
@@ -76,6 +76,13 @@ export class Enemy {
 
     getRect(): Rect {
         return { x: this.x, y: this.y, w: this.width, h: this.height };
+    }
+
+    getCollider(): Collider {
+        return {
+            x: this.x, y: this.y, w: this.width, h: this.height,
+            mask: this.sprite?.getCurrentMask() ?? null,
+        };
     }
 
     update(dt: number, playerX: number, playerY: number): void {
@@ -154,6 +161,7 @@ export class Enemy {
                 frames.push(assets.getImage(id));
             }
             this.sprite = new Sprite(frames, 100);
+            this.sprite.generateMasks();
         } catch {
             // Sprite frames not available — fallback to colored rect
         }

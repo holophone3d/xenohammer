@@ -223,6 +223,17 @@ export class GameManager {
         dt = Math.min(dt, 0.1);
         this.now = performance.now();
 
+        // FPS tracking
+        if (this.debugShowFps) {
+            this.debugFpsFrames++;
+            this.debugFpsAccum += dt;
+            if (this.debugFpsAccum >= 0.5) {
+                this.debugFpsDisplay = Math.round(this.debugFpsFrames / this.debugFpsAccum);
+                this.debugFpsFrames = 0;
+                this.debugFpsAccum = 0;
+            }
+        }
+
         // Touch controls only active during gameplay
         this.touchControls?.setActive(this.state === GameState.Playing);
 
@@ -368,6 +379,18 @@ export class GameManager {
 
         // Debug overlay hint (top-left, small)
         this.renderDebugHint();
+
+        // FPS counter (top-right when enabled)
+        if (this.debugShowFps) {
+            const ctx = this.canvas.ctx;
+            ctx.save();
+            ctx.font = 'bold 12px monospace';
+            ctx.fillStyle = '#0f0';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'top';
+            ctx.fillText(`${this.debugFpsDisplay} FPS`, 795, 4);
+            ctx.restore();
+        }
     }
 
     // ========== State: Loading ==========
@@ -2918,6 +2941,10 @@ export class GameManager {
     private debugLastClickTime = 0;     // for double-click / double-tap in corner
     private debugLastClickX = 0;
     private debugLastClickY = 0;
+    private debugShowFps = false;
+    private debugFpsFrames = 0;
+    private debugFpsAccum = 0;
+    private debugFpsDisplay = 0;
 
     private setDebugMenuOpen(open: boolean): void {
         if (open === this.debugMenuOpen) return;
@@ -2987,6 +3014,9 @@ export class GameManager {
         } else if (this.input.isKeyPressed('7')) {
             if (this.player) this.player.powerPlant.resourceUnits += 10;
             this.debugKeyDebounce = 15;
+        } else if (this.input.isKeyPressed('0')) {
+            this.debugShowFps = !this.debugShowFps;
+            this.debugKeyDebounce = 15;
         } else if (this.input.isKeyPressed('Escape')) {
             this.setDebugMenuOpen(false);
             this.debugKeyDebounce = 15;
@@ -3046,6 +3076,7 @@ export class GameManager {
             case 6: if (this.player) this.player.powerPlant.resourceUnits += 10; this.debugKeyDebounce = 15; break;
             case 7: this.debugCycleTouchMode('portrait'); break;
             case 8: this.debugCycleTouchMode('landscape'); break;
+            case 9: this.debugShowFps = !this.debugShowFps; this.debugKeyDebounce = 15; break;
         }
     }
 
@@ -3066,6 +3097,7 @@ export class GameManager {
         '7  +10 RUs',
         '8  Touch: Portrait',
         '9  Touch: Landscape',
+        '0  Show FPS',
     ];
 
     private debugHitTestOverlay(mx: number, my: number): number {
@@ -3316,7 +3348,8 @@ export class GameManager {
                 const isActiveToggle =
                     (i === 5 && this.debugActive) ||
                     (i === 7 && touchMode === 'portrait') ||
-                    (i === 8 && touchMode === 'landscape');
+                    (i === 8 && touchMode === 'landscape') ||
+                    (i === 9 && this.debugShowFps);
 
                 if (isActiveToggle) {
                     ctx.fillStyle = hover ? 'rgba(255,200,0,0.35)' : 'rgba(255,200,0,0.2)';
@@ -3349,7 +3382,7 @@ export class GameManager {
             ctx.fillStyle = 'rgba(0,255,100,0.4)';
             ctx.textAlign = 'center';
             ctx.fillText('Double-click/tap top-left', W / 2, H - 28);
-            ctx.fillText('corner for this menu anytime', W / 2, H - 16);
+            ctx.fillText('corner for the debug menu', W / 2, H - 16);
         }
 
         ctx.restore();

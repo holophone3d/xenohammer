@@ -5,7 +5,7 @@
 
 import { Sprite } from '../engine';
 import { VELOCITY_DIVISOR } from '../data/ships';
-import { Rect, isOutOfBounds } from './Collision';
+import { Rect, Collider, isOutOfBounds } from './Collision';
 
 export type ProjectileOwner = 'player' | 'enemy';
 
@@ -51,6 +51,13 @@ export class Projectile {
 
     getRect(): Rect {
         return { x: this.x, y: this.y, w: this.width, h: this.height };
+    }
+
+    getCollider(): Collider {
+        return {
+            x: this.x, y: this.y, w: this.width, h: this.height,
+            mask: this.sprite?.getCurrentMask() ?? null,
+        };
     }
 
     update(dt: number, targetX?: number, targetY?: number): void {

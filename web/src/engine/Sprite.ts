@@ -15,6 +15,9 @@ export class Sprite {
     private finished: boolean;
     loop: boolean;
 
+    /** Per-frame 1-bit alpha masks for pixel-level collision (matches C++ frameMasks). */
+    frameMasks: Uint8Array[] | null = null;
+
     constructor(frames: HTMLImageElement[], animSpeed = 100) {
         if (frames.length === 0) {
             throw new Error('Sprite requires at least one frame');
@@ -29,6 +32,34 @@ export class Sprite {
         this.elapsed = 0;
         this.finished = false;
         this.loop = true;
+    }
+
+    /** Build 1-bit alpha masks for every frame (call once after images are loaded). */
+    generateMasks(): void {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        this.frameMasks = [];
+        for (const frame of this.frames) {
+            const fw = frame.naturalWidth || frame.width;
+            const fh = frame.naturalHeight || frame.height;
+            canvas.width = fw;
+            canvas.height = fh;
+            ctx.clearRect(0, 0, fw, fh);
+            ctx.drawImage(frame, 0, 0);
+            const data = ctx.getImageData(0, 0, fw, fh).data;
+            const mask = new Uint8Array(fw * fh);
+            for (let i = 0; i < mask.length; i++) {
+                mask[i] = data[i * 4 + 3] > 0 ? 1 : 0;
+            }
+            this.frameMasks.push(mask);
+        }
+    }
+
+    /** Get the alpha mask for the current frame, or null if masks not generated. */
+    getCurrentMask(): Uint8Array | null {
+        if (!this.frameMasks) return null;
+        return this.frameMasks[this.currentFrame] ?? null;
     }
 
     /** Advance animation by dt milliseconds. */
@@ -108,6 +139,8 @@ export class StaticSprite {
     y: number;
     readonly width: number;
     readonly height: number;
+    /** 1-bit alpha mask for pixel-level collision. */
+    mask: Uint8Array | null = null;
 
     constructor(image: HTMLImageElement) {
         this.image = image;
@@ -115,6 +148,22 @@ export class StaticSprite {
         this.y = 0;
         this.width = image.naturalWidth || image.width;
         this.height = image.naturalHeight || image.height;
+    }
+
+    /** Build 1-bit alpha mask (call once after image is loaded). */
+    generateMask(): void {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        canvas.width = this.width;
+        canvas.height = this.height;
+        ctx.clearRect(0, 0, this.width, this.height);
+        ctx.drawImage(this.image, 0, 0);
+        const data = ctx.getImageData(0, 0, this.width, this.height).data;
+        this.mask = new Uint8Array(this.width * this.height);
+        for (let i = 0; i < this.mask.length; i++) {
+            this.mask[i] = data[i * 4 + 3] > 0 ? 1 : 0;
+        }
     }
 
     draw(ctx: CanvasRenderingContext2D): void {

@@ -9,7 +9,7 @@ import {
     POWER_MULTIPLIERS, SHIELD_REGEN_INTERVAL, SHIELD_REGEN_DELAY,
     VELOCITY_DIVISOR,
 } from '../data/ships';
-import { Rect, clampToPlayArea } from './Collision';
+import { Rect, Collider, clampToPlayArea } from './Collision';
 import { Weapon } from './Weapon';
 import { Projectile } from './Projectile';
 import { PowerPlant } from './PowerPlant';
