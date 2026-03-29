@@ -1528,36 +1528,81 @@ export class Boss {
             this.drawGlow(ctx, nx, ny, 90, 90, 1.0, 0.0, 0.0, this.bossAlpha);
         }
 
-        // --- Center connector points (white) ---
+        // --- Center connector points (white, aligned with beam toward connectors) ---
         const cnLeft  = this.connectors[0];
         const cnHoriz = this.connectors[1];
         const cnRight = this.connectors[2];
         const cp1x = bx + 12, cp1y = by + 148;
         const cp2x = bx + 148, cp2y = by + 148;
 
+        // Left center point → aligned toward UL connector center
         if (!this.outerOrbs[0].destroyed || !this.outerOrbs[1].destroyed) {
-            this.drawGlow(ctx, cp1x, cp1y, 30, 30, 1.0, 1.0, 1.0, this.warningAlpha);
+            const tgtX = cnLeft.destroyed ? cp1x : cnLeft.x + cnLeft.width / 2;
+            const tgtY = cnLeft.destroyed ? cp1y - 50 : cnLeft.y + cnLeft.height / 2;
+            this.drawAlignedGlow(ctx, cp1x, cp1y, 40, 15, cp1x, cp1y, tgtX, tgtY, 1.0, 1.0, 1.0, this.warningAlpha);
         }
+        // Right center point → aligned toward UR connector center
         if (!this.outerOrbs[2].destroyed || !this.outerOrbs[3].destroyed) {
-            this.drawGlow(ctx, cp2x, cp2y, 30, 30, 1.0, 1.0, 1.0, this.warningAlpha);
+            const tgtX = cnRight.destroyed ? cp2x : cnRight.x + cnRight.width / 2;
+            const tgtY = cnRight.destroyed ? cp2y - 50 : cnRight.y + cnRight.height / 2;
+            this.drawAlignedGlow(ctx, cp2x, cp2y, 40, 15, cp2x, cp2y, tgtX, tgtY, 1.0, 1.0, 1.0, this.warningAlpha);
         }
 
-        // --- Connector center glow points ---
+        // --- Connector center glow points (ellipsoids aligned with their beam) ---
         if (!cnLeft.destroyed && (!this.outerOrbs[0].destroyed || !this.outerOrbs[1].destroyed)) {
-            this.drawGlow(ctx, cnLeft.x + cnLeft.width / 2, cnLeft.y + cnLeft.height / 2, 25, 25, 1.0, 1.0, 1.0, this.warningAlpha);
+            const ccx = cnLeft.x + cnLeft.width / 2, ccy = cnLeft.y + cnLeft.height / 2;
+            // Aligned along the left bar (orb0 ↔ orb1)
+            const o0 = this.outerOrbs[0], o1 = this.outerOrbs[1];
+            this.drawAlignedGlow(ctx, ccx, ccy, 35, 12,
+                o0.x + 32, o0.y + 32, o1.x + 32, o1.y + 32,
+                1.0, 1.0, 1.0, this.warningAlpha);
         }
         if (!cnRight.destroyed && (!this.outerOrbs[2].destroyed || !this.outerOrbs[3].destroyed)) {
-            this.drawGlow(ctx, cnRight.x + cnRight.width / 2, cnRight.y + cnRight.height / 2, 25, 25, 1.0, 1.0, 1.0, this.warningAlpha);
+            const ccx = cnRight.x + cnRight.width / 2, ccy = cnRight.y + cnRight.height / 2;
+            const o2 = this.outerOrbs[2], o3 = this.outerOrbs[3];
+            this.drawAlignedGlow(ctx, ccx, ccy, 35, 12,
+                o3.x + 32, o3.y + 32, o2.x + 32, o2.y + 32,
+                1.0, 1.0, 1.0, this.warningAlpha);
         }
         if (!cnHoriz.destroyed && !this.outerOrbs[1].destroyed && !this.outerOrbs[2].destroyed) {
-            this.drawGlow(ctx, cnHoriz.x + cnHoriz.width / 2, cnHoriz.y + cnHoriz.height / 2, 20, 20, 1.0, 1.0, 1.0, this.warningAlpha);
+            const ccx = cnHoriz.x + cnHoriz.width / 2, ccy = cnHoriz.y + cnHoriz.height / 2;
+            const o1 = this.outerOrbs[1], o2 = this.outerOrbs[2];
+            this.drawAlignedGlow(ctx, ccx, ccy, 30, 10,
+                o1.x + 32, o1.y + 32, o2.x + 32, o2.y + 32,
+                1.0, 1.0, 1.0, this.warningAlpha);
         }
 
-        // --- Outer orb glow points (white) ---
-        for (let i = 0; i < 4; i++) {
-            if (!this.outerOrbs[i].destroyed) {
-                this.drawGlow(ctx, this.outerOrbs[i].x + 32, this.outerOrbs[i].y + 32, 25, 25, 1.0, 1.0, 1.0, this.warningAlpha);
-            }
+        // --- Outer orb glow points (ellipsoids aligned with their nearest fixed beam) ---
+        // Orb 0 & 1: aligned along left bar
+        if (!this.outerOrbs[0].destroyed && !this.outerOrbs[1].destroyed) {
+            const o0 = this.outerOrbs[0], o1 = this.outerOrbs[1];
+            this.drawAlignedGlow(ctx, o0.x + 32, o0.y + 32, 35, 12,
+                o0.x + 32, o0.y + 32, o1.x + 32, o1.y + 32,
+                1.0, 1.0, 1.0, this.warningAlpha);
+            this.drawAlignedGlow(ctx, o1.x + 32, o1.y + 32, 35, 12,
+                o0.x + 32, o0.y + 32, o1.x + 32, o1.y + 32,
+                1.0, 1.0, 1.0, this.warningAlpha);
+        } else {
+            // Lone orbs without a pair get a regular circular glow
+            if (!this.outerOrbs[0].destroyed)
+                this.drawGlow(ctx, this.outerOrbs[0].x + 32, this.outerOrbs[0].y + 32, 25, 25, 1.0, 1.0, 1.0, this.warningAlpha);
+            if (!this.outerOrbs[1].destroyed)
+                this.drawGlow(ctx, this.outerOrbs[1].x + 32, this.outerOrbs[1].y + 32, 25, 25, 1.0, 1.0, 1.0, this.warningAlpha);
+        }
+        // Orb 2 & 3: aligned along right bar
+        if (!this.outerOrbs[2].destroyed && !this.outerOrbs[3].destroyed) {
+            const o2 = this.outerOrbs[2], o3 = this.outerOrbs[3];
+            this.drawAlignedGlow(ctx, o2.x + 32, o2.y + 32, 35, 12,
+                o3.x + 32, o3.y + 32, o2.x + 32, o2.y + 32,
+                1.0, 1.0, 1.0, this.warningAlpha);
+            this.drawAlignedGlow(ctx, o3.x + 32, o3.y + 32, 35, 12,
+                o3.x + 32, o3.y + 32, o2.x + 32, o2.y + 32,
+                1.0, 1.0, 1.0, this.warningAlpha);
+        } else {
+            if (!this.outerOrbs[2].destroyed)
+                this.drawGlow(ctx, this.outerOrbs[2].x + 32, this.outerOrbs[2].y + 32, 25, 25, 1.0, 1.0, 1.0, this.warningAlpha);
+            if (!this.outerOrbs[3].destroyed)
+                this.drawGlow(ctx, this.outerOrbs[3].x + 32, this.outerOrbs[3].y + 32, 25, 25, 1.0, 1.0, 1.0, this.warningAlpha);
         }
 
         // --- U-arm red lights ---
@@ -1577,7 +1622,6 @@ export class Boss {
     ): void {
         if (a <= 0) return;
         ctx.save();
-        // Scale to ellipse if rx != ry
         ctx.translate(cx, cy);
         ctx.scale(rx / Math.max(rx, ry), ry / Math.max(rx, ry));
         const radius = Math.max(rx, ry);
@@ -1593,9 +1637,39 @@ export class Boss {
         ctx.restore();
     }
 
+    /** Draw an ellipsoid glow rotated to align with beam direction between two points. */
+    private drawAlignedGlow(
+        ctx: CanvasRenderingContext2D,
+        cx: number, cy: number,
+        rAlong: number, rAcross: number,
+        x1: number, y1: number, x2: number, y2: number,
+        r: number, g: number, b: number, a: number,
+    ): void {
+        if (a <= 0) return;
+        const dx = x2 - x1, dy = y2 - y1;
+        const angle = Math.atan2(dy, dx);
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+        // rAlong = radius along beam direction, rAcross = perpendicular
+        const maxR = Math.max(rAlong, rAcross);
+        ctx.scale(rAlong / maxR, rAcross / maxR);
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, maxR);
+        const color = `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)}`;
+        gradient.addColorStop(0, `${color},${a})`);
+        gradient.addColorStop(0.3, `${color},${a * 0.7})`);
+        gradient.addColorStop(0.6, `${color},${a * 0.3})`);
+        gradient.addColorStop(1, `${color},0)`);
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, maxR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
     /**
-     * Draw an energy beam matching C++ createTriangleStrip with bar.bmp texture.
-     * Uses a layered approach: wide soft outer glow + brighter narrow core + endpoint glows.
+     * Draw an energy beam with soft edges and bright core.
+     * Uses multiple layered quads for a gradient falloff instead of hard edges.
      */
     private drawBeam(
         ctx: CanvasRenderingContext2D,
@@ -1616,38 +1690,26 @@ export class Boss {
         if (len > 1) {
             const px = -dy / len, py = dx / len;
 
-            // Wide soft outer glow (full offset width)
-            const hw = ox * 0.7;
-            ctx.beginPath();
-            ctx.moveTo(x1 + px * hw, y1 + py * hw);
-            ctx.lineTo(x2 + px * hw, y2 + py * hw);
-            ctx.lineTo(x2 - px * hw, y2 - py * hw);
-            ctx.lineTo(x1 - px * hw, y1 - py * hw);
-            ctx.closePath();
-            ctx.fillStyle = `${color},0.15)`;
-            ctx.fill();
+            // Multiple soft layers from wide to narrow for gradient falloff
+            const layers = [
+                { widthFrac: 0.9, alpha: 0.06 },  // outermost — very faint
+                { widthFrac: 0.65, alpha: 0.10 },
+                { widthFrac: 0.45, alpha: 0.15 },
+                { widthFrac: 0.25, alpha: 0.25 },  // mid
+                { widthFrac: 0.12, alpha: 0.5 },   // bright core
+            ];
 
-            // Brighter narrow core
-            const cw = ox * 0.25;
-            ctx.beginPath();
-            ctx.moveTo(x1 + px * cw, y1 + py * cw);
-            ctx.lineTo(x2 + px * cw, y2 + py * cw);
-            ctx.lineTo(x2 - px * cw, y2 - py * cw);
-            ctx.lineTo(x1 - px * cw, y1 - py * cw);
-            ctx.closePath();
-            ctx.fillStyle = `${color},0.5)`;
-            ctx.fill();
-        }
-
-        // Endpoint glows
-        const glowR = Math.max(ox, offy) * 0.7;
-        for (const [gx, gy] of [[x1, y1], [x2, y2]]) {
-            const glow = ctx.createRadialGradient(gx, gy, 0, gx, gy, glowR);
-            glow.addColorStop(0, `${color},0.5)`);
-            glow.addColorStop(0.5, `${color},0.15)`);
-            glow.addColorStop(1, `${color},0)`);
-            ctx.fillStyle = glow;
-            ctx.beginPath(); ctx.arc(gx, gy, glowR, 0, Math.PI * 2); ctx.fill();
+            for (const layer of layers) {
+                const hw = ox * layer.widthFrac;
+                ctx.beginPath();
+                ctx.moveTo(x1 + px * hw, y1 + py * hw);
+                ctx.lineTo(x2 + px * hw, y2 + py * hw);
+                ctx.lineTo(x2 - px * hw, y2 - py * hw);
+                ctx.lineTo(x1 - px * hw, y1 - py * hw);
+                ctx.closePath();
+                ctx.fillStyle = `${color},${layer.alpha})`;
+                ctx.fill();
+            }
         }
 
         ctx.restore();
