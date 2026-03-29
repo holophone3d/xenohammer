@@ -134,6 +134,7 @@ export class GameManager {
             ['MenuSelect', 'sounds/MenuSelect.mp3'],
             ['BossNear1', 'sounds/BossNear1.mp3'],
             ['Warp', 'sounds/warp.mp3'],
+            ['Intro', 'sounds/intro.mp3'],
         ];
         const musicFiles: [string, string][] = [
             ['Level2', 'sounds/Level2.mp3'],
@@ -244,7 +245,7 @@ export class GameManager {
             case GameState.Loading:
                 break;
             case GameState.StartScreen:
-                this.updateStartScreen();
+                this.updateStartScreen(dt);
                 break;
             case GameState.ReadyRoom:
                 this.updateReadyRoom();
@@ -386,16 +387,24 @@ export class GameManager {
 
     // ========== State: StartScreen ==========
 
-    private updateStartScreen(): void {
+    private startScreenTimer = 0;
+    private introSoundPlayed = false;
+
+    private updateStartScreen(dt: number): void {
+        this.startScreenTimer += dt;
+        if (!this.introSoundPlayed) {
+            this.audio.playSound('Intro');
+            this.introSoundPlayed = true;
+        }
         if (this.started) {
             this.state = GameState.ReadyRoom;
             return;
         }
-        if (this.input.isMousePressed() ||
+        // Only allow skipping after the fade-in completes (1s)
+        if (this.startScreenTimer > 1.0 && (
+            this.input.isMousePressed() ||
             this.input.isKeyPressed(Input.SPACE) ||
-            this.input.isKeyPressed(Input.ENTER)) {
-            // Delay Space ambient slightly — on iOS the AudioContext needs
-            // time to resume after the gesture handler's ctx.resume() call
+            this.input.isKeyPressed(Input.ENTER))) {
             setTimeout(() => {
                 this.spaceAmbient = this.audio.playSoundLoopCrossfade('Space');
             }, 150);
@@ -406,15 +415,39 @@ export class GameManager {
 
     private renderStartScreen(): void {
         const ctx = this.canvas.ctx;
+
+        // Fade in over first 1 second, fade out after 4s (gone by 5s)
+        let alpha = 1.0;
+        if (this.startScreenTimer < 1.0) {
+            alpha = this.startScreenTimer; // fade in 0→1 over 1s
+        } else if (this.startScreenTimer > 4.0) {
+            alpha = Math.max(0, 1 - (this.startScreenTimer - 4.0)); // fade out 1→0 over 1s
+        }
+
+        ctx.globalAlpha = alpha;
         const splash = this.assets.tryGetImage('XenoStart');
         if (splash) {
             ctx.drawImage(splash, 0, 0, 800, 600);
         }
-        ctx.fillStyle = '#0f0';
-        ctx.font = '20px XenoFont, monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('Start Game', 400, 580);
-        ctx.textAlign = 'left';
+
+        // "Start Game" text only after fade-in
+        if (this.startScreenTimer > 1.0) {
+            ctx.fillStyle = '#0f0';
+            ctx.font = '20px XenoFont, monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('Start Game', 400, 580);
+            ctx.textAlign = 'left';
+        }
+        ctx.globalAlpha = 1.0;
+
+        // After 5s auto-advance to ready room
+        if (this.startScreenTimer >= 5.0 && !this.started) {
+            setTimeout(() => {
+                this.spaceAmbient = this.audio.playSoundLoopCrossfade('Space');
+            }, 150);
+            this.started = true;
+            this.state = GameState.ReadyRoom;
+        }
     }
 
     // ========== State: ReadyRoom ==========
