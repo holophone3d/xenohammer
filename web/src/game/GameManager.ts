@@ -1114,6 +1114,18 @@ export class GameManager {
 
         // Touch controls overlay (mobile only)
         this.touchControls?.render(ctx);
+
+        // Boss death fade-to-black during last 1s of explosions
+        if (this.boss && this.boss.isDying()) {
+            const fade = this.boss.getDeathFade();
+            if (fade > 0) {
+                ctx.save();
+                ctx.globalAlpha = fade;
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, 800, 600);
+                ctx.restore();
+            }
+        }
     }
 
     // ========== State: LevelComplete ==========
@@ -1189,6 +1201,15 @@ export class GameManager {
         const img = this.assets.tryGetImage('aftermath');
         if (img) {
             ctx.drawImage(img, 0, this.aftermathY);
+        }
+
+        // Fade-in from black over first 1s
+        if (this.stateTimer < 1.0) {
+            ctx.save();
+            ctx.globalAlpha = 1.0 - this.stateTimer;
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, 800, 600);
+            ctx.restore();
         }
     }
 

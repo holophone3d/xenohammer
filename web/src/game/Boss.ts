@@ -1232,6 +1232,15 @@ export class Boss {
     isDefeated(): boolean { return this.state === BossState.Dead; }
     isEntering(): boolean { return this.state === BossState.Entering; }
     isVisible(): boolean { return this.state !== BossState.Waiting; }
+    isDying(): boolean { return this.state === BossState.Dying; }
+
+    /** 0→1 fade-to-black during last 1s of death sequence */
+    getDeathFade(): number {
+        if (this.state !== BossState.Dying) return 0;
+        const fadeStart = 10.0; // fade begins at 10s into 11s death
+        if (this.deathTimer < fadeStart) return 0;
+        return Math.min(1, (this.deathTimer - fadeStart) / 1.0);
+    }
 
     getCenter(): { x: number; y: number } {
         return {
