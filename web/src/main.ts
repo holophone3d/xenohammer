@@ -7,18 +7,21 @@ const GAME_W = 800;
 const GAME_H = 600;
 
 function fitCanvas(canvas: HTMLCanvasElement, reserveBottom: number): void {
+    const safeTop = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sat') || '0', 10);
     const scaleX = window.innerWidth / GAME_W;
-    const scaleY = (window.innerHeight - reserveBottom) / GAME_H;
+    const scaleY = (window.innerHeight - reserveBottom - safeTop) / GAME_H;
     const scale = Math.min(scaleX, scaleY);
     canvas.style.transform = `scale(${scale})`;
-    if (reserveBottom > 0) {
-        // Portrait: push canvas to top so controls sit below
+    if (reserveBottom > 0 || safeTop > 0) {
+        // Portrait or safe-area: push canvas below notch/island
         canvas.style.transformOrigin = 'top center';
         document.body.style.alignItems = 'flex-start';
+        document.body.style.paddingTop = safeTop > 0 ? `${safeTop}px` : '0';
     } else {
         // Landscape: center canvas in viewport
         canvas.style.transformOrigin = 'center center';
         document.body.style.alignItems = 'center';
+        document.body.style.paddingTop = '0';
     }
 }
 
@@ -53,15 +56,27 @@ game.init().then(() => {
     const touch = new TouchControls(game.input);
     game.touchControls = touch;
     touch.onEsc = () => game.input.queueVirtualPress('Escape');
-    const reserved = touch.getReservedHeight();
 
-    if (touch.isTouchDevice) {
-        touch.show();
+    // Start with controls hidden — menus use full viewport
+    let wasGameplay = false;
+
+    function syncLayout(): void {
+        const gameplay = game.isGameplay();
+        if (gameplay !== wasGameplay) {
+            wasGameplay = gameplay;
+            if (gameplay && touch.isTouchDevice) {
+                touch.show();
+            } else {
+                touch.hide();
+            }
+        }
+        const reserve = gameplay ? touch.getReservedHeight() : 0;
+        fitCanvas(canvas, reserve);
     }
 
-    fitCanvas(canvas, reserved);
+    syncLayout();
     window.addEventListener('resize', () => {
-        fitCanvas(canvas, touch.getReservedHeight());
+        syncLayout();
         touch.layout();
     });
 
@@ -77,6 +92,9 @@ game.init().then(() => {
             game.update(TICK_RATE);
             accumulator -= TICK_RATE;
         }
+
+        // Refit canvas when transitioning between menu ↔ gameplay
+        syncLayout();
 
         game.render();
         requestAnimationFrame(gameLoop);

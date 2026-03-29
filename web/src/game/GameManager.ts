@@ -219,6 +219,22 @@ export class GameManager {
         this.levelEndAnimFrames = [endL1, endL2, []]; // No end animation for boss level
     }
 
+    /** Whether the current state is active gameplay (not a menu/UI screen). */
+    isGameplay(): boolean {
+        switch (this.state) {
+            case GameState.Playing:
+            case GameState.PlayerDying:
+            case GameState.EscapeWarp:
+            case GameState.LevelComplete:
+            case GameState.Victory:
+            case GameState.Aftermath:
+            case GameState.GameOver:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     update(dt: number): void {
         dt = Math.min(dt, 0.1);
         this.now = performance.now();

@@ -1,6 +1,6 @@
 {
   "name": "Xenohammer",
-  "short_name": "Xenohammer",
+  "short_name": "Xeno",
   "icons": [
     {
       "src": "/icon-192.png",
@@ -15,11 +15,10 @@
     {
       "src": "/apple-touch-icon.png",
       "sizes": "180x180",
-      "type": "image/png",
-      "purpose": "any"
+      "type": "image/png"
     }
   ],
-  "theme_color": "#02040d",
-  "background_color": "#02040d",
-  "display": "standalone"
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000"
 }
