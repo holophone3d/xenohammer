@@ -1538,16 +1538,16 @@ export class Boss {
         const cp1x = bx + 12, cp1y = by + 148;
         const cp2x = bx + 148, cp2y = by + 148;
 
-        // Left center point — perpendicular to beam direction (rAcross=40, rAlong=15)
+        // Left center point — orientation stays fixed (always points toward connector position)
         if (!this.outerOrbs[0].destroyed || !this.outerOrbs[1].destroyed) {
-            const tgtX = cnLeft.destroyed ? cp1x : cnLeft.x + cnLeft.width / 2;
-            const tgtY = cnLeft.destroyed ? cp1y - 50 : cnLeft.y + cnLeft.height / 2;
+            const tgtX = cnLeft.x + cnLeft.width / 2;
+            const tgtY = cnLeft.y + cnLeft.height / 2;
             this.drawAlignedGlow(ctx, cp1x, cp1y, 15, 40, cp1x, cp1y, tgtX, tgtY, 1.0, 1.0, 1.0, this.warningAlpha);
         }
-        // Right center point — perpendicular to beam direction
+        // Right center point — orientation stays fixed
         if (!this.outerOrbs[2].destroyed || !this.outerOrbs[3].destroyed) {
-            const tgtX = cnRight.destroyed ? cp2x : cnRight.x + cnRight.width / 2;
-            const tgtY = cnRight.destroyed ? cp2y - 50 : cnRight.y + cnRight.height / 2;
+            const tgtX = cnRight.x + cnRight.width / 2;
+            const tgtY = cnRight.y + cnRight.height / 2;
             this.drawAlignedGlow(ctx, cp2x, cp2y, 15, 40, cp2x, cp2y, tgtX, tgtY, 1.0, 1.0, 1.0, this.warningAlpha);
         }
 
