@@ -21,6 +21,25 @@ const SHIELD_RESTORE = 50;
 const WEAPON_SCORE_BONUS = 500;
 
 export class PowerUp {
+    /** Pre-rendered green glow texture for power-up additive effect. */
+    private static glowTex: HTMLCanvasElement | null = null;
+    private static getGlowTex(): HTMLCanvasElement {
+        if (PowerUp.glowTex) return PowerUp.glowTex;
+        const S = 64;
+        const c = document.createElement('canvas');
+        c.width = S; c.height = S;
+        const gc = c.getContext('2d')!;
+        const half = S / 2;
+        const grad = gc.createRadialGradient(half, half, 0, half, half, half);
+        grad.addColorStop(0, 'rgba(0,255,0,0.7)');
+        grad.addColorStop(0.3, 'rgba(0,255,0,0.5)');
+        grad.addColorStop(0.6, 'rgba(0,255,0,0.2)');
+        grad.addColorStop(1, 'rgba(0,255,0,0)');
+        gc.fillStyle = grad;
+        gc.fillRect(0, 0, S, S);
+        PowerUp.glowTex = c;
+        return c;
+    }
     x: number;
     y: number;
     type: PowerUpType;
@@ -77,19 +96,11 @@ export class PowerUp {
         {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
-            // Use scale transform to stretch a circular gradient into an ellipse
-            const gcx = this.x + POWERUP_W / 2;  // center of sprite
+            const gcx = this.x + POWERUP_W / 2;
             const gcy = this.y + POWERUP_H / 2;
-            const rx = 35, ry = 20;    // half the C++ quad (50×30), trimmed for visible glow
-            ctx.translate(gcx, gcy);
-            ctx.scale(rx / ry, 1);     // stretch horizontally to match rectangular shape
-            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, ry);
-            grad.addColorStop(0, 'rgba(0,255,0,0.7)');
-            grad.addColorStop(0.3, 'rgba(0,255,0,0.5)');
-            grad.addColorStop(0.6, 'rgba(0,255,0,0.2)');
-            grad.addColorStop(1.0, 'rgba(0,255,0,0)');
-            ctx.fillStyle = grad;
-            ctx.fillRect(-ry * (rx / ry), -ry, ry * 2 * (rx / ry), ry * 2);
+            const rx = 35, ry = 20;
+            const tex = PowerUp.getGlowTex();
+            ctx.drawImage(tex, (gcx - rx) | 0, (gcy - ry) | 0, rx * 2, ry * 2);
             ctx.restore();
         }
     }

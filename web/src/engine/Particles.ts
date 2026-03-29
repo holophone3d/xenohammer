@@ -133,34 +133,57 @@ export class ParticleSystem {
         }
     }
 
+    /** Pre-rendered glow textures, keyed by quantized RGB.
+     *  Avoids creating a CanvasGradient per particle per frame (massive GC pressure on iOS). */
+    private static glowCache = new Map<number, HTMLCanvasElement>();
+    private static GLOW_SIZE = 32;
+
+    private static getGlowTexture(r: number, g: number, b: number): HTMLCanvasElement {
+        const qr = Math.round(r * 7);
+        const qg = Math.round(g * 7);
+        const qb = Math.round(b * 7);
+        const key = (qr << 8) | (qg << 4) | qb;
+        let tex = ParticleSystem.glowCache.get(key);
+        if (tex) return tex;
+
+        const S = ParticleSystem.GLOW_SIZE;
+        tex = document.createElement('canvas');
+        tex.width = S; tex.height = S;
+        const gc = tex.getContext('2d')!;
+        const half = S / 2;
+        const ri = Math.round((qr / 7) * 255);
+        const gi = Math.round((qg / 7) * 255);
+        const bi = Math.round((qb / 7) * 255);
+        const grad = gc.createRadialGradient(half, half, 0, half, half, half);
+        grad.addColorStop(0, `rgba(${ri},${gi},${bi},1)`);
+        grad.addColorStop(0.3, `rgba(${ri},${gi},${bi},0.6)`);
+        grad.addColorStop(0.7, `rgba(${ri},${gi},${bi},0.15)`);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        gc.fillStyle = grad;
+        gc.fillRect(0, 0, S, S);
+        ParticleSystem.glowCache.set(key, tex);
+        return tex;
+    }
+
     /** Render all active particles with additive blending glow.
      * C++ renders each as a 33×33 textured quad (Particle.bmp)
      * with glColor4f(r,g,b,life) and additive blending.
-     * The texture is a soft circular glow — we approximate with a radial gradient. */
+     * Uses pre-rendered glow textures (drawImage) instead of per-particle gradients. */
     draw(ctx: CanvasRenderingContext2D): void {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
+        const half = ParticleSystem.GLOW_SIZE / 2;
 
         for (let i = 0; i < this.maxParticles; i++) {
             const p = this.particles[i];
             if (!p.active) continue;
 
-            const alpha = Math.max(0, Math.min(1, p.life));
-            const r = Math.min(255, Math.round(p.r * 255));
-            const g = Math.min(255, Math.round(p.g * 255));
-            const b = Math.min(255, Math.round(p.b * 255));
-
-            // C++ 33×33 textured quad (±16.5px). Use 14px radius for visible glow core.
-            const radius = 14;
-            const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius);
-            grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
-            grad.addColorStop(0.3, `rgba(${r},${g},${b},${alpha * 0.6})`);
-            grad.addColorStop(0.7, `rgba(${r},${g},${b},${alpha * 0.15})`);
-            grad.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = grad;
-            ctx.fillRect(p.x - radius, p.y - radius, radius * 2, radius * 2);
+            ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
+            const tex = ParticleSystem.getGlowTexture(p.r, p.g, p.b);
+            ctx.drawImage(tex, (p.x - half) | 0, (p.y - half) | 0);
         }
 
+        ctx.globalAlpha = 1;
         ctx.restore();
     }
 

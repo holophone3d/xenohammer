@@ -172,6 +172,7 @@ export class GameManager {
         this.player.loadSprite(this.assets);
 
         this.state = GameState.Loading;
+        this.armLoadingGesture();
     }
 
     /** Load pre-rendered level intro animation frames.
@@ -238,17 +239,6 @@ export class GameManager {
     update(dt: number): void {
         dt = Math.min(dt, 0.1);
         this.now = performance.now();
-
-        // FPS tracking
-        if (this.debugShowFps) {
-            this.debugFpsFrames++;
-            this.debugFpsAccum += dt;
-            if (this.debugFpsAccum >= 0.5) {
-                this.debugFpsDisplay = Math.round(this.debugFpsFrames / this.debugFpsAccum);
-                this.debugFpsFrames = 0;
-                this.debugFpsAccum = 0;
-            }
-        }
 
         // Touch controls only active during gameplay
         this.touchControls?.setActive(this.state === GameState.Playing);
@@ -415,19 +405,38 @@ export class GameManager {
     private loadingComplete = false;
     private loadingReadyTimer = 0;
 
+    /**
+     * Arm a document-level gesture handler (capture phase) so the
+     * Loading→StartScreen transition — and crucially the Intro sound —
+     * fires directly inside the user-gesture call stack.
+     * iOS Safari requires AudioContext.resume() AND the first
+     * source.start() to originate from a gesture; rAF callbacks don't
+     * qualify.  Keyboard fallback stays in updateLoading for desktop.
+     */
+    private armLoadingGesture(): void {
+        const events = ['touchstart', 'click'] as const;
+        const handler = () => {
+            if (this.state !== GameState.Loading || !this.loadingComplete) return;
+            this.audio.resumeContext();
+            this.startScreenTimer = 0;
+            this.introSound = this.audio.playSound('Intro');
+            this.state = GameState.StartScreen;
+            events.forEach(e => document.removeEventListener(e, handler, true));
+        };
+        events.forEach(e => document.addEventListener(e, handler, true));
+    }
+
     private updateLoading(dt: number): void {
         if (this.assets.getProgress() >= 1.0) {
             this.loadingComplete = true;
             this.loadingReadyTimer += dt;
         }
-        // Wait for user gesture to unlock AudioContext, then go to StartScreen
+        // Keyboard fallback (desktop only — iOS uses armLoadingGesture)
         if (this.loadingComplete && (
-            this.input.isMousePressed() ||
             this.input.isKeyPressed(Input.SPACE) ||
             this.input.isKeyPressed(Input.ENTER))) {
             this.audio.resumeContext();
             this.startScreenTimer = 0;
-            // Try to play intro sound immediately (iOS needs this in gesture context)
             this.introSound = this.audio.playSound('Intro');
             this.state = GameState.StartScreen;
         }
@@ -490,10 +499,11 @@ export class GameManager {
             this.state = GameState.ReadyRoom;
             return;
         }
-        // User can click through any time
-        if (this.input.isMousePressed() ||
+        // User can click through any time (guard prevents the Loading→StartScreen
+        // gesture from being double-processed on the same frame)
+        if (this.startScreenTimer > 0.1 && (this.input.isMousePressed() ||
             this.input.isKeyPressed(Input.SPACE) ||
-            this.input.isKeyPressed(Input.ENTER)) {
+            this.input.isKeyPressed(Input.ENTER))) {
             if (this.introSound) { this.introSound.stop(); this.introSound = null; }
             setTimeout(() => {
                 this.spaceAmbient = this.audio.playSoundLoopCrossfade('Space');
@@ -2960,9 +2970,8 @@ export class GameManager {
     private debugLastClickX = 0;
     private debugLastClickY = 0;
     private debugShowFps = false;
-    private debugFpsFrames = 0;
-    private debugFpsAccum = 0;
-    private debugFpsDisplay = 0;
+    // FPS display is set by main.ts from actual render-frame counting
+    debugFpsDisplay = 0;
 
     private setDebugMenuOpen(open: boolean): void {
         if (open === this.debugMenuOpen) return;

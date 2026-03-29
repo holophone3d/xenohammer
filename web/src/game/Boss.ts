@@ -1361,7 +1361,7 @@ export class Boss {
         // Energy glow effects on top of all sprites (radial glows, orb points, U-arm lights)
         this.drawEnergyGlows(ctx);
 
-        // Hit flash — subtle glow at hit component center (not a white rectangle)
+        // Hit flash — cached glow texture instead of per-frame gradient
         if (this.hitFlashTimer > 0 && this.hitFlashComp) {
             const hc = this.hitFlashComp;
             const hcx = hc.x + hc.width / 2;
@@ -1370,12 +1370,10 @@ export class Boss {
             const flashA = this.hitFlashTimer * 4;
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
-            const grad = ctx.createRadialGradient(hcx, hcy, 0, hcx, hcy, flashR);
-            grad.addColorStop(0, `rgba(255,255,255,${flashA})`);
-            grad.addColorStop(0.5, `rgba(255,200,100,${flashA * 0.5})`);
-            grad.addColorStop(1, 'rgba(255,100,0,0)');
-            ctx.fillStyle = grad;
-            ctx.fillRect(hcx - flashR, hcy - flashR, flashR * 2, flashR * 2);
+            ctx.globalAlpha = flashA;
+            const d = flashR * 2;
+            ctx.drawImage(Boss.getHitFlashTex(), (hcx - flashR) | 0, (hcy - flashR) | 0, d, d);
+            ctx.globalAlpha = 1;
             ctx.restore();
         }
 
@@ -1468,14 +1466,14 @@ export class Boss {
     private drawFallbackOrb(ctx: CanvasRenderingContext2D, cx: number, cy: number, idx: number): void {
         const pulse = 0.5 + Math.sin(this.stateTimer * 4 + idx * 2) * 0.5;
         const radius = 16 + pulse * 6;
-        const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-        gradient.addColorStop(0, `rgba(0, 255, 255, ${0.8 * pulse})`);
-        gradient.addColorStop(0.5, `rgba(0, 128, 255, ${0.4 * pulse})`);
-        gradient.addColorStop(1, 'rgba(0, 0, 128, 0)');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-        ctx.fill();
+        const tex = Boss.getBossGlow(0, 0.75, 1);
+        const half = Boss.BOSS_GLOW_SIZE / 2;
+        ctx.save();
+        ctx.globalAlpha = 0.8 * pulse;
+        ctx.translate(cx, cy);
+        ctx.scale(radius / half, radius / half);
+        ctx.drawImage(tex, -half, -half);
+        ctx.restore();
     }
 
     /**
@@ -1630,6 +1628,86 @@ export class Boss {
         ctx.restore();
     }
 
+    /** Pre-rendered radial glow textures, keyed by quantized color.
+     *  Avoids creating CanvasGradient per glow per frame. */
+    private static bossGlowCache = new Map<number, HTMLCanvasElement>();
+    private static BOSS_GLOW_SIZE = 128;
+
+    private static getBossGlow(r: number, g: number, b: number): HTMLCanvasElement {
+        const ri = Math.round(r * 3);
+        const gi = Math.round(g * 3);
+        const bi = Math.round(b * 3);
+        const key = (ri << 8) | (gi << 4) | bi;
+        let tex = Boss.bossGlowCache.get(key);
+        if (tex) return tex;
+
+        const S = Boss.BOSS_GLOW_SIZE;
+        tex = document.createElement('canvas');
+        tex.width = S; tex.height = S;
+        const gc = tex.getContext('2d')!;
+        const half = S / 2;
+        const ri2 = Math.round((ri / 3) * 255);
+        const gi2 = Math.round((gi / 3) * 255);
+        const bi2 = Math.round((bi / 3) * 255);
+        const grad = gc.createRadialGradient(half, half, 0, half, half, half);
+        grad.addColorStop(0, `rgba(${ri2},${gi2},${bi2},1)`);
+        grad.addColorStop(0.4, `rgba(${ri2},${gi2},${bi2},0.6)`);
+        grad.addColorStop(1, `rgba(${ri2},${gi2},${bi2},0)`);
+        gc.fillStyle = grad;
+        gc.fillRect(0, 0, S, S);
+        Boss.bossGlowCache.set(key, tex);
+        return tex;
+    }
+
+    /** Pre-rendered aligned glow textures (denser stops for connector points). */
+    private static bossAlignedGlowCache = new Map<number, HTMLCanvasElement>();
+
+    private static getBossAlignedGlow(r: number, g: number, b: number): HTMLCanvasElement {
+        const ri = Math.round(r * 3);
+        const gi = Math.round(g * 3);
+        const bi = Math.round(b * 3);
+        const key = (ri << 8) | (gi << 4) | bi;
+        let tex = Boss.bossAlignedGlowCache.get(key);
+        if (tex) return tex;
+
+        const S = Boss.BOSS_GLOW_SIZE;
+        tex = document.createElement('canvas');
+        tex.width = S; tex.height = S;
+        const gc = tex.getContext('2d')!;
+        const half = S / 2;
+        const ri2 = Math.round((ri / 3) * 255);
+        const gi2 = Math.round((gi / 3) * 255);
+        const bi2 = Math.round((bi / 3) * 255);
+        const grad = gc.createRadialGradient(half, half, 0, half, half, half);
+        grad.addColorStop(0, `rgba(${ri2},${gi2},${bi2},1)`);
+        grad.addColorStop(0.3, `rgba(${ri2},${gi2},${bi2},0.7)`);
+        grad.addColorStop(0.6, `rgba(${ri2},${gi2},${bi2},0.3)`);
+        grad.addColorStop(1, `rgba(${ri2},${gi2},${bi2},0)`);
+        gc.fillStyle = grad;
+        gc.fillRect(0, 0, S, S);
+        Boss.bossAlignedGlowCache.set(key, tex);
+        return tex;
+    }
+
+    /** Pre-rendered hit flash glow (white→orange). */
+    private static hitFlashTex: HTMLCanvasElement | null = null;
+    private static getHitFlashTex(): HTMLCanvasElement {
+        if (Boss.hitFlashTex) return Boss.hitFlashTex;
+        const S = 64;
+        const c = document.createElement('canvas');
+        c.width = S; c.height = S;
+        const gc = c.getContext('2d')!;
+        const half = S / 2;
+        const grad = gc.createRadialGradient(half, half, 0, half, half, half);
+        grad.addColorStop(0, 'rgba(255,255,255,1)');
+        grad.addColorStop(0.5, 'rgba(255,200,100,0.5)');
+        grad.addColorStop(1, 'rgba(255,100,0,0)');
+        gc.fillStyle = grad;
+        gc.fillRect(0, 0, S, S);
+        Boss.hitFlashTex = c;
+        return c;
+    }
+
     /** Draw a radial glow at a point (replicates OpenGL textured quad with radial falloff) */
     private drawGlow(
         ctx: CanvasRenderingContext2D,
@@ -1637,19 +1715,13 @@ export class Boss {
         r: number, g: number, b: number, a: number,
     ): void {
         if (a <= 0) return;
+        const tex = Boss.getBossGlow(r, g, b);
+        const half = Boss.BOSS_GLOW_SIZE / 2;
         ctx.save();
+        ctx.globalAlpha = a;
         ctx.translate(cx, cy);
-        ctx.scale(rx / Math.max(rx, ry), ry / Math.max(rx, ry));
-        const radius = Math.max(rx, ry);
-        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
-        const color = `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)}`;
-        gradient.addColorStop(0, `${color},${a})`);
-        gradient.addColorStop(0.4, `${color},${a * 0.6})`);
-        gradient.addColorStop(1, `${color},0)`);
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(0, 0, radius, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.scale(rx / half, ry / half);
+        ctx.drawImage(tex, -half, -half);
         ctx.restore();
     }
 
@@ -1664,22 +1736,14 @@ export class Boss {
         if (a <= 0) return;
         const dx = x2 - x1, dy = y2 - y1;
         const angle = Math.atan2(dy, dx);
+        const tex = Boss.getBossAlignedGlow(r, g, b);
+        const half = Boss.BOSS_GLOW_SIZE / 2;
         ctx.save();
+        ctx.globalAlpha = a;
         ctx.translate(cx, cy);
         ctx.rotate(angle);
-        // rAlong = radius along beam direction, rAcross = perpendicular
-        const maxR = Math.max(rAlong, rAcross);
-        ctx.scale(rAlong / maxR, rAcross / maxR);
-        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, maxR);
-        const color = `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)}`;
-        gradient.addColorStop(0, `${color},${a})`);
-        gradient.addColorStop(0.3, `${color},${a * 0.7})`);
-        gradient.addColorStop(0.6, `${color},${a * 0.3})`);
-        gradient.addColorStop(1, `${color},0)`);
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(0, 0, maxR, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.scale(rAlong / half, rAcross / half);
+        ctx.drawImage(tex, -half, -half);
         ctx.restore();
     }
 

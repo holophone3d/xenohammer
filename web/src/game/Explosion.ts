@@ -25,6 +25,48 @@ export class Explosion {
     private vy: number;
     private gravity: number;
 
+    /** Pre-rendered warm glow texture for additive explosion effects. */
+    private static glowTex: HTMLCanvasElement | null = null;
+    private static GLOW_SIZE = 64;
+    /** Pre-rendered fallback explosion gradient (orange circle). */
+    private static fallbackTex: HTMLCanvasElement | null = null;
+
+    private static getGlowTex(): HTMLCanvasElement {
+        if (Explosion.glowTex) return Explosion.glowTex;
+        const S = Explosion.GLOW_SIZE;
+        const c = document.createElement('canvas');
+        c.width = S; c.height = S;
+        const gc = c.getContext('2d')!;
+        const half = S / 2;
+        const grad = gc.createRadialGradient(half, half, 0, half, half, half);
+        // Warm yellow→orange→red glow (baked at full intensity, use globalAlpha at draw time)
+        grad.addColorStop(0, 'rgba(255,220,80,1)');
+        grad.addColorStop(0.3, 'rgba(255,140,0,0.5)');
+        grad.addColorStop(0.6, 'rgba(255,60,0,0.17)');
+        grad.addColorStop(1, 'rgba(255,20,0,0)');
+        gc.fillStyle = grad;
+        gc.fillRect(0, 0, S, S);
+        Explosion.glowTex = c;
+        return c;
+    }
+
+    private static getFallbackTex(): HTMLCanvasElement {
+        if (Explosion.fallbackTex) return Explosion.fallbackTex;
+        const S = Explosion.GLOW_SIZE;
+        const c = document.createElement('canvas');
+        c.width = S; c.height = S;
+        const gc = c.getContext('2d')!;
+        const half = S / 2;
+        const grad = gc.createRadialGradient(half, half, 0, half, half, half);
+        grad.addColorStop(0, 'rgba(255,200,50,1)');
+        grad.addColorStop(0.4, 'rgba(255,130,0,0.7)');
+        grad.addColorStop(1, 'rgba(255,50,0,0)');
+        gc.fillStyle = grad;
+        gc.fillRect(0, 0, S, S);
+        Explosion.fallbackTex = c;
+        return c;
+    }
+
     constructor(
         x: number, y: number, type: 'small' | 'big', frames: HTMLImageElement[],
         vx = 0, vy = 0, gravity = 0, frameDelay = 0,
@@ -68,22 +110,17 @@ export class Explosion {
         if (this._finished || this.currentFrame < 0) return;
 
         // Additive glow behind explosion — C++ uses glColor4f(5,2,0,0.15) with additive blend.
-        // The overbright color (5.0 red) creates intense hot-core glow with additive blending.
         const frameIdx = Math.max(0, Math.floor(this.currentFrame));
         const progress = frameIdx / (this.frames.length || FRAME_COUNT);
         const glowAlpha = 0.25 * (1 - progress * 0.7);
         if (glowAlpha > 0.01) {
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
-            // Glow radius scales with explosion size — larger than the sprite for bloom
             const glowR = this.fallbackSize * (0.8 + progress * 0.6);
-            const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, glowR);
-            grad.addColorStop(0, `rgba(255,220,80,${glowAlpha * 3})`);
-            grad.addColorStop(0.3, `rgba(255,140,0,${glowAlpha * 1.5})`);
-            grad.addColorStop(0.6, `rgba(255,60,0,${glowAlpha * 0.5})`);
-            grad.addColorStop(1, 'rgba(255,20,0,0)');
-            ctx.fillStyle = grad;
-            ctx.fillRect(this.x - glowR, this.y - glowR, glowR * 2, glowR * 2);
+            const d = glowR * 2;
+            ctx.globalAlpha = glowAlpha * 3;
+            ctx.drawImage(Explosion.getGlowTex(), (this.x - glowR) | 0, (this.y - glowR) | 0, d, d);
+            ctx.globalAlpha = 1;
             ctx.restore();
         }
 
@@ -96,14 +133,10 @@ export class Explosion {
             const alpha = 1.0 - progress;
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
-            const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, radius);
-            grad.addColorStop(0, `rgba(255,200,50,${alpha})`);
-            grad.addColorStop(0.4, `rgba(255,130,0,${alpha * 0.7})`);
-            grad.addColorStop(1, `rgba(255,50,0,0)`);
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.globalAlpha = alpha;
+            const d = radius * 2;
+            ctx.drawImage(Explosion.getFallbackTex(), (this.x - radius) | 0, (this.y - radius) | 0, d, d);
+            ctx.globalAlpha = 1;
             ctx.restore();
         }
     }

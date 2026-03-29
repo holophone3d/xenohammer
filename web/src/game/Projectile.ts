@@ -106,6 +106,39 @@ export class Projectile {
         }
     }
 
+    /** Pre-rendered glow textures per weapon type (avoids gradient creation per frame). */
+    private static glowTextures = new Map<string, HTMLCanvasElement>();
+    private static GLOW_TEX_SIZE = 64;
+
+    private static getGlowTexture(weaponType: string): HTMLCanvasElement {
+        let tex = Projectile.glowTextures.get(weaponType);
+        if (tex) return tex;
+
+        const S = Projectile.GLOW_TEX_SIZE;
+        tex = document.createElement('canvas');
+        tex.width = S; tex.height = S;
+        const gc = tex.getContext('2d')!;
+        const half = S / 2;
+
+        let color: string;
+        switch (weaponType) {
+            case 'blaster':     color = 'rgba(0,255,51,'; break;
+            case 'turret':      color = 'rgba(0,255,128,'; break;
+            case 'missile':     color = 'rgba(0,0,255,'; break;
+            case 'enemyBlast':  color = 'rgba(255,51,0,'; break;
+            case 'enemyCannon': color = 'rgba(255,51,0,'; break;
+            default:            color = 'rgba(0,255,51,'; break;
+        }
+        const alpha = weaponType === 'enemyBlast' || weaponType === 'enemyCannon' ? 0.6 : 0.5;
+        const grad = gc.createRadialGradient(half, half, 0, half, half, half);
+        grad.addColorStop(0, `${color}${alpha})`);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        gc.fillStyle = grad;
+        gc.fillRect(0, 0, S, S);
+        Projectile.glowTextures.set(weaponType, tex);
+        return tex;
+    }
+
     draw(ctx: CanvasRenderingContext2D): void {
         if (!this.alive) return;
 
@@ -116,22 +149,10 @@ export class Projectile {
             ctx.globalCompositeOperation = 'lighter';
             const baseSize = Math.max(this.width, this.height);
             const glowSize = baseSize * 1.5;
-            let glowColor: string;
-            switch (this.weaponType) {
-                case 'blaster':     glowColor = 'rgba(0,255,51,0.5)'; break;
-                case 'turret':      glowColor = 'rgba(0,255,128,0.5)'; break;
-                case 'missile':     glowColor = 'rgba(0,0,255,0.5)'; break;
-                case 'enemyBlast':  glowColor = 'rgba(255,51,0,0.6)'; break;
-                case 'enemyCannon': glowColor = 'rgba(255,51,0,0.6)'; break;
-                default:            glowColor = 'rgba(0,255,51,0.5)'; break;
-            }
             const cx = this.x + this.width / 2;
             const cy = this.y + this.height / 2;
-            const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowSize);
-            grad.addColorStop(0, glowColor);
-            grad.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = grad;
-            ctx.fillRect(cx - glowSize, cy - glowSize, glowSize * 2, glowSize * 2);
+            const tex = Projectile.getGlowTexture(this.weaponType);
+            ctx.drawImage(tex, (cx - glowSize) | 0, (cy - glowSize) | 0, glowSize * 2, glowSize * 2);
             ctx.restore();
 
             this.sprite.drawAt(ctx, this.x, this.y);

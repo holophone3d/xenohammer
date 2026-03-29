@@ -132,7 +132,7 @@ export class StarField {
             if (this.moonSprite) {
                 ctx.drawImage(
                     this.moonSprite,
-                    this.moonX,
+                    this.moonX | 0,
                     this.moonY | 0,
                 );
             }
