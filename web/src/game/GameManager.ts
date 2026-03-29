@@ -668,18 +668,17 @@ export class GameManager {
             }
 
             // Dual engine flames (C++ make_CapShipEngine: two exhaust points at x+40, x+57)
-            // Color: R=G=tempVal(0-2), B=1.0 (blue/cyan); fade 0.003-0.103/frame
+            // Color: R=G=tempVal(0-2), B=1.0 (blue/cyan); short-lived directional exhaust
             // C++ angle: -10+Random(20) = -10° to +10° from UP (exhaust behind ship)
             for (const engineOffX of [40, 57]) {
                 const tempVal = Math.random() * 2; // C++ allows > 1.0 for overbright additive
-                const cppFade = (Math.random() * 100) / 1000 + 0.003;
-                const fadePerSec = cppFade * 60;
+                const fadePerSec = 1.5 + Math.random() * 2.5; // 1.5-4.0/s → lifetime 0.18-0.47s
                 const angleDeg = -10 + Math.random() * 20; // -10° to +10° from UP
                 const angleRad = (angleDeg * Math.PI) / 180;
                 this.particles.emit(ship.x + engineOffX, ship.y, 1, {
                     color: { r: tempVal, g: tempVal, b: 1.0 },
-                    speed: 3 + Math.random() * 5,
-                    life: 1.0,   // C++ intensity = 1.0f for frigates
+                    speed: 40 + Math.random() * 40,  // 40-80 px/s — visible upward exhaust
+                    life: 0.7,   // Slightly reduced from 1.0 for tighter trail
                     fade: fadePerSec,
                     direction: angleRad,
                     spread: 0,

@@ -272,15 +272,12 @@ export class Player {
     emitEngineFlame(particles: import('../engine').ParticleSystem): void {
         if (!this.alive) return;
         const tempVal = Math.random() * 2; // C++ allows > 1.0 — additive blend handles overbright
-        const angleDeg = 175 + Math.random() * 10;
+        const angleDeg = 175 + Math.random() * 10; // ~downward with slight spread
         const angleRad = (angleDeg * Math.PI) / 180;
-        const cppFade = (Math.random() * 100) / 1000 + 0.003;
-        const fadePerSec = cppFade * 60;
-        // C++ speed: StarField::rnd()/20.0 ≈ near-zero (rnd() returns 0-~32767, /20 ≈ 0-1600 game units)
-        // But game units use VELOCITY_DIVISOR. Actual screen speed is very slow (~2-5 px/s).
+        const fadePerSec = 1.5 + Math.random() * 2.5; // 1.5-4.0/s → lifetime 0.1-0.27s
         particles.emit(this.x + 38, this.y + 47, 1, {
             color: { r: 1.0, g: tempVal, b: tempVal },
-            speed: 3 + Math.random() * 5,   // Slow drift downward
+            speed: 30 + Math.random() * 30,  // 30-60 px/s — visible exhaust trail
             life: 0.4,   // C++ intensity = 0.4f (max alpha)
             fade: fadePerSec,
             direction: angleRad,
