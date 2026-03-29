@@ -427,7 +427,8 @@ export class GameManager {
             this.input.isKeyPressed(Input.ENTER))) {
             this.audio.resumeContext();
             this.startScreenTimer = 0;
-            this.introSound = null;
+            // Try to play intro sound immediately (iOS needs this in gesture context)
+            this.introSound = this.audio.playSound('Intro');
             this.state = GameState.StartScreen;
         }
     }
@@ -475,8 +476,8 @@ export class GameManager {
 
     private updateStartScreen(dt: number): void {
         this.startScreenTimer += dt;
-        // Defer intro sound until AudioContext is actually running (iOS needs time after resume)
-        if (!this.introSound && this.audio.isReady()) {
+        // Retry intro sound if the eager attempt produced a silent null-instance
+        if (this.introSound && !this.introSound.isPlaying() && this.startScreenTimer < 1.0 && this.audio.isReady()) {
             this.introSound = this.audio.playSound('Intro');
         }
         // Fade audio out starting at 3s over 2s
