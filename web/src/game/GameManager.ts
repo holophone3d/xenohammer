@@ -133,6 +133,7 @@ export class GameManager {
             ['MenuChange', 'sounds/MenuChange.mp3'],
             ['MenuSelect', 'sounds/MenuSelect.mp3'],
             ['BossNear1', 'sounds/BossNear1.mp3'],
+            ['Warp', 'sounds/warp.mp3'],
         ];
         const musicFiles: [string, string][] = [
             ['Level2', 'sounds/Level2.mp3'],
@@ -2739,6 +2740,7 @@ export class GameManager {
                 // Emergency Warp — costs all RUs
                 if (this.player) {
                     this.audio.playSound('MenuSelect');
+                    this.audio.playSound('Warp');
                     this.player.powerPlant.resourceUnits = 0;
                     this.paused = false;
                     this.warpSpeed = 0;
