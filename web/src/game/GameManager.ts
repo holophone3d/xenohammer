@@ -410,19 +410,9 @@ export class GameManager {
             this.input.isMousePressed() ||
             this.input.isKeyPressed(Input.SPACE) ||
             this.input.isKeyPressed(Input.ENTER))) {
-            // Fade out intro sound over 2s then stop it
+            // Stop intro sound immediately
             if (this.introSound) {
-                const snd = this.introSound;
-                const startVol = 1.0;
-                const fadeMs = 2000;
-                const step = 50;
-                let elapsed = 0;
-                const iv = setInterval(() => {
-                    elapsed += step;
-                    const vol = Math.max(0, startVol * (1 - elapsed / fadeMs));
-                    snd.setVolume(vol);
-                    if (elapsed >= fadeMs) { clearInterval(iv); snd.stop(); }
-                }, step);
+                this.introSound.stop();
                 this.introSound = null;
             }
             setTimeout(() => {
@@ -791,47 +781,52 @@ export class GameManager {
             }
         }
 
-        // Update projectiles with homing target finding (cone-based)
+        // Update projectiles with homing target finding (cone-based, priority-aware)
         const HOMING_CONE_COS = Math.cos(60 * Math.PI / 180); // 60° half-angle forward cone
-        // Collect all possible homing targets (enemies + boss components)
-        const homingTargets: { x: number; y: number }[] = [];
+        // Collect all homing targets: priority 1=weapons, 2=passive, 3=regular enemies
+        const homingTargets: { x: number; y: number; priority: number }[] = [];
         for (const e of this.enemies) {
-            if (e.alive) homingTargets.push({ x: e.x + (e.width ?? 32) / 2, y: e.y + (e.height ?? 32) / 2 });
+            if (e.alive) homingTargets.push({ x: e.x + (e.width ?? 32) / 2, y: e.y + (e.height ?? 32) / 2, priority: 3 });
         }
         if (this.boss?.alive) {
             for (const t of this.boss.getHomingTargets()) homingTargets.push(t);
+        }
+        for (const ship of this.capitalShips) {
+            if (ship.isAlive()) {
+                for (const t of ship.getHomingTargets()) homingTargets.push(t);
+            }
         }
         for (const proj of this.projectiles) {
             if (proj.homing && proj.owner === 'player' && homingTargets.length > 0) {
                 const headingAngle = Math.atan2(proj.vy, proj.vx);
                 const hx = Math.cos(headingAngle);
                 const hy = Math.sin(headingAngle);
-                let bestDist = Infinity;
-                let bestX: number | undefined;
-                let bestY: number | undefined;
-                // Also track nearest overall as fallback
-                let fallbackDist = Infinity;
+                let bestPri = Infinity, bestDist = Infinity;
+                let bestX: number | undefined, bestY: number | undefined;
+                let fallbackPri = Infinity, fallbackDist = Infinity;
                 let fallbackX = 0, fallbackY = 0;
                 for (const t of homingTargets) {
                     const dx = t.x - proj.x;
                     const dy = t.y - proj.y;
                     const d2 = dx * dx + dy * dy;
-                    if (d2 < fallbackDist) {
+                    // Fallback: best priority, then nearest
+                    if (t.priority < fallbackPri || (t.priority === fallbackPri && d2 < fallbackDist)) {
+                        fallbackPri = t.priority;
                         fallbackDist = d2;
                         fallbackX = t.x;
                         fallbackY = t.y;
                     }
-                    // Check if target is within forward cone
+                    // Cone check: prefer higher priority, then nearest
                     const dist = Math.sqrt(d2);
                     if (dist < 1) continue;
                     const dot = (dx / dist) * hx + (dy / dist) * hy;
-                    if (dot >= HOMING_CONE_COS && d2 < bestDist) {
+                    if (dot >= HOMING_CONE_COS && (t.priority < bestPri || (t.priority === bestPri && d2 < bestDist))) {
+                        bestPri = t.priority;
                         bestDist = d2;
                         bestX = t.x;
                         bestY = t.y;
                     }
                 }
-                // Prefer cone target; fall back to nearest if nothing in cone
                 if (bestX !== undefined) {
                     proj.update(dt, bestX, bestY);
                 } else {

@@ -657,6 +657,29 @@ export class CapitalShip {
         return { x: this.x + BODY_WIDTH / 2, y: this.y + BODY_HEIGHT / 2 };
     }
 
+    /** Return homing-targetable positions with priority (1=weapon, 2=passive). */
+    getHomingTargets(): { x: number; y: number; priority: number }[] {
+        const targets: { x: number; y: number; priority: number }[] = [];
+        const add = (c: FrigateComponent, pri: number) => {
+            if (c.alive && c.damageable) {
+                targets.push({
+                    x: this.x + c.offsetX + c.width / 2,
+                    y: this.y + c.offsetY + c.height / 2,
+                    priority: pri,
+                });
+            }
+        };
+        // Priority 1: turrets (weapons)
+        add(this.rightTurret, 1);
+        add(this.leftTurret, 1);
+        // Priority 2: structural
+        add(this.rightWing, 2);
+        add(this.leftWing, 2);
+        add(this.nose, 2);
+        add(this.body, 2);
+        return targets;
+    }
+
     /**
      * Get explosion points for death sequence (from C++ Frigate::destroy_ship()).
      * Returns 8 explosion positions relative to world coordinates.

@@ -1250,16 +1250,28 @@ export class Boss {
     }
 
     /** Return center positions of all living, damageable components for homing targeting. */
-    getHomingTargets(): { x: number; y: number }[] {
-        const targets: { x: number; y: number }[] = [];
-        const addComp = (c: BossComponent) => {
+    /** Return homing-targetable positions with priority (1=weapon, 2=passive). */
+    getHomingTargets(): { x: number; y: number; priority: number }[] {
+        const targets: { x: number; y: number; priority: number }[] = [];
+        // Priority 1: turrets (weapons)
+        for (const ai of this.outerTurretAIs) {
+            if (!ai.destroyed && !ai.comp.destroyed) {
+                targets.push({
+                    x: ai.comp.x + ai.comp.width / 2,
+                    y: ai.comp.y + ai.comp.height / 2,
+                    priority: 1,
+                });
+            }
+        }
+        // Priority 2: damageable orbs, platforms
+        const addPassive = (c: BossComponent) => {
             if (!c.destroyed && c.damageable) {
-                targets.push({ x: c.x + c.width / 2, y: c.y + c.height / 2 });
+                targets.push({ x: c.x + c.width / 2, y: c.y + c.height / 2, priority: 2 });
             }
         };
-        for (const orb of this.outerOrbs) addComp(orb);
-        addComp(this.centerOrb);
-        for (const plat of this.platforms) addComp(plat);
+        for (const orb of this.outerOrbs) addPassive(orb);
+        addPassive(this.centerOrb);
+        for (const plat of this.platforms) addPassive(plat);
         return targets;
     }
 
