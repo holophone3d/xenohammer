@@ -171,7 +171,7 @@ export class GameManager {
         this.player = new Player();
         this.player.loadSprite(this.assets);
 
-        this.state = GameState.StartScreen;
+        this.state = GameState.Loading;
     }
 
     /** Load pre-rendered level intro animation frames.
