@@ -1,6 +1,20 @@
 import { defineConfig } from "vite";
-import { rmSync } from "fs";
+import { rmSync, copyFileSync, mkdirSync } from "fs";
 import { resolve } from "path";
+
+const ICON_PACK = resolve(__dirname, "../assets/icon-pack");
+const PUBLIC = resolve(__dirname, "public");
+
+// Icons to copy from assets/icon-pack → web/public before each build
+const ICONS = [
+  "favicon.ico",
+  "favicon-16x16.png",
+  "favicon-32x32.png",
+  "apple-touch-icon.png",
+  "icon-192.png",
+  "icon-512.png",
+  "site.webmanifest",
+];
 
 export default defineConfig({
   root: ".",
@@ -10,7 +24,15 @@ export default defineConfig({
   },
   plugins: [
     {
-      name: "exclude-unneeded-assets",
+      name: "sync-icons-and-cleanup",
+      buildStart() {
+        mkdirSync(PUBLIC, { recursive: true });
+        for (const f of ICONS) {
+          try {
+            copyFileSync(resolve(ICON_PACK, f), resolve(PUBLIC, f));
+          } catch { /* icon-pack file missing — skip */ }
+        }
+      },
       closeBundle() {
         const toRemove = [
           "dist/assets/reference_screenshots",
