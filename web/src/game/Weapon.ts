@@ -29,9 +29,10 @@ export class Weapon {
 
     // Homing config (for missiles)
     private homingEnabled = false;
-    private homingTrackDist = 64;
-    private homingMinDist = 16;
+    private homingTrackDist = 800;
+    private homingMinDist = 8;
     private homingSpeed = 20;
+    private homingTurnRate = 4.0;
 
     // Enemy velocity passthrough (for enemyBlast)
     private _enemyVx = 0;
@@ -59,9 +60,10 @@ export class Weapon {
 
         if (config.homing) {
             this.homingEnabled = true;
-            this.homingTrackDist = config.homingTrackDist ?? 64;
-            this.homingMinDist = config.homingMinDist ?? 16;
+            this.homingTrackDist = config.homingTrackDist ?? 800;
+            this.homingMinDist = config.homingMinDist ?? 8;
             this.homingSpeed = config.homingSpeed ?? 20;
+            this.homingTurnRate = config.homingTurnRate ?? 4.0;
         }
     }
 
@@ -139,6 +141,7 @@ export class Weapon {
             proj.homingTrackDist = this.homingTrackDist;
             proj.homingMinDist = this.homingMinDist;
             proj.homingSpeed = this.homingSpeed;
+            proj.homingTurnRate = this.homingTurnRate;
         }
 
         return proj;

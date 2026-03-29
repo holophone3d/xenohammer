@@ -99,6 +99,7 @@ export interface WeaponConfig {
     homingTrackDist?: number;
     homingMinDist?: number;
     homingSpeed?: number;
+    homingTurnRate?: number;
 }
 
 export const WEAPONS = {
@@ -125,9 +126,10 @@ export const WEAPONS = {
         spritePrefix: 'torp_',
         frameCount: 5,
         homing: true,
-        homingTrackDist: 64,
-        homingMinDist: 16,
+        homingTrackDist: 800,
+        homingMinDist: 8,
         homingSpeed: 20,
+        homingTurnRate: 4.0,
     } as WeaponConfig,
 
     enemyBlast: {

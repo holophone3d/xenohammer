@@ -26,6 +26,7 @@ export class Projectile {
     homingTrackDist = 64;
     homingMinDist = 16;
     homingSpeed = 20;
+    homingTurnRate = 3.0; // radians/sec — how fast it can steer
     distanceTraveled = 0;
 
     constructor(
@@ -55,17 +56,30 @@ export class Projectile {
     update(dt: number, targetX?: number, targetY?: number): void {
         if (!this.alive) return;
 
-        // Homing guidance — only after 50px traveled
+        // Homing guidance — continuous steering after 50px traveled
         if (this.homing && this.distanceTraveled > 50 &&
             targetX !== undefined && targetY !== undefined) {
             const dx = targetX - this.x;
             const dy = targetY - this.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
 
-            if (dist > this.homingMinDist && dist < this.homingTrackDist) {
-                const angle = Math.atan2(dy, dx);
-                this.vx = Math.cos(angle) * this.homingSpeed;
-                this.vy = Math.sin(angle) * this.homingSpeed;
+            if (dist > this.homingMinDist) {
+                // Current heading angle
+                const curAngle = Math.atan2(this.vy, this.vx);
+                // Desired angle toward target
+                const desiredAngle = Math.atan2(dy, dx);
+                // Shortest angular difference
+                let diff = desiredAngle - curAngle;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                // Clamp turn by turn rate
+                const maxTurn = this.homingTurnRate * dt;
+                const turn = Math.max(-maxTurn, Math.min(maxTurn, diff));
+                const newAngle = curAngle + turn;
+                // Maintain current speed
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy) || this.homingSpeed;
+                this.vx = Math.cos(newAngle) * speed;
+                this.vy = Math.sin(newAngle) * speed;
             }
         }
 
