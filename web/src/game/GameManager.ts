@@ -1368,12 +1368,16 @@ export class GameManager {
         for (const exp of this.gameExplosions) exp.update(dt);
         this.gameExplosions = this.gameExplosions.filter(e => !e.isFinished());
 
-        // Ship off screen → return to ready room with full health
-        if (this.player.y < -120) {
-            this.player.shields = this.player.maxShields;
-            this.player.armor = this.player.maxArmor;
-            this.player.alive = true;
-            this.returnToReadyRoom();
+        // Ship off screen → start white fade, then return to ready room
+        if (this.player.y < -60 && this.warpSpeed > 0) {
+            // warpFadeTimer: use negative warpSpeed as sentinel — repurpose stateTimer
+            // Once ship passes y=-60, allow 0.5s of white fade
+            if (this.player.y < -200) {
+                this.player.shields = this.player.maxShields;
+                this.player.armor = this.player.maxArmor;
+                this.player.alive = true;
+                this.returnToReadyRoom();
+            }
         }
     }
 
@@ -1429,14 +1433,11 @@ export class GameManager {
         this.hud.draw(ctx, this.player, this.score, this.level,
             timeRemaining, this.player?.kills ?? 0);
 
-        // "EMERGENCY WARP" flash text
-        if (Math.floor(this.stateTimer * 4) % 2 === 0) {
-            ctx.save();
-            ctx.font = '28px XenoFont, monospace';
-            ctx.fillStyle = '#ffcc00';
-            ctx.textAlign = 'center';
-            ctx.fillText('EMERGENCY WARP', 325, 280);
-            ctx.restore();
+        // Fade to white once ship nears the top of the screen
+        if (this.player.y < 0) {
+            const fadeProgress = Math.min(1, -this.player.y / 150);
+            ctx.fillStyle = `rgba(255,255,255,${fadeProgress})`;
+            ctx.fillRect(0, 0, 800, 600);
         }
     }
 
