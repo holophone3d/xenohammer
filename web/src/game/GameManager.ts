@@ -23,6 +23,7 @@ export enum GameState {
     StartScreen,
     ReadyRoom,
     Playing,
+    PlayerDying,
     LevelComplete,
     GameOver,
     Victory,
@@ -66,6 +67,7 @@ export class GameManager {
     private levelBriefed = 0;
     private musicPlaying = '';
     private engineSound: SoundInstance | null = null;
+    private spaceAmbient: SoundInstance | null = null;
     private smallExpFrames: HTMLImageElement[] = [];
     private bigExpFrames: HTMLImageElement[] = [];
     private levelAnimFrames: HTMLImageElement[][] = []; // per-level start animation frames
@@ -73,6 +75,9 @@ export class GameManager {
     private levelEndAnimStart = 0; // timestamp when end animation started
     private hasNewCustomization = true; // "NEW!" label in ready room
     private playerDiedLastLevel = false; // death message in ready room
+    private deathX = 0;
+    private deathY = 0;
+    private deathNextExplosion = 0; // timer for staggered explosions
     private briefingScrollY = 0;
     private briefingScrollStart = 0;
     private aftermathY = 600; // C++ aftermath scroll position (600 → -550)
@@ -244,6 +249,9 @@ export class GameManager {
             case GameState.Playing:
                 this.updatePlaying(dt);
                 break;
+            case GameState.PlayerDying:
+                this.updatePlayerDying(dt);
+                break;
             case GameState.LevelComplete:
                 this.updateLevelComplete(dt);
                 break;
@@ -303,6 +311,9 @@ export class GameManager {
                 break;
             case GameState.Playing:
                 this.renderPlaying();
+                break;
+            case GameState.PlayerDying:
+                this.renderPlayerDying();
                 break;
             case GameState.LevelComplete:
                 this.renderLevelComplete();
@@ -377,7 +388,7 @@ export class GameManager {
             // Delay Space ambient slightly — on iOS the AudioContext needs
             // time to resume after the gesture handler's ctx.resume() call
             setTimeout(() => {
-                this.audio.playSound('Space', true);
+                this.spaceAmbient = this.audio.playSound('Space', true);
             }, 150);
             this.started = true;
             this.state = GameState.ReadyRoom;
@@ -400,6 +411,11 @@ export class GameManager {
     // ========== State: ReadyRoom ==========
 
     private updateReadyRoom(): void {
+        // Ensure space ambient is playing (may have been killed by death sequence / pause)
+        if (!this.spaceAmbient || !this.spaceAmbient.isPlaying()) {
+            this.spaceAmbient = this.audio.playSound('Space', true);
+        }
+
         const mouse = this.input.getMousePos();
         const mx = mouse.x;
         const my = mouse.y;
@@ -550,6 +566,12 @@ export class GameManager {
         if (levelDef?.hasBoss) {
             this.boss = new Boss(this.difficulty);
             this.boss.loadSprites(this.assets);
+        }
+
+        // Stop space ambient — gameplay has its own soundscape
+        if (this.spaceAmbient) {
+            this.spaceAmbient.stop();
+            this.spaceAmbient = null;
         }
 
         // Start level music — original uses Level2.mp3 for ALL levels
@@ -761,12 +783,27 @@ export class GameManager {
         this.enemies = this.enemies.filter(e => e.alive);
         this.projectiles = this.projectiles.filter(p => p.alive);
 
-        // Check game over
+        // Check player death → enter dying sequence
         if (this.player && !this.player.alive) {
             this.stopGameplaySounds();
             this.playerDiedLastLevel = true;
-            this.state = GameState.GameOver;
+            this.deathX = this.player.x + (this.player.getRect().w / 2);
+            this.deathY = this.player.y + (this.player.getRect().h / 2);
+            this.deathNextExplosion = 0;
+            this.state = GameState.PlayerDying;
             this.stateTimer = 0;
+
+            // Initial massive explosion burst
+            this.audio.playSound('ExploMini1');
+            this.makeExplosions(this.deathX, this.deathY, 0, 0);
+            this.makeExplosions(this.deathX, this.deathY, 0, 0);
+            this.particles.emit(this.deathX, this.deathY, 40, {
+                color: { r: 1, g: 0.6, b: 0.1 }, speed: 120, life: 1.5, fade: 1.0,
+            });
+            this.particles.emit(this.deathX, this.deathY, 20, {
+                color: { r: 1, g: 0.2, b: 0.2 }, speed: 80, life: 2.0, fade: 0.8,
+                gravity: true,
+            });
             return;
         }
 
@@ -886,6 +923,26 @@ export class GameManager {
                 this.player!.takeDamage(20, this.now);
                 enemy.takeDamage(50);
                 if (!enemy.alive) this.onEnemyKilled(enemy);
+            }
+        }
+
+        // 4b. Player vs capital ships / boss (body collision — massive damage)
+        const BOSS_RAM_DAMAGE = 50;
+        for (const ship of this.capitalShips) {
+            if (!ship.isAlive()) continue;
+            for (const { rect } of ship.getComponentRects()) {
+                if (rectsOverlap(playerRect, rect)) {
+                    this.player!.takeDamage(BOSS_RAM_DAMAGE, this.now);
+                    break;
+                }
+            }
+        }
+        if (this.boss && this.boss.alive) {
+            for (const { rect } of this.boss.getComponentRects()) {
+                if (rectsOverlap(playerRect, rect)) {
+                    this.player!.takeDamage(BOSS_RAM_DAMAGE, this.now);
+                    break;
+                }
             }
         }
 
@@ -1142,6 +1199,87 @@ export class GameManager {
     private renderLevelComplete(): void {
         // Not used — C++ has no separate level complete screen
         // (end animation plays during last 5 seconds of gameplay, then straight to Ready Room)
+    }
+
+    // ========== State: PlayerDying (death explosion sequence) ==========
+
+    private static readonly DEATH_DURATION = 2.5; // seconds before GameOver
+    private static readonly DEATH_EXPLOSION_INTERVAL = 0.15; // staggered secondary explosions
+
+    private updatePlayerDying(dt: number): void {
+        this.stateTimer += dt;
+        this.starField.update(dt);
+
+        // Staggered secondary explosions around the death site
+        this.deathNextExplosion -= dt;
+        if (this.deathNextExplosion <= 0 && this.stateTimer < 1.8) {
+            this.deathNextExplosion = GameManager.DEATH_EXPLOSION_INTERVAL;
+            const rx = this.deathX + (Math.random() - 0.5) * 80;
+            const ry = this.deathY + (Math.random() - 0.5) * 80;
+            this.gameExplosions.push(
+                new Explosion(rx, ry, 'big', this.bigExpFrames,
+                    (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4));
+            this.particles.emit(rx, ry, 8, {
+                color: { r: 1, g: 0.5, b: 0.1 }, speed: 60, life: 0.8,
+            });
+            if (this.stateTimer < 0.6) {
+                this.audio.playSound('ExploMini1');
+            }
+        }
+
+        // Keep explosions and particles animating
+        for (const exp of this.gameExplosions) exp.update(dt);
+        this.gameExplosions = this.gameExplosions.filter(e => !e.isFinished());
+        this.particles.update(dt);
+
+        // Keep enemies/boss drifting so the scene doesn't freeze
+        for (const enemy of this.enemies) {
+            if (enemy.alive) enemy.y += 20 * dt;
+        }
+
+        // Transition to GameOver after death sequence completes
+        if (this.stateTimer >= GameManager.DEATH_DURATION) {
+            this.state = GameState.GameOver;
+            this.stateTimer = 0;
+        }
+    }
+
+    private renderPlayerDying(): void {
+        const ctx = this.canvas.ctx;
+
+        this.starField.draw(ctx, this.level === 0);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, PLAY_AREA_W, PLAY_AREA_H);
+        ctx.clip();
+
+        // Draw remaining enemies/boss (no player)
+        for (const ship of this.capitalShips) ship.render(ctx);
+        if (this.boss && this.boss.isVisible()) this.boss.draw(ctx, this.assets);
+        for (const enemy of this.enemies) {
+            if (enemy.alive) enemy.draw(ctx);
+        }
+
+        // Explosions and particles
+        for (const exp of this.gameExplosions) exp.draw(ctx);
+        this.particles.draw(ctx);
+
+        ctx.restore();
+
+        // HUD stays visible
+        const timeRemaining = Math.max(0,
+            this.waveManager.getLevelDuration() - this.waveManager.getLevelTimer());
+        this.hud.draw(ctx, this.player, this.score, this.level,
+            timeRemaining, this.player?.kills ?? 0);
+
+        // Fade to black during the last second
+        const fadeStart = GameManager.DEATH_DURATION - 1.0;
+        if (this.stateTimer > fadeStart) {
+            const alpha = Math.min(1, (this.stateTimer - fadeStart) / 1.0);
+            ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+            ctx.fillRect(0, 0, 800, 600);
+        }
     }
 
     // ========== State: GameOver ==========
