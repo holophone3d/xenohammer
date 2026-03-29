@@ -249,7 +249,7 @@ export class GameManager {
                 this.updateStartScreen(dt);
                 break;
             case GameState.ReadyRoom:
-                this.updateReadyRoom();
+                this.updateReadyRoom(dt);
                 break;
             case GameState.Playing:
                 this.updatePlaying(dt);
@@ -433,6 +433,7 @@ export class GameManager {
             this.introSound.setVolume(1.0 - fadeProgress);
         }
         if (this.started) {
+            this.readyRoomFadeTimer = 0;
             this.state = GameState.ReadyRoom;
             return;
         }
@@ -445,6 +446,7 @@ export class GameManager {
                 this.spaceAmbient = this.audio.playSoundLoopCrossfade('Space');
             }, 150);
             this.started = true;
+            this.readyRoomFadeTimer = 0;
             this.state = GameState.ReadyRoom;
             return;
         }
@@ -455,6 +457,7 @@ export class GameManager {
                 this.spaceAmbient = this.audio.playSoundLoopCrossfade('Space');
             }, 150);
             this.started = true;
+            this.readyRoomFadeTimer = 0;
             this.state = GameState.ReadyRoom;
         }
     }
@@ -489,6 +492,8 @@ export class GameManager {
 
     // ========== State: ReadyRoom ==========
 
+    private readyRoomFadeTimer = 0;
+
     /** Ensure the looping space ambient is alive (restarts if killed by stopAllSounds, etc.) */
     private ensureSpaceAmbient(): void {
         if (!this.spaceAmbient || !this.spaceAmbient.isPlaying()) {
@@ -496,7 +501,8 @@ export class GameManager {
         }
     }
 
-    private updateReadyRoom(): void {
+    private updateReadyRoom(dt: number): void {
+        this.readyRoomFadeTimer = Math.min(this.readyRoomFadeTimer + dt, 1.0);
         this.ensureSpaceAmbient();
 
         const mouse = this.input.getMousePos();
@@ -617,9 +623,15 @@ export class GameManager {
 
         ctx.fillText(tooltip, 400, 580);
         ctx.textAlign = 'left';
-    }
 
-    // ========== State: Playing ==========
+        // Fade-in from black overlay
+        if (this.readyRoomFadeTimer < 1.0) {
+            ctx.fillStyle = '#000';
+            ctx.globalAlpha = 1.0 - this.readyRoomFadeTimer;
+            ctx.fillRect(0, 0, 800, 600);
+            ctx.globalAlpha = 1.0;
+        }
+    }
 
     private startLevel(levelIndex: number): void {
         this.level = levelIndex;
@@ -1307,8 +1319,8 @@ export class GameManager {
     private updateLevelComplete(dt: number): void {
         // C++: when timer expires, immediately return to Ready Room (no hold screen)
         this.advanceLevel();
-        this.state = GameState.ReadyRoom;
-    }
+        this.readyRoomFadeTimer = 0;
+        this.state = GameState.ReadyRoom;    }
 
     private renderLevelComplete(): void {
         // Not used — C++ has no separate level complete screen
@@ -1532,6 +1544,7 @@ export class GameManager {
                 this.player.shields = this.player.maxShields;
                 this.player.armor = this.player.maxArmor;
             }
+            this.readyRoomFadeTimer = 0;
             this.state = GameState.ReadyRoom;
         }
     }
@@ -1561,6 +1574,7 @@ export class GameManager {
             // C++: aftermath returns directly to Ready Room, no Victory screen.
             // levelNum is incremented, score/kills preserved.
             this.advanceLevel();
+            this.readyRoomFadeTimer = 0;
             this.state = GameState.ReadyRoom;
             this.stateTimer = 0;
             this.audio.stopMusic();
@@ -1603,6 +1617,7 @@ export class GameManager {
         if (this.input.isKeyPressed(Input.ENTER) || this.input.isKeyPressed(Input.SPACE)) {
             this.score = 0;
             this.level = 0;
+            this.readyRoomFadeTimer = 0;
             this.state = GameState.ReadyRoom;
         }
     }
@@ -3072,6 +3087,7 @@ export class GameManager {
         this.capitalShips = [];
         this.boss = null;
         this.particles.clear();
+        this.readyRoomFadeTimer = 0;
         this.state = GameState.ReadyRoom;
     }
 
