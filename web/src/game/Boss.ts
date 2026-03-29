@@ -671,7 +671,6 @@ export class Boss {
             this.stateTimer = 0;
             // Shield is down — center platform becomes shootable immediately
             this.centerNode.damageable = true;
-            this.centerOrb.damageable = true;
         }
 
         this.updateTurretFiring(dt, playerX, playerY);
@@ -1068,6 +1067,11 @@ export class Boss {
             for (const ai of this.uTurretAIs) {
                 if (ai.comp === comp) { ai.destroyed = true; break; }
             }
+
+            // Center node destroyed → expose the center orb
+            if (comp === this.centerNode) {
+                this.centerOrb.damageable = true;
+            }
         }
         return true;
     }
@@ -1113,10 +1117,10 @@ export class Boss {
             }
         }
 
-        // 2. Center orb (64x64 win condition)
-        if (check(this.centerOrb)) return this.centerOrb;
-        // 3. Center node (160x160 — only damageable in Final)
+        // 2. Center node (160x160 — must be destroyed before center orb is exposed)
         if (check(this.centerNode)) return this.centerNode;
+        // 3. Center orb (64x64 win condition — only hittable after node destroyed)
+        if (this.centerNode.destroyed && check(this.centerOrb)) return this.centerOrb;
         // 4. Outer orbs (64x64 each)
         for (const orb of this.outerOrbs) {
             if (check(orb)) return orb;
