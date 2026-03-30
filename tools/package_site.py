@@ -11,7 +11,6 @@ Output structure:
   dist/
   ├── index.html               (landing page)
   ├── archives/                (archived Tripod/external content)
-  ├── screenshots/             (reference screenshots for gallery)
   └── play/                    (the game - fully self-contained)
       ├── index.html
       ├── favicon.ico
@@ -78,22 +77,22 @@ def copy_site():
     shutil.copytree(src_archives, dst_archives)
     print(f'Copied archives')
 
-    # Copy reference screenshots
-    src_screenshots = os.path.join(ASSETS_DIR, 'reference_screenshots')
-    dst_screenshots = os.path.join(DIST_DIR, 'screenshots')
-    shutil.copytree(src_screenshots, dst_screenshots)
-    print(f'Copied reference screenshots')
+    # Copy hero video if it exists
+    hero_video = os.path.join(SITE_DIR, 'hero-gameplay.webm')
+    if os.path.exists(hero_video):
+        shutil.copy2(hero_video, os.path.join(DIST_DIR, 'hero-gameplay.webm'))
+        print('Copied hero video')
 
     # Read and rewrite site/index.html
     with open(os.path.join(SITE_DIR, 'index.html'), 'r', encoding='utf-8') as f:
         html = f.read()
 
     # Rewrite paths:
-    #   ../game/web/dist/index.html  ->  play/index.html
-    #   ../game/web/assets/reference_screenshots/  ->  screenshots/
+    #   ../game/web/dist/index.html       ->  play/index.html
+    #   ../game/web/assets/fonts/mine.ttf ->  play/assets/fonts/mine.ttf
     #   archives/  stays as-is (already correct)
     html = html.replace('../game/web/dist/index.html', 'play/index.html')
-    html = re.sub(r'\.\./game/web/assets/reference_screenshots/', 'screenshots/', html)
+    html = html.replace('../game/web/assets/fonts/mine.ttf', 'play/assets/fonts/mine.ttf')
 
     with open(os.path.join(DIST_DIR, 'index.html'), 'w', encoding='utf-8') as f:
         f.write(html)

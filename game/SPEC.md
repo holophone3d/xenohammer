@@ -1,7 +1,7 @@
 # XenoHammer — Game Specification
 
 > Authoritative reference for both `web/` and `classic/` implementations.
-> All values sourced from the original C++ code and `assets/game-constants.json`.
+> All values sourced from the original C++ code.
 
 ---
 

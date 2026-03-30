@@ -24,7 +24,7 @@ export interface PowerSetting {
     rightTurretAngle: number;
 }
 
-// Default balanced setting from game-constants.json
+// Default balanced setting from original C++ source
 const DEFAULT_SETTING: PowerSetting = {
     blasterCell1: 1, blasterCell2: 1,
     leftTurretCell1: 1, leftTurretCell2: 1,

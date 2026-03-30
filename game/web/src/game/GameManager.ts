@@ -548,12 +548,6 @@ export class GameManager {
 
     private updateStartScreen(dt: number): void {
         this.startScreenTimer += dt;
-        // Retry intro sound if the initial gesture-context attempt failed silently
-        if (this.startScreenTimer < 1.0 && this.audio.isReady()) {
-            if (!this.introSound) {
-                this.introSound = this.audio.playSound('Intro');
-            }
-        }
         // Fade audio out starting at 3s over 2s
         if (this.introSound && this.startScreenTimer > 3.0) {
             const fadeProgress = Math.min(1, (this.startScreenTimer - 3.0) / 2.0);

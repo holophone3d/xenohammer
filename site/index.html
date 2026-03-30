@@ -8,6 +8,7 @@
 <style>
 /* ===== RESET & BASE ===== */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+@font-face{font-family:'XenoFont';src:url('../game/web/assets/fonts/mine.ttf') format('truetype');font-display:swap}
 :root{
   --bg:#08080f;--bg2:#0c0c18;--bg3:#10101f;
   --green:#00ff66;--green-dim:#00cc52;--green-glow:rgba(0,255,102,.15);
@@ -64,15 +65,16 @@ nav .nav-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;width:100%;displa
 /* ===== HERO ===== */
 .hero{position:relative;z-index:1;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden}
 .hero-bg{position:absolute;inset:0;z-index:0}
-.hero-bg img{width:100%;height:100%;object-fit:cover;opacity:.15;filter:blur(2px)}
-.hero-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,8,15,.4) 0%,rgba(8,8,15,.85) 60%,var(--bg) 100%)}
+.hero-bg video,.hero-bg img{width:100%;height:100%;object-fit:cover;opacity:.18;filter:blur(2px) saturate(1.3)}
+.hero-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,8,15,.3) 0%,rgba(8,8,15,.85) 60%,var(--bg) 100%)}
 .hero-content{position:relative;z-index:2;padding:2rem 1.5rem}
-.hero-title{font-size:clamp(2.8rem,8vw,5.5rem);font-weight:900;letter-spacing:.12em;text-transform:uppercase;background:linear-gradient(135deg,var(--green),var(--cyan),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:glow-pulse 4s ease-in-out infinite;line-height:1.1}
-@keyframes glow-pulse{0%,100%{filter:drop-shadow(0 0 20px rgba(0,255,102,.3))}50%{filter:drop-shadow(0 0 40px rgba(0,255,102,.5))}}
+.hero-title{font-family:'XenoFont',monospace;font-size:clamp(3rem,9vw,6rem);font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:var(--green);text-shadow:0 0 40px rgba(0,255,102,.4),0 0 80px rgba(0,255,102,.2);animation:title-glow 4s ease-in-out infinite;line-height:1.1}
+@keyframes title-glow{0%,100%{text-shadow:0 0 40px rgba(0,255,102,.4),0 0 80px rgba(0,255,102,.2)}50%{text-shadow:0 0 60px rgba(0,255,102,.6),0 0 120px rgba(0,255,102,.3),0 0 160px rgba(0,255,102,.1)}}
 .hero-codename{font-size:clamp(.85rem,2vw,1.1rem);color:var(--text-dim);letter-spacing:.25em;text-transform:uppercase;margin-top:.75rem}
+/* ===== ANNIVERSARY BADGE ===== */
+.anniversary-badge{display:inline-block;padding:.4rem 1.2rem;background:rgba(0,255,102,.1);border:1px solid var(--green);border-radius:20px;color:var(--green);font-size:.8rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:1rem;animation:badge-pulse 3s ease-in-out infinite}
+@keyframes badge-pulse{0%,100%{box-shadow:0 0 8px rgba(0,255,102,.2)}50%{box-shadow:0 0 20px rgba(0,255,102,.4)}}
 .hero-tagline{font-size:clamp(1rem,2.5vw,1.35rem);color:var(--text);margin-top:.5rem;font-weight:300}
-.hero-quote{font-style:italic;color:var(--cyan);margin-top:1.5rem;font-size:clamp(.85rem,1.8vw,1.05rem);max-width:600px;margin-left:auto;margin-right:auto;opacity:.85}
-.hero-quote span{color:var(--text-dim);font-style:normal}
 .hero-meta{color:var(--text-dim);font-size:.8rem;letter-spacing:.15em;text-transform:uppercase;margin-top:1.5rem}
 .hero-play{display:inline-flex;align-items:center;gap:.6rem;margin-top:2rem;padding:.9rem 2.5rem;background:linear-gradient(135deg,var(--green),#00dd55);color:#000;font-weight:800;font-size:1.1rem;letter-spacing:.1em;text-transform:uppercase;border:none;border-radius:4px;cursor:pointer;text-decoration:none;transition:transform .2s,box-shadow .2s;box-shadow:0 0 30px rgba(0,255,102,.3)}
 .hero-play:hover{transform:translateY(-2px);box-shadow:0 0 50px rgba(0,255,102,.5);color:#000}
@@ -189,6 +191,23 @@ nav .nav-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;width:100%;displa
 .cactaur-block h4{color:var(--text-bright);font-size:1.1rem;margin-bottom:.5rem;text-transform:none;letter-spacing:0}
 .cactaur-block p{color:var(--text-dim);font-size:.85rem;max-width:500px;margin:0 auto;line-height:1.6}
 
+/* ===== AI PRESERVATION ===== */
+.ai-section{background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.ai-grid{display:grid;grid-template-columns:1fr 1fr;gap:2.5rem;align-items:center}
+.ai-text p{font-size:.9rem;color:var(--text);line-height:1.75;margin-bottom:1rem}
+.ai-text .ai-highlight{color:var(--green);font-weight:600}
+.ai-before-after{display:grid;gap:1.25rem}
+.ai-card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:1.25rem;position:relative;overflow:hidden}
+.ai-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%}
+.ai-card.before::before{background:#ff4444}
+.ai-card.after::before{background:var(--green)}
+.ai-card h4{font-size:.8rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem}
+.ai-card.before h4{color:#ff6666}
+.ai-card.after h4{color:var(--green)}
+.ai-card p{font-size:.8rem;color:var(--text-dim);line-height:1.6}
+.ai-card code{font-family:monospace;font-size:.75rem;color:var(--cyan);background:rgba(68,136,255,.1);padding:.1rem .3rem;border-radius:2px}
+.ai-badge{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .8rem;background:rgba(0,255,102,.08);border:1px solid rgba(0,255,102,.2);border-radius:20px;font-size:.7rem;color:var(--green);font-weight:600;letter-spacing:.06em;margin-top:.5rem}
+
 /* ===== FOOTER ===== */
 footer{position:relative;z-index:1;border-top:1px solid var(--border);padding:3rem 0 2rem;text-align:center}
 footer .footer-cta{display:inline-flex;align-items:center;gap:.5rem;padding:.65rem 2rem;background:transparent;border:1px solid var(--green);color:var(--green);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;border-radius:4px;transition:all .2s;margin-bottom:2rem}
@@ -205,6 +224,7 @@ footer .heart{color:var(--green)}
   .nav-links{display:none}
   .hamburger{display:block}
   .about-grid{grid-template-columns:1fr}
+  .ai-grid{grid-template-columns:1fr}
   .timeline::before{left:1rem}
   .tl-item,.tl-item:nth-child(odd),.tl-item:nth-child(even){width:100%;left:0;text-align:left;padding-left:2.5rem;padding-right:0}
   .tl-item:nth-child(odd) .tl-dot,.tl-item:nth-child(even) .tl-dot{left:4px;right:auto}
@@ -236,6 +256,7 @@ footer .heart{color:var(--green)}
       <li><a href="#gallery">Gallery</a></li>
       <li><a href="#timeline">Timeline</a></li>
       <li><a href="#archives">Archives</a></li>
+      <li><a href="#preservation">Preservation</a></li>
       <li><a href="#strategy">Strategy</a></li>
       <li><a href="#team">Team</a></li>
     </ul>
@@ -248,6 +269,7 @@ footer .heart{color:var(--green)}
   <a href="#gallery">Gallery</a>
   <a href="#timeline">Timeline</a>
   <a href="#archives">Archives</a>
+  <a href="#preservation">Preservation</a>
   <a href="#strategy">Strategy</a>
   <a href="#team">Team</a>
 </div>
@@ -255,16 +277,18 @@ footer .heart{color:var(--green)}
 <!-- ===== HERO ===== -->
 <section class="hero" id="hero">
   <div class="hero-bg">
-    <img src="../game/web/assets/reference_screenshots/10_gameplay_combat.png" alt="" loading="eager">
+    <video autoplay muted loop playsinline id="heroVideo" poster="">
+      <source src="hero-gameplay.webm" type="video/webm">
+    </video>
   </div>
   <div class="hero-content">
     <h1 class="hero-title">XenoHammer</h1>
     <div class="hero-codename">Codename: XenoHammerGL</div>
-    <p class="hero-tagline">A top-down space combat arcade shooter</p>
-    <p class="hero-quote">&ldquo;Hands down, the most stunning visuals ever seen in a ClanLib powered game!&rdquo;<br><span>&mdash; Cactaur</span></p>
+    <div class="anniversary-badge">&#127881; 25th Anniversary &mdash; 2001&ndash;2026</div>
+    <p class="hero-tagline">A top-down retro modern combat arcade shooter</p>
     <div class="hero-meta">Georgia Tech &middot; 2001 &middot; IGF Student Showcase 2002</div>
     <a href="../game/web/dist/index.html" class="hero-play">&#9654; Play Now</a>
-    <p class="hero-note">Web rewrite in TypeScript &mdash; faithful to the original</p>
+    <p class="hero-note">Faithfully rewritten in TypeScript &mdash; playable in any browser</p>
   </div>
 </section>
 
@@ -303,11 +327,7 @@ footer .heart{color:var(--green)}
 <!-- ===== GALLERY ===== -->
 <section id="gallery">
   <div class="container">
-    <div class="reveal"><div class="section-line"></div><h2>Gallery</h2><p class="section-sub">Screenshots from the Original Game &amp; Web Archives</p></div>
-    <div class="gallery-tabs reveal">
-      <button class="gallery-tab active" data-tab="original">Original Game</button>
-      <button class="gallery-tab" data-tab="tripod">From the Web (Tripod)</button>
-    </div>
+    <div class="reveal"><div class="section-line"></div><h2>Gallery</h2><p class="section-sub">Screenshots from the Original Web Archives</p></div>
     <div class="gallery-grid reveal" id="galleryGrid"></div>
   </div>
 </section>
@@ -324,7 +344,7 @@ footer .heart{color:var(--green)}
       <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Jan 2002</span><h4 class="tl-title">IGF Student Showcase Selection</h4><p class="tl-desc">Selected as 1 of 10 games from 31 entries for the Independent Games Festival 2002 Student Showcase, judged by the Seattle IGDA chapter.</p></div>
       <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Mar 2002</span><h4 class="tl-title">GDC 2002 &mdash; San Jose</h4><p class="tl-desc">The team showcases XenoHammer at the Game Developers Conference. Reviewers praise the physics-based explosions and graphical polish for a student project.</p></div>
       <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">2002 &ndash; 2025</span><h4 class="tl-title">Legacy</h4><p class="tl-desc">The game lives on in academic references, GDC archives, and the memories of the ClanLib community. The original Tripod site fades but is archived.</p></div>
-      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">2026</span><h4 class="tl-title">Reborn for the Web</h4><p class="tl-desc">XenoHammer is faithfully rewritten in TypeScript and Canvas, making it playable in any modern browser. This tribute site preserves the full history.</p></div>
+      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">2026</span><h4 class="tl-title">25th Anniversary &mdash; Reborn for the Web</h4><p class="tl-desc">Celebrating 25 years since development began, XenoHammer is faithfully rewritten in TypeScript and Canvas. Playable on any device&mdash;desktop or mobile, portrait or landscape&mdash;this tribute preserves the full history for a new generation.</p></div>
     </div>
   </div>
 </section>
@@ -361,15 +381,15 @@ footer .heart{color:var(--green)}
       <h3><span class="icon">&#127942;</span> Press &amp; Recognition</h3>
       <div class="press-cards">
         <div class="press-card">
-          <h4>GDC 2002 Student Showcase Review</h4>
-          <p>Mason McCuskey attended the Student Showcase at GDC 2002 and reviewed all ten selected games.</p>
+          <h4>GDC 2002 &mdash; Dedicated Booth at the Student Showcase</h4>
+          <p>The team presented XenoHammer in a dedicated booth at the Game Developers Conference 2002 in San Jose. Mason McCuskey attended and reviewed all ten selected games.</p>
           <blockquote>&ldquo;The physics-based explosions were cool&hellip; overall, the quality of the graphics was very high for a student project.&rdquo;</blockquote>
           <p>He noted the team of 3 coders and 1 artist built the game in just 2.5 months. Their post-mortem revealed the short schedule paradoxically helped&mdash;it kept the team intensely motivated. Given more time, they said they would have gone fully 3D.</p>
           <div class="src">Source: Mason McCuskey &mdash; <a href="archives/raw/external/gdc2002_student_showcase.html" target="_blank">GDC 2002 Student Showcase article</a></div>
         </div>
         <div class="press-card">
           <h4>IGF 2002 Student Showcase Selection</h4>
-          <p>The Independent Games Festival selected XenoHammer as one of 10 student games (from 31 entries) for their 2002 Student Showcase at the Game Developers Conference in San Jose. Entries were judged by the Seattle chapter of the IGDA.</p>
+          <p>The Independent Games Festival selected XenoHammer for their 2002 Student Showcase at the Game Developers Conference in San Jose. Entries were judged by the Seattle chapter of the IGDA.</p>
           <p>Team credited: B. Smith, C. Haire, J. Shelton, R. Norris, M. Andrew</p>
           <div class="src">Source: <a href="archives/raw/external/igf_2002_student_showcase.html" target="_blank">IGF 2002 Official Announcement</a></div>
         </div>
@@ -411,6 +431,36 @@ footer .heart{color:var(--green)}
       </div>
     </div>
 
+    <div class="reveal" style="text-align:center;margin-top:2.5rem">
+      <a href="archives/index.html" class="btn" style="border-color:var(--green);color:var(--green);font-size:.9rem;padding:.7rem 2rem">&#128218; Explore the Full Archive</a>
+    </div>
+
+  </div>
+</section>
+
+<!-- ===== AI & GAME PRESERVATION ===== -->
+<section id="preservation" class="ai-section">
+  <div class="container">
+    <div class="reveal"><div class="section-line"></div><h2>Preservation</h2><p class="section-sub">AI-Assisted Game Preservation</p></div>
+    <div class="ai-grid">
+      <div class="ai-text reveal">
+        <p>In 2025, a weekend project using <span class="ai-highlight">GitHub Copilot</span> brought XenoHammer back from the dead.</p>
+        <p>The original C++ source code had survived 25 years&mdash;but it couldn&rsquo;t compile. The game depended on <strong>ClanLib 0.6</strong>, a game engine library that no longer exists in any usable form. No headers, no binaries, no documentation. The release binaries of XenoHammer itself were also lost to time.</p>
+        <p>AI changed the equation. GitHub Copilot was able to read the 25-year-old C++ source, infer what the missing ClanLib engine did from context alone, and help port the entire game to TypeScript and HTML5 Canvas. The velocity math, the 8-angle turret lookup tables, the particle systems, the power management&mdash;all reverse-engineered from source that referenced a library nobody had anymore.</p>
+        <p>The result is a faithful browser-playable version that runs on any device. No emulator, no plugins&mdash;just a modern rewrite guided by AI that could understand code from another era.</p>
+        <div class="ai-badge">&#129302; Built with GitHub Copilot</div>
+      </div>
+      <div class="ai-before-after reveal reveal-delay-1">
+        <div class="ai-card before">
+          <h4>&#10060; Before</h4>
+          <p>~8,000 lines of C++ referencing <code>ClanLib 0.6</code>&mdash;a library with no surviving headers, docs, or binaries. The code compiled against Visual C++ 6.0 (1998). Release executables lost. <strong>The game was unplayable.</strong></p>
+        </div>
+        <div class="ai-card after">
+          <h4>&#9989; After</h4>
+          <p>Faithfully rewritten in TypeScript with HTML5 Canvas. All 3 levels, 5 enemy types, boss fights, ship customization, particle effects, and the original soundtrack&mdash;playable in any modern browser, on any device.</p>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -434,6 +484,10 @@ footer .heart{color:var(--green)}
       <div class="tip-card">
         <h4>&#127919; Stay Mobile</h4>
         <p>Standing still is a death sentence. Enemies fire on sight and some will kamikaze straight into you. Keep moving to dodge incoming fire and avoid collisions.</p>
+      </div>
+      <div class="tip-card">
+        <h4>&#128736; Debug Menu</h4>
+        <p>Click <strong>Debug</strong> in the Options screen (or double-tap the <strong>` backtick</strong> key) to open the debug console. From there you can skip to any level, spawn the boss or frigate, toggle god mode with max power, add resource units, or show the FPS counter.</p>
       </div>
     </div>
     <h3 class="reveal" style="font-size:1.15rem;margin-bottom:1.5rem;color:var(--text-bright)">Enemy Intel</h3>
@@ -581,34 +635,17 @@ footer .heart{color:var(--green)}
 
 /* ===== GALLERY ===== */
 (function(){
-  const IMAGES={
-    original:[
-      {src:'../game/web/assets/reference_screenshots/01_ready_room_default.png',cap:'Ready Room \u2014 the central hub between missions'},
-      {src:'../game/web/assets/reference_screenshots/02_ready_room_briefing_hover.png',cap:'Ready Room \u2014 hovering over the Briefing monitor'},
-      {src:'../game/web/assets/reference_screenshots/03_ready_room_briefing_hover_alt.png',cap:'Ready Room \u2014 alternate briefing hover state'},
-      {src:'../game/web/assets/reference_screenshots/04_ready_room_customize_hover.png',cap:'Ready Room \u2014 hovering over Ship Customization'},
-      {src:'../game/web/assets/reference_screenshots/05_briefing_options_menu.png',cap:'Briefing and Options menu screen'},
-      {src:'../game/web/assets/reference_screenshots/06_briefing_lore_text.png',cap:'Scrolling backstory lore text'},
-      {src:'../game/web/assets/reference_screenshots/07_ship_specifications.png',cap:'Ship specifications display'},
-      {src:'../game/web/assets/reference_screenshots/08_ship_customization.png',cap:'Ship customization \u2014 weapons, shields, and systems'},
-      {src:'../game/web/assets/reference_screenshots/09_level1_intro.png',cap:'Level 1 intro animation'},
-      {src:'../game/web/assets/reference_screenshots/10_gameplay_combat.png',cap:'Gameplay \u2014 intense space combat'}
-    ],
-    tripod:[
-      {src:'archives/images/tripod/XenoHammerGL.jpg',cap:'XenoHammerGL \u2014 OpenGL version showcase (from Tripod site)'},
-      {src:'archives/images/tripod/xhattack.jpg',cap:'Attack in progress \u2014 featured on Tripod and GDC page'},
-      {src:'archives/images/gdc/xeno1.jpg',cap:'GDC promotional screenshot'}
-    ]
-  };
+  const IMAGES=[
+    {src:'archives/images/tripod/XenoHammerGL.jpg',cap:'XenoHammerGL \u2014 OpenGL version showcase (from Tripod site)'},
+    {src:'archives/images/tripod/xhattack.jpg',cap:'Attack in progress \u2014 featured on Tripod and GDC page'},
+    {src:'archives/images/gdc/xeno1.jpg',cap:'GDC promotional screenshot'}
+  ];
   const grid=document.getElementById('galleryGrid');
-  let current='original',lbItems=[],lbIdx=0;
+  let lbItems=IMAGES,lbIdx=0;
 
-  function render(tab){
-    current=tab;
+  function render(){
     grid.innerHTML='';
-    const imgs=IMAGES[tab];
-    lbItems=imgs;
-    imgs.forEach((img,i)=>{
+    IMAGES.forEach((img,i)=>{
       const d=document.createElement('div');
       d.className='gallery-item scanlines';
       d.innerHTML='<img src="'+img.src+'" alt="'+img.cap+'" loading="lazy"><div class="caption">'+img.cap+'</div>';
@@ -617,14 +654,7 @@ footer .heart{color:var(--green)}
     })
   }
 
-  document.querySelectorAll('.gallery-tab').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      document.querySelectorAll('.gallery-tab').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      render(btn.dataset.tab)
-    })
-  });
-  render('original');
+  render();
 
   /* Lightbox */
   const lb=document.getElementById('lightbox'),lbImg=document.getElementById('lbImg'),lbCap=document.getElementById('lbCaption'),lbCnt=document.getElementById('lbCounter');

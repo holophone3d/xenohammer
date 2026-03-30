@@ -9,7 +9,7 @@ const PUBLIC = resolve(__dirname, "public");
 const ASSET_DIRS = ["graphics", "sounds", "fonts"];
 
 // Individual asset files to sync from assets/ → public/assets/
-const ASSET_FILES = ["manifest.json", "game-constants.json"];
+const ASSET_FILES = ["manifest.json"];
 
 // Icons to sync from assets/icon-pack/ → public/ (site root)
 const ICON_FILES = [

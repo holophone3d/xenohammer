@@ -1,5 +1,5 @@
 /**
- * Ship and weapon configurations derived from game-constants.json.
+ * Ship and weapon configurations derived from the original C++ source.
  */
 
 export interface ShipConfig {
