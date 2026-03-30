@@ -1,7 +1,9 @@
 /**
- * Promise-based batch loading of images (and sound via AudioManager).
+ * Promise-based batch loading of images, sounds, and music.
  * Tracks progress for loading screens.
  */
+import type { AudioManager } from './Audio';
+
 export class AssetLoader {
     private images: Map<string, HTMLImageElement> = new Map();
     private loadedCount = 0;
@@ -88,18 +90,45 @@ export class AssetLoader {
     }
 
     /**
-     * Load a manifest.json and batch-load all graphics entries.
-     * Manifest format: { "graphics": { "assetId": "path/to/file.webp", ... } }
+     * Load a manifest.json and batch-load all asset entries.
+     * Manifest format: {
+     *   "graphics": { "id": "path/to/file.webp", ... },
+     *   "sounds":   { "id": "path/to/file.mp3", ... },
+     *   "music":    { "id": "path/to/file.mp3", ... }
+     * }
      */
-    async loadManifest(manifestUrl: string, basePath: string): Promise<void> {
+    async loadManifest(manifestUrl: string, basePath: string, audio?: AudioManager): Promise<void> {
         const response = await fetch(manifestUrl);
         const manifest = await response.json();
+
+        const promises: Promise<unknown>[] = [];
+
         if (manifest.graphics && typeof manifest.graphics === 'object') {
             const entries: Array<{ id: string; url: string }> = [];
             for (const [id, file] of Object.entries(manifest.graphics)) {
                 entries.push({ id, url: `${basePath}/${file}` });
             }
-            await this.loadImages(entries);
+            promises.push(this.loadImages(entries));
         }
+
+        if (audio && manifest.sounds && typeof manifest.sounds === 'object') {
+            for (const [id, file] of Object.entries(manifest.sounds)) {
+                this.totalCount++;
+                promises.push(
+                    audio.loadSound(id, `${basePath}/${file}`).finally(() => { this.loadedCount++; })
+                );
+            }
+        }
+
+        if (audio && manifest.music && typeof manifest.music === 'object') {
+            for (const [id, file] of Object.entries(manifest.music)) {
+                this.totalCount++;
+                promises.push(
+                    audio.loadMusic(id, `${basePath}/${file}`).finally(() => { this.loadedCount++; })
+                );
+            }
+        }
+
+        await Promise.all(promises);
     }
 }

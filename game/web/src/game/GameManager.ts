@@ -136,41 +136,9 @@ export class GameManager {
     async init(): Promise<void> {
         this.state = GameState.Loading;
 
-        // Register audio load count up front so progress bar never goes backwards
-        const soundFiles: [string, string][] = [
-            ['Space', 'sounds/Space.mp3'],
-            ['PlayerGun1', 'sounds/PlayerGun1.mp3'],
-            ['PlayerGun2', 'sounds/PlayerGun2.mp3'],
-            ['AlienWeapon1', 'sounds/AlienWeapon1.mp3'],
-            ['AlienWeapon5', 'sounds/AlienWeapon5.mp3'],
-            ['ExploMini1', 'sounds/ExploMini1.mp3'],
-            ['CoinCollected', 'sounds/CoinCollected.mp3'],
-            ['ShipEngine', 'sounds/ShipEngine.mp3'],
-            ['MenuChange', 'sounds/MenuChange.mp3'],
-            ['MenuSelect', 'sounds/MenuSelect.mp3'],
-            ['BossNear1', 'sounds/BossNear1.mp3'],
-            ['Warp', 'sounds/warp.mp3'],
-            ['Intro', 'sounds/intro.mp3'],
-        ];
-        const musicFiles: [string, string][] = [
-            ['Level2', 'sounds/Level2.mp3'],
-            ['bossTEST', 'sounds/bossTEST.mp3'],
-        ];
-        this.assets.addPending(soundFiles.length + musicFiles.length);
-
-        // Load all assets in parallel (images + sounds + music)
-        const imageLoad = this.assets.loadManifest('assets/manifest.json', 'assets')
+        // Load all assets from manifest (images + sounds + music)
+        await this.assets.loadManifest('assets/manifest.json', 'assets', this.audio)
             .catch(e => console.warn('Failed to load manifest, continuing without assets:', e));
-
-        await Promise.all([
-            imageLoad,
-            ...soundFiles.map(([id, path]) =>
-                this.audio.loadSound(id, `assets/${path}`).finally(() => this.assets.markLoaded())
-            ),
-            ...musicFiles.map(([id, path]) =>
-                this.audio.loadMusic(id, `assets/${path}`).finally(() => this.assets.markLoaded())
-            ),
-        ]);
 
         // Cache explosion frames
         this.smallExpFrames = Explosion.loadFrames(this.assets, 'small');
