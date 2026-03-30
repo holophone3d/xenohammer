@@ -1,12 +1,11 @@
 # Dependencies
 node_modules/
-web/node_modules/
 
 # Build output
-web/dist/
-classic/build/
-classic/out/
-site/
+game/web/dist/
+game/classic/build/
+game/classic/out/
+dist/
 
 # IDE
 .vs/
@@ -25,4 +24,4 @@ __pycache__/
 *.pyc
 
 # vcpkg
-classic/vcpkg_installed/
+game/classic/vcpkg_installed/

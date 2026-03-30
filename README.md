@@ -14,40 +14,58 @@ capital ships, and a massive multi-component boss across 3 levels. Features incl
 - **Epic Boss Fight**: Multi-component boss with shields, orbs, turrets, and platforms
 - **Power Management**: Balance between shields, engines, and weapons
 
-## Projects
+## Project Structure
 
-### 🌐 `web/` — Browser Rewrite (TypeScript + Canvas 2D)
-Complete rewrite as a browser-playable game. Zero dependencies.
+```
+xenohammer_2026/
+├── game/                    # Game source and assets
+│   ├── SPEC.md              # Authoritative game specification
+│   ├── web/                 # Browser rewrite (TypeScript + Canvas 2D)
+│   │   ├── src/             # Game source code
+│   │   ├── assets/          # Game assets (sprites, sounds, fonts)
+│   │   ├── public/          # Vite static files (icons, manifest)
+│   │   └── dist/            # Vite build output (gitignored)
+│   └── classic/             # C++ with SDL2 ClanLib shim (scaffolded)
+├── site/                    # Landing page source
+│   ├── index.html           # Tribute/landing page
+│   └── archives/            # Archived Tripod/external content
+├── tools/                   # Build and utility scripts
+│   ├── package_site.py      # Build game + package everything → dist/
+│   ├── convert_assets.py    # PCX→PNG asset converter
+│   └── archive_tripod.py    # Wayback Machine archiver
+├── dist/                    # Packaged deployable site (gitignored)
+└── README.md
+```
 
+## Quick Start
+
+### Play the web version
 ```bash
-cd web
+cd game/web
 npm install
 npm run dev    # → http://localhost:5173/
 ```
 
-### 🎮 `classic/` — C++ with SDL2 (ClanLib Shim)
-Original C++ source running on a ClanLib API emulation layer backed by SDL2.
-
+### Build and package the full site
 ```bash
-cd classic
+python tools/package_site.py          # builds game + packages to dist/
+python tools/package_site.py --skip-build   # reuse existing game/web/dist
+```
+
+### Classic C++ build (scaffolded, not yet functional)
+```bash
+cd game/classic
 cmake -B build -DCMAKE_TOOLCHAIN_FILE=[vcpkg-root]/scripts/buildsystems/vcpkg.cmake
 cmake --build build
 ```
 
-### 📦 `assets/` — Shared Converted Assets
-- 336 PNGs converted from original PCX sprites (with transparency)
-- 24 sound files (WAV + OGG Vorbis)
-- 11 font files (TTF)
-- `manifest.json` — asset ID to file path mapping
-- `game-constants.json` — extracted gameplay data
+## Game Specification
 
-### 🔧 `tools/` — Build Scripts
-- `convert_assets.py` — Batch PCX→PNG converter with ClanLib tcol transparency
-
-### 📋 `SPEC.md` — Game Specification
-Authoritative reference for both implementations. Covers game flow, timing model,
-all entity stats, wave definitions, collision rules, sound triggers, and asset manifest.
+See [`game/SPEC.md`](game/SPEC.md) for the authoritative reference covering game flow,
+timing model, entity stats, wave definitions, collision rules, sound triggers, and
+asset manifest.
 
 ## Original Source
+
 The unmodified original C++ source is at `E:\Source\xenohammer\`.
 The compiled original game (with assets) is in `E:\Source\xenohammer\Debug\`.
