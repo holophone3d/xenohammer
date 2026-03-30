@@ -653,6 +653,7 @@ export class GameManager {
     // ========== State: ReadyRoom ==========
 
     private readyRoomFadeTimer = 0;
+    private readyRoomFadeFromWhite = false;
 
     /** Ensure the looping space ambient is alive (restarts if killed by stopAllSounds, etc.) */
     private ensureSpaceAmbient(): void {
@@ -784,9 +785,9 @@ export class GameManager {
         ctx.fillText(tooltip, 400, 580);
         ctx.textAlign = 'left';
 
-        // Fade-in from black overlay
+        // Fade-in overlay (black normally, white after warp)
         if (this.readyRoomFadeTimer < 1.0) {
-            ctx.fillStyle = '#000';
+            ctx.fillStyle = this.readyRoomFadeFromWhite ? '#fff' : '#000';
             ctx.globalAlpha = 1.0 - this.readyRoomFadeTimer;
             ctx.fillRect(0, 0, 800, 600);
             ctx.globalAlpha = 1.0;
@@ -1642,7 +1643,7 @@ export class GameManager {
                 this.player.shields = this.player.maxShields;
                 this.player.armor = this.player.maxArmor;
                 this.player.alive = true;
-                this.returnToReadyRoom();
+                this.returnToReadyRoom(true);
             }
             return;
         }
@@ -3317,7 +3318,7 @@ export class GameManager {
         return -1;
     }
 
-    private returnToReadyRoom(): void {
+    private returnToReadyRoom(fromWarp = false): void {
         this.audio.stopMusic();
         if (this.engineSound) { this.engineSound.stop(); this.engineSound = null; }
         if (this.playerFireSound) { this.playerFireSound.stop(); this.playerFireSound = null; }
@@ -3329,6 +3330,7 @@ export class GameManager {
         this.boss = null;
         this.particles.clear();
         this.readyRoomFadeTimer = 0;
+        this.readyRoomFadeFromWhite = fromWarp;
         this.state = GameState.ReadyRoom;
     }
 
