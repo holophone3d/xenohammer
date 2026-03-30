@@ -1634,6 +1634,19 @@ export class GameManager {
         if (!this.player) { this.returnToReadyRoom(); return; }
         this.stateTimer += dt;
 
+        // White-hold phase: just count down then return
+        if (this.warpWhiteHold !== undefined) {
+            this.warpWhiteHold += dt;
+            if (this.warpWhiteHold >= 1.0) {
+                this.warpWhiteHold = undefined;
+                this.player.shields = this.player.maxShields;
+                this.player.armor = this.player.maxArmor;
+                this.player.alive = true;
+                this.returnToReadyRoom();
+            }
+            return;
+        }
+
         // Accelerate upward
         this.warpSpeed = Math.min(
             this.warpSpeed + GameManager.WARP_ACCEL * dt,
@@ -1678,25 +1691,11 @@ export class GameManager {
         for (const exp of this.gameExplosions) exp.update(dt);
         compactInPlace(this.gameExplosions, e => !e.isFinished());
 
-        // Ship off screen → hold on white then transition
-        if (this.player.y < -60 && this.warpSpeed > 0) {
-            if (this.player.y < -200) {
-                // Freeze ship off-screen, let the white-hold timer run
-                this.warpSpeed = 0;
-                this.player.y = -300;
-                this.warpWhiteHold = 0;
-            }
-        }
-        // Count down white-hold before returning
-        if (this.warpWhiteHold !== undefined && this.warpSpeed === 0) {
-            this.warpWhiteHold += dt;
-            if (this.warpWhiteHold >= 1.0) {
-                this.warpWhiteHold = undefined;
-                this.player.shields = this.player.maxShields;
-                this.player.armor = this.player.maxArmor;
-                this.player.alive = true;
-                this.returnToReadyRoom();
-            }
+        // Ship off screen → enter white-hold phase
+        if (this.player.y < -200) {
+            this.warpSpeed = 0;
+            this.player.y = -300;
+            this.warpWhiteHold = 0;
         }
     }
 
