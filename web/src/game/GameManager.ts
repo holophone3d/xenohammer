@@ -117,6 +117,7 @@ export class GameManager {
     private paused = false;
     private pauseHover = -1; // 0=Resume, 1=Emergency Warp, 2=Quit to Ready Room
     private warpSpeed = 0; // current warp velocity (px/s, accelerates)
+    private warpWhiteHold: number | undefined; // hold on full-white before transition
     private bossVictoryWarp = false; // true = warp ends at Aftermath, not ReadyRoom
     // Reusable arrays to avoid per-frame allocations
     private _homingTargets: { x: number; y: number; priority: number }[] = [];
@@ -1677,9 +1678,20 @@ export class GameManager {
         for (const exp of this.gameExplosions) exp.update(dt);
         compactInPlace(this.gameExplosions, e => !e.isFinished());
 
-        // Ship off screen → transition
+        // Ship off screen → hold on white then transition
         if (this.player.y < -60 && this.warpSpeed > 0) {
             if (this.player.y < -200) {
+                // Freeze ship off-screen, let the white-hold timer run
+                this.warpSpeed = 0;
+                this.player.y = -300;
+                this.warpWhiteHold = 0;
+            }
+        }
+        // Count down white-hold before returning
+        if (this.warpWhiteHold !== undefined && this.warpSpeed === 0) {
+            this.warpWhiteHold += dt;
+            if (this.warpWhiteHold >= 1.0) {
+                this.warpWhiteHold = undefined;
                 this.player.shields = this.player.maxShields;
                 this.player.armor = this.player.maxArmor;
                 this.player.alive = true;
@@ -3053,6 +3065,7 @@ export class GameManager {
                     this.player.powerPlant.resourceUnits = 0;
                     this.paused = false;
                     this.warpSpeed = 0;
+                    this.warpWhiteHold = undefined;
                     this.stateTimer = 0;
                     this.state = GameState.EscapeWarp;
                     this.audio.resumeMusic();
