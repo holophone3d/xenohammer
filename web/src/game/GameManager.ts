@@ -502,15 +502,17 @@ export class GameManager {
         const events = ['touchstart', 'click'] as const;
         const handler = () => {
             if (this.state !== GameState.Loading || !this.loadingComplete) return;
-            // Resume + play synchronously in gesture call stack.
-            // armGestureUnlock (which fires first) only resumes the context on
-            // the first gesture — it defers music.play() priming to the next
-            // gesture, so the gesture token is still available for source.start().
             this.audio.resumeContext();
             this.startScreenTimer = 0;
-            this.introSound = this.audio.playSound('Intro');
             this.state = GameState.StartScreen;
             events.forEach(e => document.removeEventListener(e, handler, true));
+            // Play Intro after short delay — same pattern as ReadyRoom's Space
+            // ambient. AudioContext.resume() is async; source.start() called
+            // synchronously on a still-suspended context is silently dropped.
+            // 150ms is enough for iOS to finish resuming.
+            setTimeout(() => {
+                this.introSound = this.audio.playSound('Intro');
+            }, 150);
         };
         events.forEach(e => document.addEventListener(e, handler, true));
     }
@@ -526,8 +528,11 @@ export class GameManager {
             this.input.isKeyPressed(Input.ENTER))) {
             this.audio.resumeContext();
             this.startScreenTimer = 0;
-            this.introSound = this.audio.playSound('Intro');
             this.state = GameState.StartScreen;
+            // Desktop context resumes fast but use same delay for consistency
+            setTimeout(() => {
+                this.introSound = this.audio.playSound('Intro');
+            }, 150);
         }
     }
 
