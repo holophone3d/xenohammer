@@ -26,9 +26,9 @@ import subprocess
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SITE_DIR = os.path.join(ROOT, 'site')
-WEB_DIR = os.path.join(ROOT, 'web')
+WEB_DIR = os.path.join(ROOT, 'game', 'web')
 TRIBUTE_DIR = os.path.join(ROOT, 'tribute')
-ASSETS_DIR = os.path.join(ROOT, 'assets')
+ASSETS_DIR = os.path.join(ROOT, 'game', 'assets')
 
 SKIP_BUILD = '--skip-build' in sys.argv
 
@@ -84,11 +84,11 @@ def copy_tribute():
         html = f.read()
 
     # Rewrite paths:
-    #   ../web/dist/index.html  ->  play/index.html
-    #   ../assets/reference_screenshots/  ->  screenshots/
+    #   ../game/web/dist/index.html  ->  play/index.html
+    #   ../game/assets/reference_screenshots/  ->  screenshots/
     #   archives/  stays as-is (already correct)
-    html = html.replace('../web/dist/index.html', 'play/index.html')
-    html = re.sub(r'\.\./assets/reference_screenshots/', 'screenshots/', html)
+    html = html.replace('../game/web/dist/index.html', 'play/index.html')
+    html = re.sub(r'\.\./game/assets/reference_screenshots/', 'screenshots/', html)
 
     with open(os.path.join(SITE_DIR, 'index.html'), 'w', encoding='utf-8') as f:
         f.write(html)
