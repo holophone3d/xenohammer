@@ -132,11 +132,13 @@ export class AudioManager {
         return !!this.ctx && this.ctx.state === 'running';
     }
 
-    /** Resume the AudioContext (call from a user gesture handler). */
-    resumeContext(): void {
+    /** Resume the AudioContext (call from a user gesture handler).
+     *  Returns a promise that resolves when the context is running. */
+    resumeContext(): Promise<void> {
         if (this.ctx && this.ctx.state === 'suspended') {
-            this.ctx.resume().catch(() => {});
+            return this.ctx.resume().catch(() => {});
         }
+        return Promise.resolve();
     }
 
     /** Play a loaded sound effect via Web Audio. */
