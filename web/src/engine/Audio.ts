@@ -76,9 +76,14 @@ export class AudioManager {
                     ctx.resume().catch(() => {});
                 }
                 this.contextResumed = true;
+                // On the FIRST gesture, only resume context — don't consume
+                // the gesture token with music.play(). Other handlers
+                // (armLoadingGesture) need the gesture to start Web Audio.
+                // iOS music priming will happen on the next gesture.
+                if (isIOS) return;
             }
 
-            // 2. iOS: play+pause a real music element
+            // 2. iOS: play+pause a real music element (deferred to 2nd+ gesture)
             if (isIOS && !this.iosPrimed) {
                 const music = this.musicElements.values().next().value as
                     HTMLAudioElement | undefined;

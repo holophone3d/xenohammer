@@ -502,15 +502,15 @@ export class GameManager {
         const events = ['touchstart', 'click'] as const;
         const handler = () => {
             if (this.state !== GameState.Loading || !this.loadingComplete) return;
+            // Resume + play synchronously in gesture call stack.
+            // armGestureUnlock (which fires first) only resumes the context on
+            // the first gesture — it defers music.play() priming to the next
+            // gesture, so the gesture token is still available for source.start().
+            this.audio.resumeContext();
             this.startScreenTimer = 0;
+            this.introSound = this.audio.playSound('Intro');
             this.state = GameState.StartScreen;
             events.forEach(e => document.removeEventListener(e, handler, true));
-            // Resume context first, then play Intro once it's actually running.
-            // On iOS, ctx.resume() is async — calling source.start() while still
-            // suspended silently drops the audio.
-            this.audio.resumeContext().then(() => {
-                this.introSound = this.audio.playSound('Intro');
-            });
         };
         events.forEach(e => document.addEventListener(e, handler, true));
     }
@@ -524,11 +524,10 @@ export class GameManager {
         if (this.loadingComplete && (
             this.input.isKeyPressed(Input.SPACE) ||
             this.input.isKeyPressed(Input.ENTER))) {
+            this.audio.resumeContext();
             this.startScreenTimer = 0;
+            this.introSound = this.audio.playSound('Intro');
             this.state = GameState.StartScreen;
-            this.audio.resumeContext().then(() => {
-                this.introSound = this.audio.playSound('Intro');
-            });
         }
     }
 
@@ -575,10 +574,11 @@ export class GameManager {
 
     private updateStartScreen(dt: number): void {
         this.startScreenTimer += dt;
-        // Retry intro sound if the initial attempt hasn't arrived yet (async resume)
-        // or produced a silent null-instance on iOS
-        if (!this.introSound && this.startScreenTimer < 1.0 && this.audio.isReady()) {
-            this.introSound = this.audio.playSound('Intro');
+        // Retry intro sound if the initial gesture-context attempt failed silently
+        if (this.startScreenTimer < 1.0 && this.audio.isReady()) {
+            if (!this.introSound) {
+                this.introSound = this.audio.playSound('Intro');
+            }
         }
         // Fade audio out starting at 3s over 2s
         if (this.introSound && this.startScreenTimer > 3.0) {
