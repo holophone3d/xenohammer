@@ -18,6 +18,18 @@ import { Boss, BossState } from './Boss';
 import { Explosion, ChainExplosion } from './Explosion';
 import { PowerUp } from './PowerUp';
 
+/** In-place array compaction — avoids allocating a new array like .filter() does. */
+function compactInPlace<T>(arr: T[], keep: (item: T) => boolean): void {
+    let w = 0;
+    for (let r = 0; r < arr.length; r++) {
+        if (keep(arr[r])) {
+            if (w !== r) arr[w] = arr[r];
+            w++;
+        }
+    }
+    arr.length = w;
+}
+
 export enum GameState {
     Loading,
     StartScreen,
@@ -106,6 +118,8 @@ export class GameManager {
     private pauseHover = -1; // 0=Resume, 1=Emergency Warp, 2=Quit to Ready Room
     private warpSpeed = 0; // current warp velocity (px/s, accelerates)
     private bossVictoryWarp = false; // true = warp ends at Aftermath, not ReadyRoom
+    // Reusable arrays to avoid per-frame allocations
+    private _homingTargets: { x: number; y: number; priority: number }[] = [];
 
     constructor(canvasId: string) {
         this.canvas = new GameCanvas(canvasId);
@@ -935,7 +949,7 @@ export class GameManager {
             ship.pendingComponentDestructions = [];
         }
         // Clean up dead capital ships
-        this.capitalShips = this.capitalShips.filter(s => s.isAlive());
+        compactInPlace(this.capitalShips, s => s.isAlive());
 
         // Update boss
         if (this.boss && this.boss.alive) {
@@ -1004,16 +1018,17 @@ export class GameManager {
         // Update projectiles with homing target finding (cone-based, priority-aware)
         const HOMING_CONE_COS = Math.cos(60 * Math.PI / 180); // 60° half-angle forward cone
         // Collect all homing targets: priority 1=weapons, 2=passive, 3=regular enemies
-        const homingTargets: { x: number; y: number; priority: number }[] = [];
+        const homingTargets = this._homingTargets;
+        homingTargets.length = 0;
         for (const e of this.enemies) {
             if (e.alive) homingTargets.push({ x: e.x + (e.width ?? 32) / 2, y: e.y + (e.height ?? 32) / 2, priority: 3 });
         }
         if (this.boss?.alive && this.boss.isVisible()) {
-            for (const t of this.boss.getHomingTargets()) homingTargets.push(t);
+            this.boss.appendHomingTargets(homingTargets);
         }
         for (const ship of this.capitalShips) {
             if (ship.isAlive()) {
-                for (const t of ship.getHomingTargets()) homingTargets.push(t);
+                ship.appendHomingTargets(homingTargets);
             }
         }
         for (const proj of this.projectiles) {
@@ -1061,13 +1076,13 @@ export class GameManager {
         for (const exp of this.gameExplosions) {
             exp.update(dt);
         }
-        this.gameExplosions = this.gameExplosions.filter(e => !e.isFinished());
+        compactInPlace(this.gameExplosions, e => !e.isFinished());
 
         // Update power-ups
         for (const pu of this.gamePowerUps) {
             if (pu.active) pu.update(dt);
         }
-        this.gamePowerUps = this.gamePowerUps.filter(p => p.active);
+        compactInPlace(this.gamePowerUps, p => p.active);
 
         // Update particles
         this.particles.update(dt);
@@ -1076,8 +1091,8 @@ export class GameManager {
         this.checkCollisions();
 
         // Cleanup dead entities
-        this.enemies = this.enemies.filter(e => e.alive);
-        this.projectiles = this.projectiles.filter(p => p.alive);
+        compactInPlace(this.enemies, e => e.alive);
+        compactInPlace(this.projectiles, p => p.alive);
 
         // Check player death → enter dying sequence
         if (this.player && !this.player.alive) {
@@ -1545,7 +1560,7 @@ export class GameManager {
 
         // Keep explosions and particles animating
         for (const exp of this.gameExplosions) exp.update(dt);
-        this.gameExplosions = this.gameExplosions.filter(e => !e.isFinished());
+        compactInPlace(this.gameExplosions, e => !e.isFinished());
         this.particles.update(dt);
 
         // Keep enemies/boss drifting so the scene doesn't freeze
@@ -1649,7 +1664,7 @@ export class GameManager {
         const px = this.player.x, py = this.player.y;
         for (const e of this.enemies) if (e.alive) e.update(dt, px, py);
         for (const exp of this.gameExplosions) exp.update(dt);
-        this.gameExplosions = this.gameExplosions.filter(e => !e.isFinished());
+        compactInPlace(this.gameExplosions, e => !e.isFinished());
 
         // Ship off screen → transition
         if (this.player.y < -60 && this.warpSpeed > 0) {
@@ -2550,7 +2565,7 @@ export class GameManager {
             p.y += p.vy;
             if (p.y < 200 || p.y > 600 || p.x < 510 || p.x > 800) p.alive = false;
         }
-        this.custDemoProjectiles = this.custDemoProjectiles.filter(p => p.alive);
+        compactInPlace(this.custDemoProjectiles, p => p.alive);
         // Cap array size
         if (this.custDemoProjectiles.length > 50) {
             this.custDemoProjectiles = this.custDemoProjectiles.slice(-50);

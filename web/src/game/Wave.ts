@@ -22,6 +22,7 @@ export class WaveManager {
     private levelIndex = 0;
     private spawnedWaves: Set<number> = new Set();
     private allWavesSpawned = false;
+    private _result: WaveSpawnResult = { enemies: [], capitalShips: [] };
     levelTimer = 0;
 
     /** Reset for a new level */
@@ -47,9 +48,11 @@ export class WaveManager {
     update(dt: number, difficulty: number): WaveSpawnResult {
         this.levelTimer += dt;
         const level = LEVELS[this.levelIndex];
-        if (!level) return { enemies: [], capitalShips: [] };
+        if (!level) { this._result.enemies.length = 0; this._result.capitalShips.length = 0; return this._result; }
 
-        const result: WaveSpawnResult = { enemies: [], capitalShips: [] };
+        const result = this._result;
+        result.enemies.length = 0;
+        result.capitalShips.length = 0;
         const modifier = DIFFICULTY_WAVE_MODIFIERS[difficulty] ?? 0;
 
         for (let i = 0; i < level.waves.length; i++) {

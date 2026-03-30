@@ -116,6 +116,9 @@ export class CapitalShip {
     private assets: AssetLoader | null = null;
     // Component destruction events for GameManager (sound + explosions)
     pendingComponentDestructions: Array<{ x: number; y: number }> = [];
+    // Per-frame cache for getComponentRects()
+    private _compRectsCache: Array<{ component: FrigateComponent; rect: Rect; collider: Collider }> = [];
+    private _compRectsDirty = true;
 
     // --- FrigateAI state (ported from FrigateAI.cpp) ---
     private aiState = FrigateAIState.ENTERING_SCREEN;
@@ -529,6 +532,7 @@ export class CapitalShip {
     update(dt: number, playerX: number, playerY: number, now: number): void {
         if (!this.alive) return;
 
+        this._compRectsDirty = true;
         this.pendingProjectiles = [];
         this.pendingFireSounds = [];
         this.updateDamageableFlags();
@@ -652,7 +656,11 @@ export class CapitalShip {
 
     getComponentRects(): Array<{ component: FrigateComponent; rect: Rect; collider: Collider }> {
         this.updateDamageableFlags();
-        const results: Array<{ component: FrigateComponent; rect: Rect; collider: Collider }> = [];
+        if (!this._compRectsDirty) return this._compRectsCache;
+        this._compRectsDirty = false;
+
+        const results = this._compRectsCache;
+        results.length = 0;
         for (const comp of this.allComponents()) {
             if (!comp.alive) continue;
             const cx = this.x + comp.offsetX;
@@ -684,6 +692,12 @@ export class CapitalShip {
     /** Return homing-targetable positions with priority (1=weapon, 2=passive). */
     getHomingTargets(): { x: number; y: number; priority: number }[] {
         const targets: { x: number; y: number; priority: number }[] = [];
+        this.appendHomingTargets(targets);
+        return targets;
+    }
+
+    /** Append homing targets directly into caller's array (avoids intermediate allocation). */
+    appendHomingTargets(targets: { x: number; y: number; priority: number }[]): void {
         const add = (c: FrigateComponent, pri: number) => {
             if (c.alive && c.damageable) {
                 targets.push({
@@ -701,7 +715,6 @@ export class CapitalShip {
         add(this.leftWing, 2);
         add(this.nose, 2);
         add(this.body, 2);
-        return targets;
     }
 
     /**

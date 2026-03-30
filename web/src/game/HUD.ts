@@ -63,12 +63,14 @@ export class HUD {
 
         if (!player) return;
 
+        // Set font once for entire HUD draw (iOS parses font string on every assignment)
+        ctx.font = '14px XenoFont, monospace';
+
         // Vertical offset for text only (power cell bars stay at Console.h positions)
         const dy = 12;
 
         // Rank — centered at top of panel
         const rank = this.getRank(kills);
-        ctx.font = '14px XenoFont, monospace';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#0f0';
         ctx.fillText(rank, 725, 12 + dy);
@@ -90,7 +92,6 @@ export class HUD {
         this.drawCellBars(ctx, 728, 122, player.powerPlant.getEngineCells());
 
         // Kills
-        ctx.font = '14px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.fillText('Kills', 660, 130 + dy);
         ctx.textAlign = 'right';
@@ -101,20 +102,17 @@ export class HUD {
         const setting = player.powerPlant.currentSetting;
         const settingLabels = ["speed setting 'Q'", "power setting 'W'", "armor setting 'E'"];
         const settingY = [190 + dy, 220 + dy, 250 + dy];
-        ctx.font = '14px XenoFont, monospace';
         for (let i = 0; i < 3; i++) {
             ctx.fillStyle = setting === i ? '#0f0' : '#9b9b9b';
             ctx.fillText(settingLabels[i], 660, settingY[i]);
         }
 
         // RU's
-        ctx.font = '14px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.fillText("RU's", 660, 280 + dy);
         ctx.fillText(player.powerPlant.resourceUnits.toString(), 700, 280 + dy);
 
         // Shield/Armor labels
-        ctx.font = '14px XenoFont, monospace';
         ctx.fillStyle = '#0f0';
         ctx.textAlign = 'center';
         ctx.fillText('Shields', 688, 335 + dy);

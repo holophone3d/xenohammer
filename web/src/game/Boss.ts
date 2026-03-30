@@ -338,6 +338,9 @@ export class Boss {
     private bigExpFrames: HTMLImageElement[] = [];
     // Particle emission requests for GameManager
     private pendingParticleEmits: Array<{ x: number; y: number; count: number }> = [];
+    // Per-frame cache for getComponentRects() — avoids rebuilding for each collision pass
+    private _compRectsCache: Array<{ rect: Rect; component: BossComponent; collider: Collider }> = [];
+    private _compRectsDirty = true;
     // Sound requests for GameManager (C++: Sound::playExplosionSound() on component destruction)
     private pendingSoundEmits: string[] = [];
 
@@ -544,6 +547,7 @@ export class Boss {
     update(dt: number, playerX: number, playerY: number, now: number, levelTimeMs: number): void {
         this.prevX = this.x;
         this.prevY = this.y;
+        this._compRectsDirty = true;
         this.levelTimeMs = levelTimeMs;
         this.nowMs = now;
         this.pendingProjectiles = [];
@@ -1207,7 +1211,11 @@ export class Boss {
             return [];
         }
 
-        const results: Array<{ rect: Rect; component: BossComponent; collider: Collider }> = [];
+        if (!this._compRectsDirty) return this._compRectsCache;
+        this._compRectsDirty = false;
+
+        const results = this._compRectsCache;
+        results.length = 0;
         const addComp = (comp: BossComponent) => {
             if (comp.destroyed) return;
             results.push({
@@ -1264,6 +1272,12 @@ export class Boss {
     /** Return homing-targetable positions with priority (1=weapon, 2=passive). */
     getHomingTargets(): { x: number; y: number; priority: number }[] {
         const targets: { x: number; y: number; priority: number }[] = [];
+        this.appendHomingTargets(targets);
+        return targets;
+    }
+
+    /** Append homing targets directly into caller's array (avoids intermediate allocation). */
+    appendHomingTargets(targets: { x: number; y: number; priority: number }[]): void {
         // Priority 1: turrets (weapons) — outer + U-component turrets
         for (const ai of this.outerTurretAIs) {
             if (!ai.destroyed && !ai.comp.destroyed) {
@@ -1296,7 +1310,6 @@ export class Boss {
         for (const orb of this.outerOrbs) addPassive(orb);
         addPassive(this.centerOrb);
         for (const plat of this.platforms) addPassive(plat);
-        return targets;
     }
 
     // ---------------------------------------------------------------
@@ -1467,7 +1480,15 @@ export class Boss {
 
     private updateComponentExplosions(dt: number): void {
         for (const exp of this.componentExplosions) exp.update(dt);
-        this.componentExplosions = this.componentExplosions.filter(e => !e.isFinished());
+        // In-place compaction to avoid allocating a new array
+        let w = 0;
+        for (let r = 0; r < this.componentExplosions.length; r++) {
+            if (!this.componentExplosions[r].isFinished()) {
+                if (w !== r) this.componentExplosions[w] = this.componentExplosions[r];
+                w++;
+            }
+        }
+        this.componentExplosions.length = w;
     }
 
     private drawComponentExplosions(ctx: CanvasRenderingContext2D): void {

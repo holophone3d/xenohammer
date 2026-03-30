@@ -218,7 +218,15 @@ export class ChainExplosion {
             exp.update(dt);
         }
 
-        this.explosions = this.explosions.filter(e => !e.isFinished());
+        // In-place compaction to avoid allocating a new array
+        let w = 0;
+        for (let r = 0; r < this.explosions.length; r++) {
+            if (!this.explosions[r].isFinished()) {
+                if (w !== r) this.explosions[w] = this.explosions[r];
+                w++;
+            }
+        }
+        this.explosions.length = w;
 
         if (this.pending.length === 0 && this.explosions.length === 0) {
             this.finished = true;

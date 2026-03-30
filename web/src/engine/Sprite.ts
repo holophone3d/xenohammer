@@ -3,6 +3,8 @@
  * Mirrors the classic engine's frame-based animation with millisecond timing.
  */
 
+import { generateImageMask } from '../game/maskUtil';
+
 export class Sprite {
     frames: HTMLImageElement[];
     currentFrame: number;
@@ -34,25 +36,13 @@ export class Sprite {
         this.loop = true;
     }
 
-    /** Build 1-bit alpha masks for every frame (call once after images are loaded). */
+    /** Build 1-bit alpha masks for every frame (call once after images are loaded).
+     *  Uses global cache — same image across different Sprite instances won't re-compute. */
     generateMasks(): void {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
         this.frameMasks = [];
         for (const frame of this.frames) {
-            const fw = frame.naturalWidth || frame.width;
-            const fh = frame.naturalHeight || frame.height;
-            canvas.width = fw;
-            canvas.height = fh;
-            ctx.clearRect(0, 0, fw, fh);
-            ctx.drawImage(frame, 0, 0);
-            const data = ctx.getImageData(0, 0, fw, fh).data;
-            const mask = new Uint8Array(fw * fh);
-            for (let i = 0; i < mask.length; i++) {
-                mask[i] = data[i * 4 + 3] > 0 ? 1 : 0;
-            }
-            this.frameMasks.push(mask);
+            const mask = generateImageMask(frame);
+            this.frameMasks.push(mask ?? new Uint8Array(0));
         }
     }
 
@@ -150,20 +140,9 @@ export class StaticSprite {
         this.height = image.naturalHeight || image.height;
     }
 
-    /** Build 1-bit alpha mask (call once after image is loaded). */
+    /** Build 1-bit alpha mask (call once after image is loaded). Uses global cache. */
     generateMask(): void {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        canvas.width = this.width;
-        canvas.height = this.height;
-        ctx.clearRect(0, 0, this.width, this.height);
-        ctx.drawImage(this.image, 0, 0);
-        const data = ctx.getImageData(0, 0, this.width, this.height).data;
-        this.mask = new Uint8Array(this.width * this.height);
-        for (let i = 0; i < this.mask.length; i++) {
-            this.mask[i] = data[i * 4 + 3] > 0 ? 1 : 0;
-        }
+        this.mask = generateImageMask(this.image);
     }
 
     draw(ctx: CanvasRenderingContext2D): void {
