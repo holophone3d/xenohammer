@@ -23,19 +23,19 @@ function refreshSafeArea(): void {
 }
 refreshSafeArea();
 
-function fitCanvas(canvas: HTMLCanvasElement, reserveBottom: number): void {
+function fitCanvas(canvas: HTMLCanvasElement, reserveBottom: number, forceTop = false): void {
     const safeTop = cachedSafeTop;
     const scaleX = window.innerWidth / GAME_W;
     const scaleY = (window.innerHeight - reserveBottom - safeTop) / GAME_H;
     const scale = Math.min(scaleX, scaleY);
     canvas.style.transform = `scale(${scale})`;
-    if (reserveBottom > 0 || safeTop > 0) {
-        // Portrait or safe-area: push canvas below notch/island
+    if (reserveBottom > 0 || safeTop > 0 || forceTop) {
+        // Portrait/touch/safe-area: top-align canvas
         canvas.style.transformOrigin = 'top center';
         document.body.style.alignItems = 'flex-start';
         document.body.style.paddingTop = safeTop > 0 ? `${safeTop}px` : '0';
     } else {
-        // Landscape: center canvas in viewport
+        // Landscape or desktop: center canvas in viewport
         canvas.style.transformOrigin = 'center center';
         document.body.style.alignItems = 'center';
         document.body.style.paddingTop = '0';
@@ -77,6 +77,7 @@ game.init().then(() => {
     // Show touch controls from StartScreen onward (hidden only during Loading)
     let controlsShown = false;
     let lastReserve = -1; // track to avoid redundant fitCanvas calls
+    let lastPortraitTouch = false;
 
     function syncLayout(): void {
         const showControls = game.state !== GameState.Loading;
@@ -91,9 +92,13 @@ game.init().then(() => {
         // Reserve bottom space for portrait touch controls during gameplay
         const gameplay = game.isGameplay();
         const reserve = (gameplay && showControls) ? touch.getReservedHeight() : 0;
-        if (reserve !== lastReserve) {
+        // On touch devices in portrait, always top-align so canvas doesn't
+        // jump from centered → top when transitioning to gameplay
+        const portraitTouch = touch.isTouchDevice && window.innerHeight > window.innerWidth;
+        if (reserve !== lastReserve || portraitTouch !== lastPortraitTouch) {
             lastReserve = reserve;
-            fitCanvas(canvas, reserve);
+            lastPortraitTouch = portraitTouch;
+            fitCanvas(canvas, reserve, portraitTouch);
         }
     }
 
@@ -101,6 +106,7 @@ game.init().then(() => {
     window.addEventListener('resize', () => {
         refreshSafeArea();
         lastReserve = -1; // force re-fit
+        lastPortraitTouch = !lastPortraitTouch; // force re-check
         syncLayout();
         touch.layout();
     });
