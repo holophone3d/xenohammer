@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import { rmSync, cpSync, copyFileSync, existsSync, realpathSync } from "fs";
 import { resolve } from "path";
 
-const ASSETS_ROOT = resolve(__dirname, "../assets");
+const ASSETS_ROOT = resolve(__dirname, "assets");
 const PUBLIC = resolve(__dirname, "public");
 
 // Game asset directories to sync from assets/ → public/assets/
