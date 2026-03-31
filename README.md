@@ -35,8 +35,7 @@ xenohammer_2026/
 │       │   ├── fonts/           # Custom bitmap font
 │       │   └── icon-pack/       # App icons, manifest, favicons (source of truth)
 │       ├── public/              # Vite static files (synced from icon-pack at build)
-│       ├── debug.mjs            # Puppeteer automated test (screenshots)
-│       ├── capture-hero.mjs     # Hero video capture script
+│       ├── tools/               # Puppeteer scripts (debug, hero capture)
 │       ├── vite.config.ts       # Build config with icon sync plugin
 │       └── dist/                # Vite build output (gitignored)
 ├── site/                        # Landing/tribute page
@@ -75,7 +74,7 @@ npm run dev    # → http://localhost:5173/
 ### Run Puppeteer tests
 ```powershell
 cd game\web
-node debug.mjs                         # captures screenshots through full game flow
+node tools/debug.mjs                   # captures screenshots through full game flow
 ```
 
 ## Architecture

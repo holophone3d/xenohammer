@@ -5,9 +5,11 @@
 import puppeteer from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const URL = 'http://localhost:5173/';
-const SCREENSHOT_DIR = path.resolve('debug_screenshots');
+const SCREENSHOT_DIR = path.resolve(__dirname, '..', 'debug_screenshots');
 fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
 (async () => {

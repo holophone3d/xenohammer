@@ -3,7 +3,7 @@
  * Uses Puppeteer + Chrome's MediaRecorder to record the game canvas as WebM.
  *
  * Prerequisites: vite dev server running at localhost:5173
- * Usage: node capture-hero.mjs
+ * Usage: node tools/capture-hero.mjs
  * Output: ../../site/hero-gameplay.webm
  *
  * Instructions:
@@ -15,9 +15,11 @@
 import puppeteer from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const URL = 'http://localhost:5174/';
-const OUTPUT = path.resolve('..', '..', 'site', 'hero-gameplay.webm');
+const OUTPUT = path.resolve(__dirname, '..', '..', '..', 'site', 'hero-gameplay.webm');
 const RECORD_SECONDS = 30;
 const PREP_SECONDS = 10;
 
