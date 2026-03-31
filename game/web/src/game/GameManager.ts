@@ -2886,6 +2886,8 @@ export class GameManager {
             ctx.fillText(m.label, btnX + btnW / 2, y + 16);
         }
         ctx.textAlign = 'left';
+        ctx.font = '18px XenoFont, monospace';
+        ctx.fillStyle = '#0f0';
         ctx.lineWidth = 1;
     }
 
