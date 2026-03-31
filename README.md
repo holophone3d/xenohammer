@@ -85,6 +85,12 @@ The web version is a complete TypeScript rewrite using vanilla Canvas 2D — no 
 engine or framework dependencies. The rendering is locked to 800×600 internal
 resolution with CSS `transform: scale()` for responsive display.
 
+**Design constraints:**
+- **Zero runtime dependencies** — the game ships as a single JS bundle + assets, no npm packages in production
+- **No game engine or framework** — vanilla TypeScript + Canvas 2D API only
+- **No build-time code generation** — all game data (ships, levels, waves) is hand-authored TypeScript
+- **Dev dependencies are tooling only** — Vite (bundler), TypeScript (compiler), Puppeteer (testing)
+
 | Layer | Key Files | Purpose |
 |-------|-----------|---------|
 | Engine | `Canvas.ts`, `Input.ts`, `Audio.ts`, `Sprite.ts`, `Particles.ts` | Core rendering, input, audio |
