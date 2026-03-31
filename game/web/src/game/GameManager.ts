@@ -3292,8 +3292,9 @@ export class GameManager {
                 this.debugSavedRU = this.player.powerPlant.resourceUnits;
                 this.debugSavedHoming = this.isHomingResearched;
                 this.isHomingResearched = true;
-                // Set all settings to threat mode for god mode
-                for (const s of this.player.powerPlant.settings) s.homingMode = 'threat';
+                // Q=threat, W=disabled, E=closest
+                const godModes: Array<import('./PowerPlant').HomingMode> = ['threat', 'disabled', 'closest'];
+                this.player.powerPlant.settings.forEach((s, i) => s.homingMode = godModes[i]);
                 this.debugMaxPower();
             } else {
                 // Restore original settings
