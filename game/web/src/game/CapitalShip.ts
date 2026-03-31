@@ -722,8 +722,8 @@ export class CapitalShip {
         // Turrets (weapons — high threat)
         addTurret(this.rightTurret);
         addTurret(this.leftTurret);
-        // Nose cannon (medium-high threat)
-        addStructural(this.nose, 2);
+        // Nose cannon (highest threat — main weapon)
+        addStructural(this.nose, 4);
         // Structural (low threat)
         addStructural(this.rightWing, 1);
         addStructural(this.leftWing, 1);
