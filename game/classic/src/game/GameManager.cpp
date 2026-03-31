@@ -1132,7 +1132,7 @@ void GameManager::updateWaves()
 	// update the wave information that was set up
 	for (	std::list<Wave *>::iterator itWaves = waveInfo.begin();
 	itWaves != waveInfo.end();
-	itWaves++)
+	) // fix: no increment here — erase already advances, else branch increments
 		
 	{
 		
@@ -1149,6 +1149,10 @@ void GameManager::updateWaves()
 			delete *itWaves;
 			itWaves = waveInfo.erase( itWaves );
 			
+		}
+		else
+		{
+			itWaves++;
 		}
 		
 	}
