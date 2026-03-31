@@ -705,8 +705,8 @@ static void font_render_text(CL_Font::Impl* impl, int x, int y, const char* text
     int th = surf->h;
     SDL_FreeSurface(surf);
 
-    // ClanLib 0.6 print_* treats Y as vertical center of the text
-    int adjusted_y = y - th / 2;
+    // ClanLib 0.6 print_* treats Y as the top of the text
+    int adjusted_y = y;
 
     int dx;
     switch (align) {
@@ -833,7 +833,11 @@ void CL_SoundBuffer_Session::play() {
 }
 
 void CL_SoundBuffer_Session::stop() {
-    if (channel >= 0) {
+    if (channel == -2) {
+        // Music sentinel — stop the global music stream
+        Mix_HaltMusic();
+        channel = -1;
+    } else if (channel >= 0) {
         Mix_HaltChannel(channel);
         channel = -1;
     }

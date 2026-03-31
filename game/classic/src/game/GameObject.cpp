@@ -19,7 +19,8 @@ GameObject_Sprite::GameObject_Sprite(int _x, int _y, GameManager *_manager)
 	width = height = mask_width = mask_height = 0;   	// dimensions of sprite in pixels
 	visible = 1; //set to true - used by sprite engine to flag whether visible or not
 	curr_frame =0;              // current frame index
-    num_frames = 0;     
+    num_frames = 0;
+	update_time_start = update_time_end = 0; // [bugfix] uninitialized in original — breaks Release builds
 	damageable = true;
 	is_destroyed = false;
 }

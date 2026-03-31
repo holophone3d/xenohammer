@@ -37,15 +37,16 @@ ClanLib 0.6 API headers ──► clanlib_shim_impl.cpp
 | `CL_Canvas`, `CL_PCXProvider`, `CL_TargaProvider` | SDL2_image format loaders |
 | `auxDIBImageLoadA` (GLAUX) | SDL2_image BMP → RGB24 for GL_Handler textures |
 
-### Game source changes (2 total, both original-era bugs)
+### Game source changes (3 total, all original-era bugs)
 
 | File | Bug | Fix |
 |---|---|---|
 | `PlayerShip.cpp:190` | `new char(50)` allocates 1 byte, not 50 | `new char[50]` |
 | `GameManager.cpp:1135` | Iterator double-increment after `erase()` | Standard erase-in-loop pattern |
+| `GameObject.cpp:22` | `update_time_start/end` uninitialized | Zero-initialize in constructor |
 
-Both bugs existed in the original code but were masked by MSVC 6.0's lenient
-runtime. Modern MSVC debug mode catches them immediately.
+All three bugs existed in the original code but were masked by MSVC 6.0's
+lenient runtime. Modern MSVC debug/release modes expose them.
 
 ## Project Structure
 
