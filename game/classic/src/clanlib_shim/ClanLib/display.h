@@ -5,7 +5,7 @@ class CL_ResourceManager; // forward declare
 class CL_Canvas;          // forward declare
 
 // ---------------------------------------------------------------------------
-// CL_Display – static interface wrapping the SDL2 window/renderer
+// CL_Display – static interface wrapping the SDL2+OpenGL window
 // ---------------------------------------------------------------------------
 class CL_Display {
 public:
@@ -19,8 +19,7 @@ public:
     static int get_width();
     static int get_height();
 
-    static SDL_Window*   get_window();
-    static SDL_Renderer* get_renderer();
+    static SDL_Window* get_window();
 };
 
 // ---------------------------------------------------------------------------

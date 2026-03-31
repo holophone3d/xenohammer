@@ -1,4 +1,4 @@
-// clanlib_shim_impl.cpp – SDL2 backend for the ClanLib 0.6.x shim
+// clanlib_shim_impl.cpp – SDL2+OpenGL backend for the ClanLib 0.6.x shim
 // Compile this single file into your project alongside the game sources.
 
 #include <SDL.h>
@@ -26,10 +26,10 @@
 // ============================================================================
 // Internal globals
 // ============================================================================
-static SDL_Window*   g_window   = nullptr;
-static SDL_Renderer* g_renderer = nullptr;
-static int           g_width    = 800;
-static int           g_height   = 600;
+static SDL_Window*   g_window     = nullptr;
+static SDL_GLContext  g_glcontext  = nullptr;
+static int           g_width      = 800;
+static int           g_height     = 600;
 
 // Input singletons
 static CL_InputDevice g_keyboard;
@@ -90,8 +90,8 @@ void CL_SetupDisplay::init() {
 }
 
 void CL_SetupDisplay::deinit() {
-    if (g_renderer) { SDL_DestroyRenderer(g_renderer); g_renderer = nullptr; }
-    if (g_window)   { SDL_DestroyWindow(g_window);     g_window = nullptr; }
+    if (g_glcontext) { SDL_GL_DeleteContext(g_glcontext); g_glcontext = nullptr; }
+    if (g_window)    { SDL_DestroyWindow(g_window);       g_window = nullptr; }
 }
 
 // ============================================================================
@@ -104,68 +104,117 @@ void CL_ConsoleWindow::display_close_message() {
 }
 
 // ============================================================================
-// CL_Display
+// CL_Display – SDL2+OpenGL backend
 // ============================================================================
 void CL_Display::set_videomode(int w, int h, int /*bpp*/, bool fullscreen) {
     g_width  = w;
     g_height = h;
 
-    Uint32 flags = SDL_WINDOW_SHOWN;
-    if (fullscreen) flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
-
     if (!g_window) {
+        // Request an OpenGL context — the game makes raw GL calls
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+        SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
+
+        Uint32 flags = SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL;
+        if (fullscreen) flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+
         g_window = SDL_CreateWindow("XenoHammer",
                                     SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                     w, h, flags);
-        g_renderer = SDL_CreateRenderer(g_window, -1,
-                                        SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+        if (!g_window) {
+            fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+            return;
+        }
+
+        g_glcontext = SDL_GL_CreateContext(g_window);
+        if (!g_glcontext) {
+            fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
+            return;
+        }
+        SDL_GL_MakeCurrent(g_window, g_glcontext);
+        SDL_GL_SetSwapInterval(1); // vsync
+
+        // Basic OpenGL state for 2D rendering
+        glViewport(0, 0, w, h);
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_TEXTURE_2D);
     } else {
         SDL_SetWindowSize(g_window, w, h);
         SDL_SetWindowFullscreen(g_window, fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+        glViewport(0, 0, w, h);
     }
 }
 
 void CL_Display::clear_display(float r, float g, float b, float a) {
-    SDL_SetRenderDrawColor(g_renderer,
-                           (Uint8)(r * 255), (Uint8)(g * 255),
-                           (Uint8)(b * 255), (Uint8)(a * 255));
-    SDL_RenderClear(g_renderer);
+    glClearColor(r, g, b, a);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 void CL_Display::flip_display() {
-    SDL_RenderPresent(g_renderer);
+    SDL_GL_SwapWindow(g_window);
 }
 
 void CL_Display::fill_rect(int x1, int y1, int x2, int y2,
                             float r, float g, float b, float a) {
-    SDL_SetRenderDrawBlendMode(g_renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(g_renderer,
-                           (Uint8)(r * 255), (Uint8)(g * 255),
-                           (Uint8)(b * 255), (Uint8)(a * 255));
-    SDL_Rect rect = { x1, y1, x2 - x1, y2 - y1 };
-    SDL_RenderFillRect(g_renderer, &rect);
+    glDisable(GL_TEXTURE_2D);
+    glColor4f(r, g, b, a);
+    glBegin(GL_QUADS);
+        glVertex2i(x1, y1);
+        glVertex2i(x2, y1);
+        glVertex2i(x2, y2);
+        glVertex2i(x1, y2);
+    glEnd();
+    glEnable(GL_TEXTURE_2D);
 }
 
 void CL_Display::draw_line(int x1, int y1, int x2, int y2,
                             float r, float g, float b, float a) {
-    SDL_SetRenderDrawBlendMode(g_renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(g_renderer,
-                           (Uint8)(r * 255), (Uint8)(g * 255),
-                           (Uint8)(b * 255), (Uint8)(a * 255));
-    SDL_RenderDrawLine(g_renderer, x1, y1, x2, y2);
+    glDisable(GL_TEXTURE_2D);
+    glColor4f(r, g, b, a);
+    glBegin(GL_LINES);
+        glVertex2i(x1, y1);
+        glVertex2i(x2, y2);
+    glEnd();
+    glEnable(GL_TEXTURE_2D);
 }
 
 int CL_Display::get_width()  { return g_width; }
 int CL_Display::get_height() { return g_height; }
 
-SDL_Window*   CL_Display::get_window()   { return g_window; }
-SDL_Renderer* CL_Display::get_renderer() { return g_renderer; }
+SDL_Window* CL_Display::get_window() { return g_window; }
 
 // ============================================================================
-// CL_Surface
+// CL_Surface – OpenGL texture-backed
 // ============================================================================
+
+// Helper: upload an SDL_Surface to an OpenGL texture (RGBA)
+static GLuint upload_surface_to_gl(SDL_Surface* surf) {
+    if (!surf) return 0;
+    SDL_Surface* rgba = SDL_ConvertSurfaceFormat(surf, SDL_PIXELFORMAT_RGBA32, 0);
+    if (!rgba) return 0;
+
+    GLuint tex;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+
+    SDL_LockSurface(rgba);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rgba->w, rgba->h, 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, rgba->pixels);
+    SDL_UnlockSurface(rgba);
+    SDL_FreeSurface(rgba);
+    return tex;
+}
+
 struct CL_Surface::Impl {
-    SDL_Texture* texture = nullptr;
+    GLuint gl_texture = 0;
     int w = 0, h = 0;
     float alpha = 1.0f;
     SDL_Surface* sdl_surface = nullptr; // kept for CL_Canvas pixel access
@@ -179,7 +228,7 @@ CL_Surface::CL_Surface(const char* filename, bool /*delete_provider*/) : impl(ne
 
 CL_Surface::~CL_Surface() {
     if (impl) {
-        if (impl->texture)     SDL_DestroyTexture(impl->texture);
+        if (impl->gl_texture)  glDeleteTextures(1, &impl->gl_texture);
         if (impl->sdl_surface) SDL_FreeSurface(impl->sdl_surface);
         delete impl;
     }
@@ -194,8 +243,7 @@ void CL_Surface::init_from_file(const char* path) {
     impl->sdl_surface = surf;
     impl->w = surf->w;
     impl->h = surf->h;
-    impl->texture = SDL_CreateTextureFromSurface(g_renderer, surf);
-    SDL_SetTextureBlendMode(impl->texture, SDL_BLENDMODE_BLEND);
+    impl->gl_texture = upload_surface_to_gl(surf);
 }
 
 CL_Surface* CL_Surface::load(const char* res_id, CL_ResourceManager* mgr) {
@@ -204,17 +252,22 @@ CL_Surface* CL_Surface::load(const char* res_id, CL_ResourceManager* mgr) {
         auto it = mgr->resources.find(res_id);
         if (it != mgr->resources.end()) {
             std::string full = mgr->base_path + "/" + it->second.file;
-            s->init_from_file(full.c_str());
 
-            // Handle transparent-colour key if specified
-            if (it->second.tcol >= 0 && s->impl->sdl_surface) {
-                SDL_SetColorKey(s->impl->sdl_surface, SDL_TRUE,
-                                (Uint32)it->second.tcol);
-                if (s->impl->texture) SDL_DestroyTexture(s->impl->texture);
-                s->impl->texture = SDL_CreateTextureFromSurface(g_renderer,
-                                                                 s->impl->sdl_surface);
-                SDL_SetTextureBlendMode(s->impl->texture, SDL_BLENDMODE_BLEND);
+            SDL_Surface* surf = IMG_Load(full.c_str());
+            if (!surf) {
+                fprintf(stderr, "CL_Surface::load: failed '%s': %s\n", full.c_str(), IMG_GetError());
+                return s;
             }
+
+            // Handle transparent-color key (tcol = palette index)
+            if (it->second.tcol >= 0) {
+                SDL_SetColorKey(surf, SDL_TRUE, (Uint32)it->second.tcol);
+            }
+
+            s->impl->sdl_surface = surf;
+            s->impl->w = surf->w;
+            s->impl->h = surf->h;
+            s->impl->gl_texture = upload_surface_to_gl(surf);
         } else {
             fprintf(stderr, "CL_Surface::load: resource '%s' not found\n", res_id);
         }
@@ -223,18 +276,43 @@ CL_Surface* CL_Surface::load(const char* res_id, CL_ResourceManager* mgr) {
 }
 
 void CL_Surface::put_screen(int x, int y) {
-    if (!impl || !impl->texture) return;
-    SDL_SetTextureAlphaMod(impl->texture, (Uint8)(impl->alpha * 255));
-    SDL_Rect dst = { x, y, impl->w, impl->h };
-    SDL_RenderCopy(g_renderer, impl->texture, nullptr, &dst);
+    if (!impl || !impl->gl_texture) return;
+
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, impl->gl_texture);
+    glColor4f(1.0f, 1.0f, 1.0f, impl->alpha);
+
+    int x2 = x + impl->w;
+    int y2 = y + impl->h;
+    glBegin(GL_QUADS);
+        glTexCoord2f(0.0f, 0.0f); glVertex2i(x,  y);
+        glTexCoord2f(1.0f, 0.0f); glVertex2i(x2, y);
+        glTexCoord2f(1.0f, 1.0f); glVertex2i(x2, y2);
+        glTexCoord2f(0.0f, 1.0f); glVertex2i(x,  y2);
+    glEnd();
 }
 
 void CL_Surface::put_screen(int x, int y, int srcx, int srcy, int srcw, int srch) {
-    if (!impl || !impl->texture) return;
-    SDL_SetTextureAlphaMod(impl->texture, (Uint8)(impl->alpha * 255));
-    SDL_Rect src = { srcx, srcy, srcw, srch };
-    SDL_Rect dst = { x, y, srcw, srch };
-    SDL_RenderCopy(g_renderer, impl->texture, &src, &dst);
+    if (!impl || !impl->gl_texture || impl->w == 0 || impl->h == 0) return;
+
+    // Convert pixel source rect to texture coordinates (0..1)
+    float u0 = (float)srcx / impl->w;
+    float v0 = (float)srcy / impl->h;
+    float u1 = (float)(srcx + srcw) / impl->w;
+    float v1 = (float)(srcy + srch) / impl->h;
+
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, impl->gl_texture);
+    glColor4f(1.0f, 1.0f, 1.0f, impl->alpha);
+
+    int dx2 = x + srcw;
+    int dy2 = y + srch;
+    glBegin(GL_QUADS);
+        glTexCoord2f(u0, v0); glVertex2i(x,   y);
+        glTexCoord2f(u1, v0); glVertex2i(dx2, y);
+        glTexCoord2f(u1, v1); glVertex2i(dx2, dy2);
+        glTexCoord2f(u0, v1); glVertex2i(x,   dy2);
+    glEnd();
 }
 
 int  CL_Surface::get_width()  { return impl ? impl->w : 0; }
@@ -337,6 +415,7 @@ CL_Surface* CL_Surface::create(CL_Canvas* canvas) {
         if (surf->impl->sdl_surface) {
             surf->impl->w = surf->impl->sdl_surface->w;
             surf->impl->h = surf->impl->sdl_surface->h;
+            surf->impl->gl_texture = upload_surface_to_gl(surf->impl->sdl_surface);
         }
     }
     return surf;
@@ -378,6 +457,12 @@ CL_Font* CL_Font::load(const char* res_id, CL_ResourceManager* mgr) {
             std::string full = mgr->base_path + "/" + it->second.file;
             f->impl->path = full;
 
+            // Bitmap fonts (type=font) use TGA spritesheets — not TTF
+            if (it->second.type == "font") {
+                fprintf(stderr, "CL_Font::load: bitmap font '%s' (stub — text won't render)\n", res_id);
+                return f;
+            }
+
             int size = 14;
             auto sz = it->second.options.find("size");
             if (sz != it->second.options.end()) size = std::stoi(sz->second);
@@ -412,22 +497,38 @@ static void font_render_text(CL_Font::Impl* impl, int x, int y, const char* text
     if (!impl || !impl->font || !text || !*text) return;
     SDL_Surface* surf = TTF_RenderUTF8_Blended(impl->font, text, impl->color);
     if (!surf) return;
-    SDL_Texture* tex = SDL_CreateTextureFromSurface(g_renderer, surf);
 
-    SDL_Rect dst;
-    dst.w = surf->w;
-    dst.h = surf->h;
+    // Upload text surface to a temporary GL texture
+    GLuint tex = upload_surface_to_gl(surf);
+    if (!tex) { SDL_FreeSurface(surf); return; }
 
-    switch (align) {
-        case 0: dst.x = x;              break; // left
-        case 1: dst.x = x - surf->w/2;  break; // center
-        case 2: dst.x = x - surf->w;    break; // right
-    }
-    dst.y = y;
-
-    SDL_RenderCopy(g_renderer, tex, nullptr, &dst);
-    SDL_DestroyTexture(tex);
+    int tw = surf->w;
+    int th = surf->h;
     SDL_FreeSurface(surf);
+
+    int dx;
+    switch (align) {
+        case 0: dx = x;          break; // left
+        case 1: dx = x - tw / 2; break; // center
+        case 2: dx = x - tw;     break; // right
+        default: dx = x;         break;
+    }
+
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    // Font color is already baked into the surface; draw white-tinted
+    glColor4f(1.0f, 1.0f, 1.0f, impl->color.a / 255.0f);
+
+    int x2 = dx + tw;
+    int y2 = y + th;
+    glBegin(GL_QUADS);
+        glTexCoord2f(0.0f, 0.0f); glVertex2i(dx, y);
+        glTexCoord2f(1.0f, 0.0f); glVertex2i(x2, y);
+        glTexCoord2f(1.0f, 1.0f); glVertex2i(x2, y2);
+        glTexCoord2f(0.0f, 1.0f); glVertex2i(dx, y2);
+    glEnd();
+
+    glDeleteTextures(1, &tex);
 }
 
 void CL_Font::print_center(int x, int y, const char* text) {
@@ -455,12 +556,37 @@ int CL_Font::get_height() {
 }
 
 // ============================================================================
-// CL_OpenGL / CL_SetupGL – no-ops
+// CL_OpenGL / CL_SetupGL – real OpenGL projection management
 // ============================================================================
-void CL_OpenGL::begin_2d() {}
-void CL_OpenGL::end_2d()   {}
-void CL_SetupGL::init()    {}
-void CL_SetupGL::deinit()  {}
+void CL_OpenGL::begin_2d() {
+    // Save whatever projection the game's GL code has set, switch to 2D ortho
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    // Standard screen coords: (0,0) top-left, Y increases downward
+    glOrtho(0, g_width, g_height, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
+    // Standard 2D rendering state
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_TEXTURE_2D);
+}
+
+void CL_OpenGL::end_2d() {
+    // Restore previous projection (for GL_Handler's own ortho setup)
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+}
+
+void CL_SetupGL::init()  {}
+void CL_SetupGL::deinit() {}
 
 // ============================================================================
 // CL_TTFSetup
@@ -639,20 +765,18 @@ CL_VorbisSoundProvider::~CL_VorbisSoundProvider() {}
 // ============================================================================
 // CL_Resource / CL_ResourceManager
 // ============================================================================
-std::string CL_Resource::get_location() {
+const std::string& CL_Resource::get_location() {
     return entry.file;
 }
 
 // Minimal ClanLib 0.6 resource file parser.
-// The format is roughly:
-//   section <name>
-//   {
-//       <id> = <file> (type=surface, tcol=..., ...);
-//   }
-// We flatten to "section_name/id" keys.
+// Supports nested sections: section Game { section Graphics { ... } }
+// Handles: "section X {" on one line, multi-line parenthetical options.
+// Flattens to "Game/Graphics/id" keys.
 CL_ResourceManager::CL_ResourceManager(const char* filename, bool /*something*/) {
     namespace fs = std::filesystem;
     base_path = fs::path(filename).parent_path().string();
+    if (base_path.empty()) base_path = ".";
 
     std::ifstream in(filename);
     if (!in.is_open()) {
@@ -660,61 +784,115 @@ CL_ResourceManager::CL_ResourceManager(const char* filename, bool /*something*/)
         return;
     }
 
-    std::string line;
-    std::string current_section;
+    // Read entire file content
+    std::string content((std::istreambuf_iterator<char>(in)),
+                         std::istreambuf_iterator<char>());
 
-    while (std::getline(in, line)) {
-        // Trim
-        size_t start = line.find_first_not_of(" \t\r\n");
-        if (start == std::string::npos) continue;
-        line = line.substr(start);
+    // Preprocess: join multi-line entries (lines inside unclosed parentheses)
+    std::vector<std::string> lines;
+    {
+        std::string accum;
+        int paren_depth = 0;
+        std::istringstream stream(content);
+        std::string raw;
+        while (std::getline(stream, raw)) {
+            // Trim trailing \r
+            if (!raw.empty() && raw.back() == '\r') raw.pop_back();
+            for (char c : raw) {
+                if (c == '(') paren_depth++;
+                else if (c == ')') { if (paren_depth > 0) paren_depth--; }
+            }
+            if (accum.empty()) {
+                accum = raw;
+            } else {
+                accum += " " + raw; // join continuation lines with space
+            }
+            if (paren_depth == 0) {
+                lines.push_back(accum);
+                accum.clear();
+            }
+        }
+        if (!accum.empty()) lines.push_back(accum);
+    }
+
+    std::vector<std::string> section_stack;
+    std::string pending_section;
+
+    auto build_prefix = [&]() -> std::string {
+        std::string prefix;
+        for (auto& s : section_stack) {
+            if (!prefix.empty()) prefix += "/";
+            prefix += s;
+        }
+        return prefix;
+    };
+
+    auto trim_str = [](std::string& s) {
+        size_t a = s.find_first_not_of(" \t\r\n");
+        size_t b = s.find_last_not_of(" \t\r\n");
+        if (a == std::string::npos) { s.clear(); return; }
+        s = s.substr(a, b - a + 1);
+    };
+
+    // Process a single token (could be section, brace, resource, or comment)
+    auto process_token = [&](std::string line) {
+        trim_str(line);
+        if (line.empty()) return;
 
         // Skip comments
-        if (line[0] == '#' || line[0] == '/' ) continue;
+        if (line[0] == '#') return;
+        if (line.size() >= 2 && line[0] == '/' && line[1] == '/') return;
 
-        // "section <name>"
+        // "section <name>" possibly followed by "{"
         if (line.rfind("section ", 0) == 0) {
-            current_section = line.substr(8);
-            // trim trailing whitespace and braces
-            size_t e = current_section.find_first_of(" \t\r\n{");
-            if (e != std::string::npos) current_section = current_section.substr(0, e);
-            continue;
+            std::string secname = line.substr(8);
+            size_t e = secname.find_first_of(" \t\r\n{");
+            if (e != std::string::npos) secname = secname.substr(0, e);
+            pending_section = secname;
+            // Check if { appears on the same line
+            if (line.find('{') != std::string::npos) {
+                section_stack.push_back(pending_section);
+                pending_section.clear();
+            }
+            return;
         }
 
-        // Opening/closing braces
-        if (line[0] == '{') continue;
-        if (line[0] == '}') { current_section.clear(); continue; }
+        // Opening brace
+        if (line[0] == '{') {
+            section_stack.push_back(pending_section.empty() ? "" : pending_section);
+            pending_section.clear();
+            return;
+        }
 
-        // Resource line:  name = file (options...);
+        // Closing brace
+        if (line[0] == '}') {
+            if (!section_stack.empty()) section_stack.pop_back();
+            return;
+        }
+
+        // Resource line: name = file (options...);
         size_t eq = line.find('=');
-        if (eq == std::string::npos) continue;
+        if (eq == std::string::npos) return;
 
         std::string name = line.substr(0, eq);
-        // trim name
-        size_t ne = name.find_last_not_of(" \t");
-        if (ne != std::string::npos) name = name.substr(0, ne + 1);
+        trim_str(name);
 
         std::string rest = line.substr(eq + 1);
-        // trim leading whitespace
-        size_t rs = rest.find_first_not_of(" \t");
-        if (rs != std::string::npos) rest = rest.substr(rs);
-        // remove trailing semicolon
+        trim_str(rest);
+        // Remove trailing semicolon
         size_t sc = rest.rfind(';');
         if (sc != std::string::npos) rest = rest.substr(0, sc);
+        trim_str(rest);
 
         ResourceEntry entry;
 
-        // Extract file path (first token or quoted string)
         size_t paren = rest.find('(');
         if (paren != std::string::npos) {
             entry.file = rest.substr(0, paren);
-            // trim
-            size_t fe = entry.file.find_last_not_of(" \t");
-            if (fe != std::string::npos) entry.file = entry.file.substr(0, fe + 1);
+            trim_str(entry.file);
 
-            // Parse options inside parentheses
-            size_t close = rest.find(')', paren);
-            if (close != std::string::npos) {
+            size_t close = rest.rfind(')');
+            if (close != std::string::npos && close > paren) {
                 std::string opts = rest.substr(paren + 1, close - paren - 1);
                 std::istringstream oss(opts);
                 std::string opt;
@@ -723,30 +901,37 @@ CL_ResourceManager::CL_ResourceManager(const char* filename, bool /*something*/)
                     if (oeq != std::string::npos) {
                         std::string key = opt.substr(0, oeq);
                         std::string val = opt.substr(oeq + 1);
-                        // trim
-                        auto trim = [](std::string& s) {
-                            size_t a = s.find_first_not_of(" \t");
-                            size_t b = s.find_last_not_of(" \t");
-                            if (a != std::string::npos) s = s.substr(a, b - a + 1);
-                        };
-                        trim(key);
-                        trim(val);
+                        trim_str(key);
+                        trim_str(val);
+                        // Remove surrounding quotes from val
+                        if (val.size() >= 2 && val.front() == '"' && val.back() == '"')
+                            val = val.substr(1, val.size() - 2);
                         entry.options[key] = val;
 
                         if (key == "type") entry.type = val;
-                        if (key == "tcol") entry.tcol = std::stoi(val, nullptr, 0);
+                        if (key == "tcol") {
+                            try { entry.tcol = std::stoi(val, nullptr, 0); }
+                            catch (...) {}
+                        }
                     }
                 }
             }
         } else {
             entry.file = rest;
-            size_t fe = entry.file.find_last_not_of(" \t");
-            if (fe != std::string::npos) entry.file = entry.file.substr(0, fe + 1);
+            trim_str(entry.file);
         }
 
-        std::string key = current_section.empty() ? name : current_section + "/" + name;
+        std::string prefix = build_prefix();
+        std::string key = prefix.empty() ? name : prefix + "/" + name;
         resources[key] = entry;
+    };
+
+    for (auto& line : lines) {
+        process_token(line);
     }
+
+    fprintf(stderr, "CL_ResourceManager: loaded %d resources from '%s'\n",
+            (int)resources.size(), filename);
 }
 
 CL_ResourceManager::~CL_ResourceManager() {}

@@ -11,7 +11,7 @@ struct ResourceEntry {
 
 class CL_Resource {
 public:
-    std::string get_location();
+    const std::string& get_location();
     ResourceEntry entry;
 };
 
