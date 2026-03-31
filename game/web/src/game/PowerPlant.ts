@@ -5,6 +5,8 @@
 
 import { POWER_MULTIPLIERS } from '../data/ships';
 
+export type HomingMode = 'threat' | 'closest' | 'disabled';
+
 export interface PowerSetting {
     /** Power cells allocated to the nose blaster (0-5 each cell) */
     blasterCell1: number;
@@ -22,6 +24,7 @@ export interface PowerSetting {
     shipPowerCell2: number;
     leftTurretAngle: number;
     rightTurretAngle: number;
+    homingMode: HomingMode;
 }
 
 // Default balanced setting from original C++ source
@@ -34,6 +37,7 @@ const DEFAULT_SETTING: PowerSetting = {
     shipPowerCell1: 1, shipPowerCell2: 1,
     leftTurretAngle: 135,
     rightTurretAngle: 45,
+    homingMode: 'threat',
 };
 
 export class PowerPlant {

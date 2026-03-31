@@ -110,7 +110,6 @@ export class GameManager {
     private custShieldDemo = 0;
     private turretAngleAvailable = false;
     private isHomingResearched = false;
-    private homingMode: 'threat' | 'closest' | 'disabled' = 'threat';
     // C++ Sound.cpp:81-100 — two-phase fire sound (single shot → looping rapid fire)
     private playerFireSound: SoundInstance | null = null;
     private playerRapidFireActive = false;
@@ -995,9 +994,10 @@ export class GameManager {
         // Build target pool only if we have homing missiles that need targets
         let targetPoolBuilt = false;
         const pool = this._homingTargetPool;
+        const homingMode = this.player?.powerPlant.getSetting().homingMode ?? 'disabled';
         for (const proj of this.projectiles) {
             if (proj.homing && proj.owner === 'player' && this.isHomingResearched
-                && this.homingMode !== 'disabled') {
+                && homingMode !== 'disabled') {
                 // Build target pool once per frame (lazy)
                 if (!targetPoolBuilt) {
                     pool.length = 0;
@@ -1024,7 +1024,7 @@ export class GameManager {
                 }
                 // Assign target if missile needs one (just armed or target died)
                 if (proj.needsTarget() && pool.length > 0) {
-                    proj.homingTarget = this.selectHomingTarget(proj, pool);
+                    proj.homingTarget = this.selectHomingTarget(proj, pool, homingMode);
                 }
             }
             proj.update(dt);
@@ -2434,23 +2434,16 @@ export class GameManager {
                     }
                 }
             } else if (sel === 3 || sel === 4) {
-                // Homing research (15 RU) — or cycle mode if already researched
+                // Homing research (15 RU) — buy button only when not yet researched
                 if (!this.isHomingResearched) {
                     if (this.player.powerPlant.resourceUnits >= 15) {
                         this.isHomingResearched = true;
-                        this.homingMode = 'threat';
                         this.player.powerPlant.resourceUnits -= 15;
                         this.audio.playSound('MenuSelect');
                     } else {
                         this.custStatusMsg = "You Don't Have Enough Resource Units!";
                         this.custStatusTimer = 120;
                     }
-                } else {
-                    // Cycle: threat → closest → disabled → threat
-                    const modes: Array<'threat' | 'closest' | 'disabled'> = ['threat', 'closest', 'disabled'];
-                    const idx = modes.indexOf(this.homingMode);
-                    this.homingMode = modes[(idx + 1) % modes.length];
-                    this.audio.playSound('MenuChange');
                 }
             }
             return;
@@ -2471,6 +2464,21 @@ export class GameManager {
                         } else {
                             setting.rightTurretAngle = angles[i];
                         }
+                        return;
+                    }
+                }
+            }
+        }
+
+        // Homing mode selector buttons (upper-right of info panel) — when homing researched
+        if (this.isHomingResearched && (sel === 3 || sel === 4)) {
+            const modes: Array<import('./PowerPlant').HomingMode> = ['threat', 'closest', 'disabled'];
+            const btnY = [320, 362, 404];
+            if (mx >= 380 && mx <= 500) {
+                for (let i = 0; i < 3; i++) {
+                    if (my >= btnY[i] - 5 && my <= btnY[i] + 30) {
+                        setting.homingMode = modes[i];
+                        this.audio.playSound('MenuSelect');
                         return;
                     }
                 }
@@ -2758,18 +2766,10 @@ export class GameManager {
                 if (buyBtn) ctx.drawImage(buyBtn, 300, 400);
             }
         } else if (sel === 3 || sel === 4) {
-            // Missiles: Homing research (15 RU) or mode selector
+            // Missiles: Homing research or mode selector buttons
             if (this.isHomingResearched) {
-                const modeLabels: Record<string, string> = {
-                    threat: 'Max Threat',
-                    closest: 'Closest',
-                    disabled: 'Disabled',
-                };
-                ctx.fillText('Homing Mode:', 110, 390);
-                ctx.fillStyle = this.homingMode === 'disabled' ? '#ff4444' : '#44ff44';
-                ctx.fillText(modeLabels[this.homingMode], 110, 420);
-                ctx.fillStyle = '#88ff88';
-                ctx.fillText('(click to cycle)', 110, 450);
+                ctx.fillText('Homing Mode:', 20, 335);
+                this.renderHomingModeButtons(ctx);
             } else {
                 ctx.fillText('Homing', 110, 390);
                 ctx.fillText('cost = ', 160, 420);
@@ -2840,6 +2840,43 @@ export class GameManager {
             const selector = this.assets.tryGetImage('turret_selector');
             if (selector) ctx.drawImage(selector, 450, yPos[idx]);
         }
+    }
+
+    /** Render 3 homing mode buttons (stacked) in the upper-right of the info panel. */
+    private renderHomingModeButtons(ctx: CanvasRenderingContext2D): void {
+        if (!this.player) return;
+        const setting = this.player.powerPlant.getSetting();
+        const modes: Array<{ key: import('./PowerPlant').HomingMode; label: string; color: string }> = [
+            { key: 'threat', label: 'Max Threat', color: '#ff8800' },
+            { key: 'closest', label: 'Closest', color: '#44aaff' },
+            { key: 'disabled', label: 'Disabled', color: '#ff4444' },
+        ];
+        const btnX = 380;
+        const btnW = 120;
+        const btnH = 30;
+        const btnY = [320, 362, 404];
+        const mouse = this.input.getMousePos();
+        for (let i = 0; i < 3; i++) {
+            const m = modes[i];
+            const y = btnY[i];
+            const active = setting.homingMode === m.key;
+            const hover = mouse.x >= btnX && mouse.x <= btnX + btnW
+                       && mouse.y >= y - 5 && mouse.y <= y + btnH;
+            // Button background
+            ctx.fillStyle = active ? 'rgba(0,255,0,0.25)' : hover ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.3)';
+            ctx.fillRect(btnX, y - 3, btnW, btnH);
+            // Border
+            ctx.strokeStyle = active ? '#00ff00' : hover ? '#aaaaaa' : '#555555';
+            ctx.lineWidth = active ? 2 : 1;
+            ctx.strokeRect(btnX, y - 3, btnW, btnH);
+            // Label
+            ctx.font = '14px XenoFont, monospace';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = active ? m.color : hover ? '#cccccc' : '#777777';
+            ctx.fillText(m.label, btnX + btnW / 2, y + 16);
+        }
+        ctx.textAlign = 'left';
+        ctx.lineWidth = 1;
     }
 
     /** Render settings panel in right area (matching C++ positions) */
@@ -2933,7 +2970,6 @@ export class GameManager {
             resourceUnits: this.player.powerPlant.resourceUnits,
             turretAngleAvailable: this.turretAngleAvailable,
             isHomingResearched: this.isHomingResearched,
-            homingMode: this.homingMode,
         };
         try {
             localStorage.setItem(GameManager.SAVE_KEY, JSON.stringify(data));
@@ -2965,9 +3001,6 @@ export class GameManager {
             }
             if (typeof data.isHomingResearched === 'boolean') {
                 this.isHomingResearched = data.isHomingResearched;
-            }
-            if (data.homingMode === 'threat' || data.homingMode === 'closest' || data.homingMode === 'disabled') {
-                this.homingMode = data.homingMode;
             }
             // Restore full health after load
             this.player.shields = this.player.maxShields;
@@ -3205,12 +3238,12 @@ export class GameManager {
     // Homing target selection
     // ---------------------------------------------------------------
 
-    /** Pick the best target for a homing missile based on the current homingMode. */
-    private selectHomingTarget(proj: Projectile, pool: HomingTarget[]): HomingTarget | null {
+    /** Pick the best target for a homing missile based on the given mode. */
+    private selectHomingTarget(proj: Projectile, pool: HomingTarget[], mode: import('./PowerPlant').HomingMode): HomingTarget | null {
         const live = pool.filter(t => t.isAlive());
         if (live.length === 0) return null;
 
-        if (this.homingMode === 'closest') {
+        if (mode === 'closest') {
             // Closest target to the missile
             let best: HomingTarget | null = null;
             let bestD2 = Infinity;
@@ -3243,7 +3276,6 @@ export class GameManager {
     private debugSavedSettings: import('./PowerPlant').PowerSetting[] | null = null;
     private debugSavedRU = 0;
     private debugSavedHoming = false;
-    private debugSavedHomingMode: 'threat' | 'closest' | 'disabled' = 'threat';
 
     private debugToggleGodMode(): void {
         this.debugActive = !this.debugActive;
@@ -3254,9 +3286,9 @@ export class GameManager {
                 this.debugSavedSettings = this.player.powerPlant.settings.map(s => ({ ...s }));
                 this.debugSavedRU = this.player.powerPlant.resourceUnits;
                 this.debugSavedHoming = this.isHomingResearched;
-                this.debugSavedHomingMode = this.homingMode;
                 this.isHomingResearched = true;
-                this.homingMode = 'threat';
+                // Set all settings to threat mode for god mode
+                for (const s of this.player.powerPlant.settings) s.homingMode = 'threat';
                 this.debugMaxPower();
             } else {
                 // Restore original settings
@@ -3266,7 +3298,6 @@ export class GameManager {
                 }
                 this.player.powerPlant.resourceUnits = this.debugSavedRU;
                 this.isHomingResearched = this.debugSavedHoming;
-                this.homingMode = this.debugSavedHomingMode;
             }
         }
     }
