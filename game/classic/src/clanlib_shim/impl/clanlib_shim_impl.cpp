@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <iostream>
 #include <filesystem>
+#include <vector>
 
 // ============================================================================
 // Internal globals
@@ -199,10 +200,27 @@ SDL_Window* CL_Display::get_window() { return g_window; }
 // ============================================================================
 
 // Helper: upload an SDL_Surface to an OpenGL texture (RGBA)
-static GLuint upload_surface_to_gl(SDL_Surface* surf) {
+// Optional tcol_r/g/b: if tcol_r >= 0, manually force alpha=0 for matching pixels
+static GLuint upload_surface_to_gl(SDL_Surface* surf, int tcol_r = -1, int tcol_g = -1, int tcol_b = -1) {
     if (!surf) return 0;
     SDL_Surface* rgba = SDL_ConvertSurfaceFormat(surf, SDL_PIXELFORMAT_RGBA32, 0);
     if (!rgba) return 0;
+
+    // Belt-and-suspenders: manually zero alpha for pixels matching the tcol color
+    if (tcol_r >= 0) {
+        SDL_LockSurface(rgba);
+        Uint8* px = (Uint8*)rgba->pixels;
+        for (int y = 0; y < rgba->h; y++) {
+            Uint8* row = px + y * rgba->pitch;
+            for (int x = 0; x < rgba->w; x++) {
+                Uint8* p = row + x * 4;
+                if (p[0] == (Uint8)tcol_r && p[1] == (Uint8)tcol_g && p[2] == (Uint8)tcol_b) {
+                    p[3] = 0;
+                }
+            }
+        }
+        SDL_UnlockSurface(rgba);
+    }
 
     GLuint tex;
     glGenTextures(1, &tex);
@@ -267,14 +285,26 @@ CL_Surface* CL_Surface::load(const char* res_id, CL_ResourceManager* mgr) {
             }
 
             // Handle transparent-color key (tcol = palette index)
+            int tr = -1, tg = -1, tb = -1;
             if (it->second.tcol >= 0) {
+                // Extract the actual RGB color from the palette before conversion
+                if (surf->format->palette &&
+                    it->second.tcol < surf->format->palette->ncolors) {
+                    SDL_Color& c = surf->format->palette->colors[it->second.tcol];
+                    tr = c.r; tg = c.g; tb = c.b;
+                } else {
+                    fprintf(stderr, "CL_Surface::load: '%s' tcol=%d but palette=%s ncolors=%d\n",
+                            res_id, it->second.tcol,
+                            surf->format->palette ? "yes" : "NO",
+                            surf->format->palette ? surf->format->palette->ncolors : 0);
+                }
                 SDL_SetColorKey(surf, SDL_TRUE, (Uint32)it->second.tcol);
             }
 
             s->impl->sdl_surface = surf;
             s->impl->w = surf->w;
             s->impl->h = surf->h;
-            s->impl->gl_texture = upload_surface_to_gl(surf);
+            s->impl->gl_texture = upload_surface_to_gl(surf, tr, tg, tb);
         } else {
             fprintf(stderr, "CL_Surface::load: resource '%s' not found\n", res_id);
         }
@@ -445,6 +475,14 @@ struct CL_Font::Impl {
     SDL_Color color = {255, 255, 255, 255};
     int size = 14;
     std::string path;
+
+    // Bitmap font support
+    bool is_bitmap = false;
+    GLuint bm_texture = 0;
+    int bm_width = 0, bm_height = 0;
+    int spacelen = 8;
+    struct Glyph { int x, w; };
+    std::map<char, Glyph> glyphs;
 };
 
 CL_Font::CL_Font() : impl(new Impl) {}
@@ -452,6 +490,7 @@ CL_Font::CL_Font() : impl(new Impl) {}
 CL_Font::~CL_Font() {
     if (impl) {
         if (impl->font) TTF_CloseFont(impl->font);
+        if (impl->bm_texture) glDeleteTextures(1, &impl->bm_texture);
         delete impl;
     }
 }
@@ -464,9 +503,75 @@ CL_Font* CL_Font::load(const char* res_id, CL_ResourceManager* mgr) {
             std::string full = mgr->base_path + "/" + it->second.file;
             f->impl->path = full;
 
-            // Bitmap fonts (type=font) use TGA spritesheets — not TTF
+            // Bitmap fonts (type=font) use TGA spritesheets — scan for glyphs
             if (it->second.type == "font") {
-                fprintf(stderr, "CL_Font::load: bitmap font '%s' (stub — text won't render)\n", res_id);
+                f->impl->is_bitmap = true;
+
+                // Parse font-specific options
+                std::string letters;
+                float trans_limit = 0.05f;
+                auto lo = it->second.options.find("letters");
+                if (lo != it->second.options.end()) letters = lo->second;
+                auto tl = it->second.options.find("trans_limit");
+                if (tl != it->second.options.end()) trans_limit = std::stof(tl->second);
+                auto sl = it->second.options.find("spacelen");
+                if (sl != it->second.options.end()) f->impl->spacelen = std::stoi(sl->second);
+
+                // Load the TGA/image
+                SDL_Surface* surf = IMG_Load(full.c_str());
+                if (!surf) {
+                    fprintf(stderr, "CL_Font::load: bitmap font '%s' failed to load image '%s'\n",
+                            res_id, full.c_str());
+                    return f;
+                }
+
+                // Convert to RGBA for alpha inspection
+                SDL_Surface* rgba = SDL_ConvertSurfaceFormat(surf, SDL_PIXELFORMAT_RGBA32, 0);
+                SDL_FreeSurface(surf);
+                if (!rgba) return f;
+
+                f->impl->bm_width = rgba->w;
+                f->impl->bm_height = rgba->h;
+                Uint8 alpha_thresh = (Uint8)(trans_limit * 255.0f);
+
+                // Scan columns to find glyph boundaries
+                SDL_LockSurface(rgba);
+                Uint8* pixels = (Uint8*)rgba->pixels;
+                std::vector<bool> col_transparent(rgba->w, true);
+                for (int x = 0; x < rgba->w; x++) {
+                    for (int y = 0; y < rgba->h; y++) {
+                        Uint8 a = pixels[y * rgba->pitch + x * 4 + 3];
+                        if (a > alpha_thresh) {
+                            col_transparent[x] = false;
+                            break;
+                        }
+                    }
+                }
+                SDL_UnlockSurface(rgba);
+
+                // Find runs of non-transparent columns → glyphs
+                int glyph_idx = 0;
+                int x = 0;
+                while (x < rgba->w && glyph_idx < (int)letters.size()) {
+                    // Skip transparent separator
+                    while (x < rgba->w && col_transparent[x]) x++;
+                    if (x >= rgba->w) break;
+                    // Start of glyph
+                    int glyph_start = x;
+                    while (x < rgba->w && !col_transparent[x]) x++;
+                    int glyph_w = x - glyph_start;
+                    if (glyph_idx < (int)letters.size()) {
+                        f->impl->glyphs[letters[glyph_idx]] = { glyph_start, glyph_w };
+                        glyph_idx++;
+                    }
+                }
+
+                // Upload full image as GL texture
+                f->impl->bm_texture = upload_surface_to_gl(rgba);
+                SDL_FreeSurface(rgba);
+
+                fprintf(stderr, "CL_Font::load: bitmap font '%s' — %d glyphs scanned\n",
+                        res_id, glyph_idx);
                 return f;
             }
 
@@ -494,14 +599,71 @@ void CL_Font::change_colour(int r, int g, int b, int a) {
 
 void CL_Font::change_size(int size) {
     if (!impl) return;
+    if (impl->is_bitmap) return; // bitmap fonts have fixed size
     if (size == impl->size && impl->font) return;
     impl->size = size;
     if (impl->font) TTF_CloseFont(impl->font);
     impl->font = TTF_OpenFont(impl->path.c_str(), size);
 }
 
+// Bitmap font text rendering
+static void bitmap_render_text(CL_Font::Impl* impl, int x, int y, const char* text, int align) {
+    if (!impl || !impl->bm_texture || !text || !*text) return;
+
+    // Calculate total width for alignment
+    int total_w = 0;
+    for (const char* p = text; *p; p++) {
+        if (*p == ' ') { total_w += impl->spacelen; continue; }
+        auto it = impl->glyphs.find(*p);
+        if (it != impl->glyphs.end()) total_w += it->second.w + 1; // +1 spacing
+    }
+
+    int dx;
+    switch (align) {
+        case 0: dx = x;          break; // left
+        case 1: dx = x - total_w / 2; break; // center
+        case 2: dx = x - total_w;     break; // right
+        default: dx = x;         break;
+    }
+
+    float tw = (float)impl->bm_width;
+    float th = (float)impl->bm_height;
+
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, impl->bm_texture);
+    glColor4f(impl->color.r / 255.0f, impl->color.g / 255.0f,
+              impl->color.b / 255.0f, impl->color.a / 255.0f);
+
+    for (const char* p = text; *p; p++) {
+        if (*p == ' ') { dx += impl->spacelen; continue; }
+        auto it = impl->glyphs.find(*p);
+        if (it == impl->glyphs.end()) { dx += impl->spacelen; continue; }
+
+        float u0 = it->second.x / tw;
+        float u1 = (it->second.x + it->second.w) / tw;
+        int gw = it->second.w;
+
+        glBegin(GL_QUADS);
+            glTexCoord2f(u0, 0.0f); glVertex2i(dx,      y);
+            glTexCoord2f(u1, 0.0f); glVertex2i(dx + gw, y);
+            glTexCoord2f(u1, 1.0f); glVertex2i(dx + gw, y + impl->bm_height);
+            glTexCoord2f(u0, 1.0f); glVertex2i(dx,      y + impl->bm_height);
+        glEnd();
+        dx += gw + 1;
+    }
+}
+
 static void font_render_text(CL_Font::Impl* impl, int x, int y, const char* text, int align) {
-    if (!impl || !impl->font || !text || !*text) return;
+    if (!impl || !text || !*text) return;
+
+    // Bitmap font path
+    if (impl->is_bitmap) {
+        bitmap_render_text(impl, x, y, text, align);
+        return;
+    }
+
+    // TTF font path
+    if (!impl->font) return;
     SDL_Surface* surf = TTF_RenderUTF8_Blended(impl->font, text, impl->color);
     if (!surf) return;
 
@@ -513,6 +675,9 @@ static void font_render_text(CL_Font::Impl* impl, int x, int y, const char* text
     int th = surf->h;
     SDL_FreeSurface(surf);
 
+    // ClanLib 0.6 print_* treats Y as vertical center of the text
+    int adjusted_y = y - th / 2;
+
     int dx;
     switch (align) {
         case 0: dx = x;          break; // left
@@ -523,14 +688,13 @@ static void font_render_text(CL_Font::Impl* impl, int x, int y, const char* text
 
     glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, tex);
-    // Font color is already baked into the surface; draw white-tinted
     glColor4f(1.0f, 1.0f, 1.0f, impl->color.a / 255.0f);
 
     int x2 = dx + tw;
-    int y2 = y + th;
+    int y2 = adjusted_y + th;
     glBegin(GL_QUADS);
-        glTexCoord2f(0.0f, 0.0f); glVertex2i(dx, y);
-        glTexCoord2f(1.0f, 0.0f); glVertex2i(x2, y);
+        glTexCoord2f(0.0f, 0.0f); glVertex2i(dx, adjusted_y);
+        glTexCoord2f(1.0f, 0.0f); glVertex2i(x2, adjusted_y);
         glTexCoord2f(1.0f, 1.0f); glVertex2i(x2, y2);
         glTexCoord2f(0.0f, 1.0f); glVertex2i(dx, y2);
     glEnd();
@@ -551,14 +715,27 @@ void CL_Font::print_left(int x, int y, const char* text) {
 }
 
 int CL_Font::get_text_width(const char* text) {
-    if (!impl || !impl->font) return 0;
+    if (!impl) return 0;
+    if (impl->is_bitmap) {
+        int w = 0;
+        for (const char* p = text; *p; p++) {
+            if (*p == ' ') { w += impl->spacelen; continue; }
+            auto it = impl->glyphs.find(*p);
+            if (it != impl->glyphs.end()) w += it->second.w + 1;
+            else w += impl->spacelen;
+        }
+        return w;
+    }
+    if (!impl->font) return 0;
     int w = 0, h = 0;
     TTF_SizeUTF8(impl->font, text, &w, &h);
     return w;
 }
 
 int CL_Font::get_height() {
-    if (!impl || !impl->font) return 0;
+    if (!impl) return 0;
+    if (impl->is_bitmap) return impl->bm_height;
+    if (!impl->font) return 0;
     return TTF_FontHeight(impl->font);
 }
 
@@ -566,7 +743,12 @@ int CL_Font::get_height() {
 // CL_OpenGL / CL_SetupGL – real OpenGL projection management
 // ============================================================================
 void CL_OpenGL::begin_2d() {
-    // Save whatever projection the game's GL code has set, switch to 2D ortho
+    // Save GL state that we modify (blend func, enables, texture binding, etc.)
+    // GL_Handler::InitGL sets additive blending; we need normal blending for sprites.
+    // glPopAttrib in end_2d restores blend state AND texture binding so GL_Handler
+    // gets its own textures (Particle.bmp etc.) back after sprite rendering.
+    glPushAttrib(GL_COLOR_BUFFER_BIT | GL_ENABLE_BIT | GL_TEXTURE_BIT);
+
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
@@ -576,7 +758,7 @@ void CL_OpenGL::begin_2d() {
     glPushMatrix();
     glLoadIdentity();
 
-    // Standard 2D rendering state
+    // Standard 2D rendering state — normal alpha blending for sprite rendering
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -584,12 +766,15 @@ void CL_OpenGL::begin_2d() {
 }
 
 void CL_OpenGL::end_2d() {
-    // Restore previous projection (for GL_Handler's own ortho setup)
+    // Restore matrices
     glMatrixMode(GL_MODELVIEW);
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
+
+    // Restore GL state — this gives GL_Handler its additive blending back
+    glPopAttrib();
 }
 
 void CL_SetupGL::init()  {}

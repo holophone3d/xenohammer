@@ -1,9 +1,8 @@
+// CL_Mutex stub — ClanLib 0.6 threading primitive (game is single-threaded)
 #pragma once
-#include <mutex>
 
 class CL_Mutex {
-    std::mutex mtx;
 public:
-    void enter() { mtx.lock(); }
-    void leave() { mtx.unlock(); }
+    void enter() {}
+    void leave() {}
 };
