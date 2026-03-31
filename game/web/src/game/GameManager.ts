@@ -2476,7 +2476,7 @@ export class GameManager {
         // Homing mode selector buttons (upper-right of info panel) — when homing researched
         if (this.isHomingResearched && (sel === 3 || sel === 4)) {
             const modes: Array<import('./PowerPlant').HomingMode> = ['threat', 'closest', 'disabled'];
-            const btnY = [320, 362, 404];
+            const btnY = [345, 387, 429];
             if (mx >= 380 && mx <= 500) {
                 for (let i = 0; i < 3; i++) {
                     if (my >= btnY[i] - 5 && my <= btnY[i] + 30) {
@@ -2859,8 +2859,13 @@ export class GameManager {
         const btnX = 380;
         const btnW = 120;
         const btnH = 30;
-        const btnY = [320, 362, 404];
+        const btnY = [345, 387, 429];
         const mouse = this.input.getMousePos();
+        // Title
+        ctx.font = '14px XenoFont, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#0f0';
+        ctx.fillText('Homing Mode', btnX + btnW / 2, 335);
         for (let i = 0; i < 3; i++) {
             const m = modes[i];
             const y = btnY[i];
@@ -2874,10 +2879,10 @@ export class GameManager {
             ctx.strokeStyle = active ? '#00ff00' : hover ? '#aaaaaa' : '#555555';
             ctx.lineWidth = active ? 2 : 1;
             ctx.strokeRect(btnX, y - 3, btnW, btnH);
-            // Label — consistent green styling
+            // Label
             ctx.font = '14px XenoFont, monospace';
             ctx.textAlign = 'center';
-            ctx.fillStyle = active ? '#00ff00' : hover ? '#cccccc' : '#777777';
+            ctx.fillStyle = active ? '#00ff00' : hover ? '#cccccc' : '#0f0';
             ctx.fillText(m.label, btnX + btnW / 2, y + 16);
         }
         ctx.textAlign = 'left';
