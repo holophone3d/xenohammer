@@ -1026,6 +1026,9 @@ export class GameManager {
                 if (proj.needsTarget() && pool.length > 0) {
                     proj.homingTarget = this.selectHomingTarget(proj, pool, homingMode);
                 }
+            } else if (proj.homing && proj.owner === 'player' && proj.homingTarget) {
+                // Mode disabled or not researched — clear locked target so missile flies straight
+                proj.homingTarget = null;
             }
             proj.update(dt);
         }
@@ -2768,7 +2771,9 @@ export class GameManager {
         } else if (sel === 3 || sel === 4) {
             // Missiles: Homing research or mode selector buttons
             if (this.isHomingResearched) {
-                ctx.fillText('Homing Mode:', 20, 335);
+                ctx.fillText('Already Researched', 110, 390);
+                ctx.fillText('cost = ', 160, 420);
+                ctx.fillText('n/a', 240, 420);
                 this.renderHomingModeButtons(ctx);
             } else {
                 ctx.fillText('Homing', 110, 390);
@@ -2846,10 +2851,10 @@ export class GameManager {
     private renderHomingModeButtons(ctx: CanvasRenderingContext2D): void {
         if (!this.player) return;
         const setting = this.player.powerPlant.getSetting();
-        const modes: Array<{ key: import('./PowerPlant').HomingMode; label: string; color: string }> = [
-            { key: 'threat', label: 'Max Threat', color: '#ff8800' },
-            { key: 'closest', label: 'Closest', color: '#44aaff' },
-            { key: 'disabled', label: 'Disabled', color: '#ff4444' },
+        const modes: Array<{ key: import('./PowerPlant').HomingMode; label: string }> = [
+            { key: 'threat', label: 'Max Threat' },
+            { key: 'closest', label: 'Closest' },
+            { key: 'disabled', label: 'Disabled' },
         ];
         const btnX = 380;
         const btnW = 120;
@@ -2869,10 +2874,10 @@ export class GameManager {
             ctx.strokeStyle = active ? '#00ff00' : hover ? '#aaaaaa' : '#555555';
             ctx.lineWidth = active ? 2 : 1;
             ctx.strokeRect(btnX, y - 3, btnW, btnH);
-            // Label
+            // Label — consistent green styling
             ctx.font = '14px XenoFont, monospace';
             ctx.textAlign = 'center';
-            ctx.fillStyle = active ? m.color : hover ? '#cccccc' : '#777777';
+            ctx.fillStyle = active ? '#00ff00' : hover ? '#cccccc' : '#777777';
             ctx.fillText(m.label, btnX + btnW / 2, y + 16);
         }
         ctx.textAlign = 'left';
