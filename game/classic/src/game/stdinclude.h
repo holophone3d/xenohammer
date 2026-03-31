@@ -13,14 +13,10 @@
 #include <ClanLib/gl.h>
 
 //#include <stdlib.h>     
-#include <iostream>    
+#include <iostream.h>    
 #include <stdio.h>
 #include <malloc.h>
-#ifdef _MSC_VER
 #include <crtdbg.h>
-#endif
-
-using namespace std;
 
 
 #include "pcxload.h"

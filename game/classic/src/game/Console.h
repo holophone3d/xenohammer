@@ -1,4 +1,3 @@
-#pragma once
 //console positions
 #define SCREEN_WIDTH_TO_CONSOLE (SCREEN_WIDTH-150)
 #define SHIP_SHIELD_X_POS (SCREEN_WIDTH_TO_CONSOLE + 68)

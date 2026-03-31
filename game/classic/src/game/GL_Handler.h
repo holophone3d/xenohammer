@@ -25,7 +25,7 @@ public:
 
 	void createTriangleStrip(int x, int y, int x1, int y1, int x_offset, int y_offset);
 
-	AUX_RGBImageRec *LoadBMP(const char *Filename);
+	AUX_RGBImageRec *LoadBMP(char *Filename);
 
 	int LoadGLTextures();
 

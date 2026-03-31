@@ -1,7 +1,7 @@
 /* PCX routines */
 
 #include "pcxload.h"
-#include <iostream>
+#include <iostream.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -13,7 +13,7 @@
 
   if(inf == NULL)
   {
-    std::cout << "Could not open the file: " << fname << ".\n";
+    cout << "Could not open the file: " << fname << ".\n";
     exit(0);
   } 
 

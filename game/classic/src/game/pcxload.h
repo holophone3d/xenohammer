@@ -1,9 +1,7 @@
 #ifndef PCXLOAD_H
 #define PCXLOAD_H
 #include <stdio.h>
-#ifdef _MSC_VER
 #include <crtdbg.h>
-#endif
 #include <stdlib.h>
 
 class PCXLoad

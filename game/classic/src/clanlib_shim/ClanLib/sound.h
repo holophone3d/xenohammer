@@ -14,6 +14,7 @@ public:
     void stop();
     bool is_playing();
     void set_volume(float vol);
+    float get_volume();
     void set_looping(bool loop);
 
     int channel = -1;

@@ -5,9 +5,9 @@
 #if !defined(AFX_GENERICAI_H__78A35DC7_1372_4DB2_8AC6_EA24EED10320__INCLUDED_)
 #define AFX_GENERICAI_H__78A35DC7_1372_4DB2_8AC6_EA24EED10320__INCLUDED_
 
-#ifdef _MSC_VER
+#if _MSC_VER > 1000
 #pragma once
-#endif // _MSC_VER
+#endif // _MSC_VER > 1000
 
 typedef struct ai_think_result
 {

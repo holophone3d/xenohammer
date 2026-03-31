@@ -35,7 +35,7 @@ static int           g_height   = 600;
 static CL_InputDevice g_keyboard;
 static CL_InputDevice g_joystick;
 CL_InputDevice* CL_Input::keyboards[1] = { &g_keyboard };
-CL_InputDevice* CL_Input::joysticks[1] = { &g_joystick };
+std::vector<CL_InputDevice*> CL_Input::joysticks;
 
 static SDL_Joystick* g_sdl_joystick = nullptr;
 
@@ -99,6 +99,9 @@ void CL_SetupDisplay::deinit() {
 // ============================================================================
 CL_ConsoleWindow::CL_ConsoleWindow(const char* /*title*/) {}
 void CL_ConsoleWindow::redirect_stdio() {}
+void CL_ConsoleWindow::display_close_message() {
+    printf("Press any key to continue...\n");
+}
 
 // ============================================================================
 // CL_Display
@@ -250,12 +253,18 @@ CL_Canvas::CL_Canvas(CL_Surface* surf) : impl(new Impl) {
     if (surf && surf->impl && surf->impl->sdl_surface) {
         impl->surface = surf->impl->sdl_surface;
         impl->owns_surface = false;
+        width = impl->surface->w;
+        height = impl->surface->h;
+        bpp = impl->surface->format->BytesPerPixel;
     }
 }
 
 CL_Canvas::CL_Canvas(int w, int h) : impl(new Impl) {
     impl->surface = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_RGBA32);
     impl->owns_surface = true;
+    width = w;
+    height = h;
+    bpp = 4;
 }
 
 CL_Canvas::~CL_Canvas() {
@@ -284,6 +293,62 @@ void CL_Canvas::get_pixel(int x, int y, float* r, float* g, float* b, float* a) 
     *g = gv / 255.0f;
     *b = bv / 255.0f;
     *a = av / 255.0f;
+}
+
+void CL_Canvas::lock() {
+    if (impl && impl->surface) {
+        SDL_LockSurface(impl->surface);
+        pixel_data = (unsigned char*)impl->surface->pixels;
+    }
+}
+
+void CL_Canvas::unlock() {
+    if (impl && impl->surface) {
+        SDL_UnlockSurface(impl->surface);
+        pixel_data = nullptr;
+    }
+}
+
+void* CL_Canvas::get_data() {
+    if (impl && impl->surface) return impl->surface->pixels;
+    return nullptr;
+}
+
+int CL_Canvas::get_bytes_per_pixel() {
+    if (impl && impl->surface) return impl->surface->format->BytesPerPixel;
+    return bpp;
+}
+
+// CL_Surface::put_target — render surface pixels into a canvas
+void CL_Surface::put_target(int x, int y, int /*frame*/, CL_Canvas* canvas) {
+    if (!impl || !impl->sdl_surface || !canvas || !canvas->impl || !canvas->impl->surface) return;
+    SDL_Rect dst = { x, y, 0, 0 };
+    SDL_BlitSurface(impl->sdl_surface, nullptr, canvas->impl->surface, &dst);
+}
+
+// CL_Surface::create — create a surface from canvas pixel data
+CL_Surface* CL_Surface::create(CL_Canvas* canvas) {
+    CL_Surface* surf = new CL_Surface();
+    if (canvas && canvas->impl && canvas->impl->surface) {
+        surf->impl = new CL_Surface::Impl;
+        // Duplicate the canvas surface
+        surf->impl->sdl_surface = SDL_ConvertSurface(canvas->impl->surface,
+                                                      canvas->impl->surface->format, 0);
+        if (surf->impl->sdl_surface) {
+            surf->impl->w = surf->impl->sdl_surface->w;
+            surf->impl->h = surf->impl->sdl_surface->h;
+        }
+    }
+    return surf;
+}
+
+// CL_PCXProvider / CL_TargaProvider — delegate to SDL_image
+CL_Surface* CL_PCXProvider::create(const char* filename, bool /*transparent*/) {
+    return new CL_Surface(filename);
+}
+
+CL_Surface* CL_TargaProvider::create(const char* filename, bool /*transparent*/) {
+    return new CL_Surface(filename);
 }
 
 // ============================================================================
@@ -439,6 +504,11 @@ void CL_SoundBuffer_Session::set_volume(float vol) {
 
 void CL_SoundBuffer_Session::set_looping(bool /*loop*/) {
     // Looping is set at play time via Mix_PlayChannel
+}
+
+float CL_SoundBuffer_Session::get_volume() {
+    if (channel >= 0) return Mix_Volume(channel, -1) / (float)MIX_MAX_VOLUME;
+    return 1.0f;
 }
 
 // ============================================================================
@@ -701,6 +771,9 @@ void CL_Input::init() {
     // Open first joystick if available
     if (SDL_NumJoysticks() > 0) {
         g_sdl_joystick = SDL_JoystickOpen(0);
+        if (g_sdl_joystick) {
+            joysticks.push_back(&g_joystick);
+        }
     }
 }
 
@@ -734,22 +807,39 @@ CL_InputButton CL_InputDevice::get_button(int key) {
     return btn;
 }
 
-void CL_InputAxis_Group::add_invpair(CL_InputButton neg, CL_InputButton pos) {
-    pairs.push_back({neg, pos});
+CL_InputAxis* CL_InputDevice::get_axis(int axis_index) {
+    // Grow the hw_axes vector to fit
+    while ((int)hw_axes.size() <= axis_index) {
+        hw_axes.emplace_back((int)hw_axes.size());
+    }
+    return &hw_axes[axis_index];
+}
+
+void CL_InputAxis_Group::add(CL_InputAxis* axis) {
+    axes.push_back(axis);
 }
 
 float CL_InputAxis_Group::get_pos() {
-    for (auto& p : pairs) {
-        bool n = p.first.is_pressed();
-        bool pv = p.second.is_pressed();
-        if (n && !pv) return -1.0f;
-        if (pv && !n) return  1.0f;
+    for (auto* ax : axes) {
+        float v = ax->get_pos();
+        if (v != 0.0f) return v;
     }
     return 0.0f;
 }
 
-CL_InputButtonToAxis_Analog::CL_InputButtonToAxis_Analog(CL_InputButton b)
-    : btn(b) {}
+float CL_InputButtonToAxis_Analog::get_pos() {
+    bool n = neg_btn.is_pressed();
+    bool p = pos_btn.is_pressed();
+    if (n && !p) return -1.0f;
+    if (p && !n) return  1.0f;
+    return 0.0f;
+}
+
+float CL_JoystickAxis::get_pos() {
+    if (!g_sdl_joystick) return 0.0f;
+    Sint16 raw = SDL_JoystickGetAxis(g_sdl_joystick, axis_idx);
+    return raw / 32767.0f;
+}
 
 float CL_InputCursor::get_x() {
     int x, y;
@@ -791,6 +881,7 @@ CL_ComponentManager::CL_ComponentManager(const char* /*gui_file*/,
                                          CL_StyleManager* /*style*/, ...) {}
 CL_GUIManager::CL_GUIManager(CL_StyleManager* /*style*/) {}
 void CL_GUIManager::run() {}
+void CL_GUIManager::show() {}
 void CL_SetupGUI::init() {}
 void CL_SetupGUI::deinit() {}
 
@@ -801,6 +892,51 @@ int  CL_ListBox::get_current_item() { return 0; }
 void CL_ListBox::set_current_item(int) {}
 CL_Label* CL_Label::get_component(const char*, CL_ComponentManager*) { return new CL_Label(); }
 void CL_Label::set_text(const char*) {}
+
+CL_ComponentManager* CL_ComponentManager::create(const char* gui_file, bool /*something*/,
+                                                  CL_StyleManager* style, CL_GUIManager* /*gui*/) {
+    return new CL_ComponentManager(gui_file, style);
+}
+
+// ============================================================================
+// CL_ClanApplication – static member definition
+// ============================================================================
+CL_ClanApplication* CL_ClanApplication::app = nullptr;
+
+// ============================================================================
+// auxDIBImageLoad – replacement for ancient GLAUX BMP loader
+// ============================================================================
+#include <gl/glaux.h>
+
+AUX_RGBImageRec* auxDIBImageLoadA(const char* filename) {
+    SDL_Surface* bmp = IMG_Load(filename);
+    if (!bmp) {
+        fprintf(stderr, "auxDIBImageLoad: failed to load '%s': %s\n", filename, IMG_GetError());
+        return nullptr;
+    }
+    // Convert to 24-bit RGB
+    SDL_Surface* rgb = SDL_ConvertSurfaceFormat(bmp, SDL_PIXELFORMAT_RGB24, 0);
+    SDL_FreeSurface(bmp);
+    if (!rgb) return nullptr;
+
+    AUX_RGBImageRec* rec = new AUX_RGBImageRec;
+    rec->sizeX = rgb->w;
+    rec->sizeY = rgb->h;
+    int dataSize = rgb->w * rgb->h * 3;
+    rec->data = new unsigned char[dataSize];
+
+    // SDL surfaces may have padding per row; copy row by row
+    SDL_LockSurface(rgb);
+    unsigned char* src = (unsigned char*)rgb->pixels;
+    unsigned char* dst = rec->data;
+    for (int y = 0; y < rgb->h; y++) {
+        memcpy(dst, src + y * rgb->pitch, rgb->w * 3);
+        dst += rgb->w * 3;
+    }
+    SDL_UnlockSurface(rgb);
+    SDL_FreeSurface(rgb);
+    return rec;
+}
 
 // ============================================================================
 // SDL main entry point – delegates to CL_ClanApplication

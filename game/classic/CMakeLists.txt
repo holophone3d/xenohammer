@@ -16,6 +16,20 @@ file(GLOB GAME_SOURCES
     src/game/*.cpp
     src/game/*.h
 )
+
+# CapitalShip.cpp is dead code — duplicate definitions of inline methods
+# already defined in CapitalShip.h, and references undeclared members.
+# The original VS6 project did not compile this file.
+list(FILTER GAME_SOURCES EXCLUDE REGEX ".*CapitalShip\\.cpp$")
+
+# GameManager.cpp and Homing.cpp are compiled via compat proxy files instead.
+# GameManager_proxy.cpp adds VC6 for-scope compatibility (leaked iterators).
+# Homing_proxy.cpp fixes include ordering (PlayerShip must precede EnemyShip).
+list(FILTER GAME_SOURCES EXCLUDE REGEX ".*GameManager\\.cpp$")
+list(FILTER GAME_SOURCES EXCLUDE REGEX ".*Homing\\.cpp$")
+
+file(GLOB COMPAT_PROXIES src/compat/*.cpp)
+
 file(GLOB SHIM_SOURCES
     src/clanlib_shim/impl/*.cpp
     src/clanlib_shim/impl/*.h
@@ -25,12 +39,15 @@ file(GLOB SHIM_SOURCES
 add_executable(xenohammer-classic
     ${GAME_SOURCES}
     ${SHIM_SOURCES}
+    ${COMPAT_PROXIES}
 )
 
 # --- Include directories ------------------------------------------------------
-# src/clanlib_shim/ so that #include <ClanLib/core.h> resolves
-# src/game/         so game headers can find each other
+# compat/ FIRST so it intercepts <malloc.h>, <crtdbg.h>, <gl\glaux.h>, etc.
+# clanlib_shim/ so that #include <ClanLib/core.h> resolves
+# game/ so game headers can find each other
 target_include_directories(xenohammer-classic PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/compat
     ${CMAKE_CURRENT_SOURCE_DIR}/src/clanlib_shim
     ${CMAKE_CURRENT_SOURCE_DIR}/src/game
 )
@@ -43,9 +60,21 @@ target_link_libraries(xenohammer-classic PRIVATE
     $<IF:$<TARGET_EXISTS:SDL2_mixer::SDL2_mixer>,SDL2_mixer::SDL2_mixer,SDL2_mixer::SDL2_mixer-static>
     $<IF:$<TARGET_EXISTS:SDL2_ttf::SDL2_ttf>,SDL2_ttf::SDL2_ttf,SDL2_ttf::SDL2_ttf-static>
     OpenGL::GL
+    OpenGL::GLU
 )
 
-# --- Debugging working directory = assets folder -----------------------------
-set_target_properties(xenohammer-classic PROPERTIES
-    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../assets"
+# Suppress warnings in game source (year-2000 C++ is noisy)
+if(MSVC)
+    target_compile_options(xenohammer-classic PRIVATE /W2 /wd4996 /wd4267 /wd4244 /wd4305 /wd4834)
+else()
+    target_compile_options(xenohammer-classic PRIVATE -w)
+endif()
+
+# --- Post-build: copy assets next to the executable -------------------------
+# Mirrors original layout where EXE + assets sat side-by-side in Debug/
+add_custom_command(TARGET xenohammer-classic POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets"
+        "$<TARGET_FILE_DIR:xenohammer-classic>"
+    COMMENT "Copying game assets to output directory"
 )

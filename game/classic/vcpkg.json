@@ -4,10 +4,7 @@
   "dependencies": [
     "sdl2",
     "sdl2-image",
-    {
-      "name": "sdl2-mixer",
-      "features": ["libvorbis"]
-    },
+    "sdl2-mixer",
     "sdl2-ttf"
   ]
 }

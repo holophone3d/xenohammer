@@ -34,7 +34,7 @@ public:
 
 	// to be overloaded in subclasses
 	// generates explosions and returns percentage chance of a powerup
-	float destroy_ship(){ return 0; };
+	float destroy_ship(){};
 
 	PowerPlant* ShipPower; //used for shields and manuvering
 

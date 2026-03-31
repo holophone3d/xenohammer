@@ -275,7 +275,7 @@ public:
 
 
 	CL_ResourceManager *get_resources(){ return resources; };
-	virtual const char *get_title();
+	virtual char *get_title();
 	virtual int main(int argc, char** argv);
 
 

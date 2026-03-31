@@ -25,3 +25,6 @@ __pycache__/
 
 # vcpkg
 game/classic/vcpkg_installed/
+
+# Classic track assets (copied from original Debug/ — large binary files)
+game/classic/assets/

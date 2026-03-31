@@ -120,8 +120,8 @@ int test;
 	int get_height() { return height; }
 	int get_width()  { return width;  }
 
-	void set_height(int new_height) { height = new_height; }
-	void set_width(int new_width) { width = new_width; }
+	int set_height(int new_height) { height = new_height; }
+	int set_width(int new_width) { height = new_width; }
 
 	int get_mask_height() { return mask_height; }
 	int get_mask_width()  { return mask_width;  }

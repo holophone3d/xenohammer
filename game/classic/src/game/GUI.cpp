@@ -12,7 +12,7 @@ int nb_overflow = 0, lt_overflow = 0, rt_overflow = 0, lm_overflow = 0, rm_overf
 int energy_system = None;
 int x=610, y=(SHIELDS_Y_POS - 56);
 char* tempStr;
-const char* weaponStr;
+char* weaponStr;
 
 //bool turret_angle_available = false;
 

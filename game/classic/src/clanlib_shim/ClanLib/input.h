@@ -94,25 +94,47 @@ private:
     std::vector<CL_InputButton> buttons;
 };
 
+// Base class for axis sources (buttons-to-axis, joystick hardware axis, etc.)
+class CL_InputAxis {
+public:
+    virtual ~CL_InputAxis() = default;
+    virtual float get_pos() { return 0.0f; }
+};
+
+// Converts two buttons (negative/positive) into an analog axis
+class CL_InputButtonToAxis_Analog : public CL_InputAxis {
+public:
+    CL_InputButtonToAxis_Analog(CL_InputButton neg, CL_InputButton pos)
+        : neg_btn(neg), pos_btn(pos) {}
+    float get_pos() override;
+private:
+    CL_InputButton neg_btn, pos_btn;
+};
+
+// Hardware joystick axis
+class CL_JoystickAxis : public CL_InputAxis {
+public:
+    CL_JoystickAxis(int axis_index) : axis_idx(axis_index) {}
+    float get_pos() override;
+private:
+    int axis_idx = 0;
+};
+
 class CL_InputDevice {
 public:
     CL_InputButton get_button(int key);
+    CL_InputAxis* get_axis(int axis_index);
+private:
+    std::vector<CL_JoystickAxis> hw_axes;
 };
 
 class CL_InputAxis_Group {
 public:
-    void add_invpair(CL_InputButton neg, CL_InputButton pos);
+    void add(CL_InputAxis* axis);
+    void add(CL_InputButtonToAxis_Analog* axis) { add(static_cast<CL_InputAxis*>(axis)); }
     float get_pos();
 private:
-    std::vector<std::pair<CL_InputButton, CL_InputButton>> pairs;
-};
-
-class CL_InputButtonToAxis_Analog {
-public:
-    CL_InputButtonToAxis_Analog(CL_InputButton btn);
-    operator CL_InputButton() const { return btn; }
-private:
-    CL_InputButton btn;
+    std::vector<CL_InputAxis*> axes;
 };
 
 class CL_InputCursor {
@@ -124,7 +146,7 @@ public:
 class CL_Input {
 public:
     static CL_InputDevice* keyboards[1];
-    static CL_InputDevice* joysticks[1];
+    static std::vector<CL_InputDevice*> joysticks;
     static void init();
 };
 
