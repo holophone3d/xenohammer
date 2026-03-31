@@ -6,6 +6,10 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 
+// Intercept glViewport so game code uses our letterbox viewport
+void shim_glViewport(GLint x, GLint y, GLsizei w, GLsizei h);
+#define glViewport shim_glViewport
+
 class CL_OpenGL {
 public:
     // Switch between 2D orthographic (ClanLib sprite/text drawing) and

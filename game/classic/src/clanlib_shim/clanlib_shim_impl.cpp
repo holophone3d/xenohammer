@@ -10,6 +10,8 @@
 #include <ClanLib/application.h>
 #include <ClanLib/display.h>
 #include <ClanLib/gl.h>
+// Undo the glViewport macro so the shim can call the real GL function
+#undef glViewport
 #include <ClanLib/sound.h>
 #include <ClanLib/vorbis.h>
 #include <ClanLib/ttf.h>
@@ -34,6 +36,11 @@ static int           g_height     = 600;
 
 // Viewport letterbox state (updated on resize/fullscreen)
 static int  g_vpX = 0, g_vpY = 0, g_vpW = 800, g_vpH = 600;
+
+// Intercept game's glViewport calls — always apply letterbox transform
+void shim_glViewport(GLint /*x*/, GLint /*y*/, GLsizei /*w*/, GLsizei /*h*/) {
+    glViewport(g_vpX, g_vpY, g_vpW, g_vpH);
+}
 
 // Input singletons
 static CL_InputDevice g_keyboard;
