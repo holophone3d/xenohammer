@@ -3,7 +3,7 @@
 The original ~2000 C++ XenoHammer source running on modern Windows — **virtually
 zero game code changes**. A custom ClanLib 0.6 API shim translates all engine
 calls to SDL2 + OpenGL at compile time. The 26 original game source files compile
-unmodified against 12 shim headers and a single 1,100-line implementation file.
+unmodified against 12 shim headers and a single ~1,200-line implementation file.
 
 ## How It Works
 
