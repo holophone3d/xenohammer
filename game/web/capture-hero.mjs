@@ -16,9 +16,10 @@ import puppeteer from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
 
-const URL = 'http://localhost:5173/';
+const URL = 'http://localhost:5174/';
 const OUTPUT = path.resolve('..', '..', 'site', 'hero-gameplay.webm');
-const RECORD_SECONDS = 15;
+const RECORD_SECONDS = 30;
+const PREP_SECONDS = 10;
 
 (async () => {
     const browser = await puppeteer.launch({
@@ -68,8 +69,19 @@ const RECORD_SECONDS = 15;
     await new Promise(r => setTimeout(r, 500));
 
     console.log('');
-    console.log('=== YOU ARE LIVE ===');
-    console.log(`Recording ${RECORD_SECONDS}s — play the game! Fly around and shoot things.`);
+    console.log('=== GET READY ===');
+    console.log(`You have ${PREP_SECONDS} seconds to set up the game how you want...`);
+    console.log('');
+
+    // Countdown
+    for (let i = PREP_SECONDS; i > 0; i--) {
+        process.stdout.write(`\r  ${i}s remaining...  `);
+        await new Promise(r => setTimeout(r, 1000));
+    }
+
+    console.log('\r                          ');
+    console.log('=== RECORDING ===');
+    console.log(`Recording ${RECORD_SECONDS}s — GO!`);
     console.log('');
 
     // Start recording

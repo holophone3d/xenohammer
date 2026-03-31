@@ -111,6 +111,49 @@ game.init().then(() => {
         touch.layout();
     });
 
+    // === PC Controls Overlay (non-touch only, shown once on first ReadyRoom) ===
+    let pcOverlayShown = false;
+    function maybeShowPCControls(): void {
+        if (pcOverlayShown || touch.isTouchDevice) return;
+        if (game.state !== GameState.ReadyRoom) return;
+        if (localStorage.getItem('xh-pc-controls-dismissed')) return;
+        pcOverlayShown = true;
+
+        const overlay = document.createElement('div');
+        Object.assign(overlay.style, {
+            position: 'fixed', inset: '0', zIndex: '9999',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
+        });
+        overlay.innerHTML = `
+            <div style="background:#111;border:1px solid #0f6;border-radius:12px;padding:2rem 2.5rem;max-width:420px;text-align:center;font-family:sans-serif;color:#ccc">
+                <h2 style="color:#0f6;margin:0 0 1.2rem;font-size:1.3rem;letter-spacing:.05em">Controls</h2>
+                <div style="display:grid;grid-template-columns:auto 1fr;gap:.5rem 1rem;text-align:left;font-size:.95rem;margin-bottom:1.2rem">
+                    <kbd style="background:#222;border:1px solid #444;border-radius:4px;padding:.15rem .5rem;color:#fff;font-family:monospace;text-align:center">← → ↑ ↓</kbd><span>Move ship</span>
+                    <kbd style="background:#222;border:1px solid #444;border-radius:4px;padding:.15rem .5rem;color:#fff;font-family:monospace;text-align:center">Space</kbd><span>Fire weapons</span>
+                    <kbd style="background:#222;border:1px solid #444;border-radius:4px;padding:.15rem .5rem;color:#fff;font-family:monospace;text-align:center">Esc</kbd><span>Back / Return to base</span>
+                    <kbd style="background:#222;border:1px solid #444;border-radius:4px;padding:.15rem .5rem;color:#fff;font-family:monospace;text-align:center">Q W E</kbd><span>Toggle ship configurations</span>
+                </div>
+                <p style="color:#9f9;font-size:.85rem;margin:0 0 1.5rem;line-height:1.5">💡 Upgrade your ship at the space station between missions!</p>
+                <div style="display:flex;gap:.75rem;justify-content:center">
+                    <button id="xh-pc-ok" style="background:#0f6;color:#000;border:none;border-radius:6px;padding:.5rem 1.5rem;font-weight:700;font-size:.9rem;cursor:pointer">Got it!</button>
+                    <button id="xh-pc-dont" style="background:transparent;color:#666;border:1px solid #333;border-radius:6px;padding:.5rem 1rem;font-size:.8rem;cursor:pointer">Don't show again</button>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+
+        const dismiss = () => overlay.remove();
+        overlay.querySelector('#xh-pc-ok')!.addEventListener('click', dismiss);
+        overlay.querySelector('#xh-pc-dont')!.addEventListener('click', () => {
+            localStorage.setItem('xh-pc-controls-dismissed', '1');
+            dismiss();
+        });
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) dismiss(); });
+        document.addEventListener('keydown', function esc(e) {
+            if (e.key === 'Escape' || e.key === ' ') { dismiss(); document.removeEventListener('keydown', esc); }
+        });
+    }
+
     let lastTime = performance.now();
     let accumulator = 0;
     // Track render-frame FPS (not logic-tick rate)
@@ -141,6 +184,7 @@ game.init().then(() => {
 
         // Check for state transition → refit canvas
         syncLayout();
+        maybeShowPCControls();
 
         game.render();
         requestAnimationFrame(gameLoop);

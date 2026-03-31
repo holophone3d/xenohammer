@@ -37,7 +37,7 @@ h2{font-size:clamp(1.5rem,4vw,2.2rem);margin-bottom:.3em}
 
 /* ===== LAYOUT ===== */
 .container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
-section{position:relative;z-index:1;padding:5rem 0}
+section{position:relative;z-index:1;padding:3.75rem 0}
 .section-line{width:60px;height:3px;background:linear-gradient(90deg,var(--green),var(--blue));border-radius:2px;margin-bottom:1rem}
 
 /* ===== SCROLL ANIMATIONS ===== */
@@ -63,20 +63,20 @@ nav .nav-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;width:100%;displa
 .mobile-menu a:hover{color:var(--green)}
 
 /* ===== HERO ===== */
-.hero{position:relative;z-index:1;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden}
+.hero{position:relative;z-index:1;min-height:75vh;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden}
 .hero-bg{position:absolute;inset:0;z-index:0}
-.hero-bg video,.hero-bg img{width:100%;height:100%;object-fit:cover;opacity:.18;filter:blur(2px) saturate(1.3)}
-.hero-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,8,15,.3) 0%,rgba(8,8,15,.85) 60%,var(--bg) 100%)}
-.hero-content{position:relative;z-index:2;padding:2rem 1.5rem}
-.hero-title{font-family:'XenoFont',monospace;font-size:clamp(3rem,9vw,6rem);font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:var(--green);text-shadow:0 0 40px rgba(0,255,102,.4),0 0 80px rgba(0,255,102,.2);animation:title-glow 4s ease-in-out infinite;line-height:1.1}
+.hero-bg video,.hero-bg img{width:100%;height:100%;object-fit:cover;opacity:.85;filter:saturate(1.5) brightness(1.2)}
+.hero-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 0%,rgba(8,8,15,.3) 65%,var(--bg) 95%)}
+.hero-content{position:relative;z-index:2;padding:2rem 1.5rem;text-shadow:0 2px 12px rgba(0,0,0,.9),0 0 40px rgba(0,0,0,.7)}
+.hero-title{font-family:'XenoFont',monospace;font-size:clamp(3rem,9vw,6rem);font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:var(--green);text-shadow:0 0 40px rgba(0,255,102,.5),0 0 80px rgba(0,255,102,.3),0 4px 20px rgba(0,0,0,.95);animation:title-glow 4s ease-in-out infinite;line-height:1.1}
 @keyframes title-glow{0%,100%{text-shadow:0 0 40px rgba(0,255,102,.4),0 0 80px rgba(0,255,102,.2)}50%{text-shadow:0 0 60px rgba(0,255,102,.6),0 0 120px rgba(0,255,102,.3),0 0 160px rgba(0,255,102,.1)}}
-.hero-codename{font-size:clamp(.85rem,2vw,1.1rem);color:var(--text-dim);letter-spacing:.25em;text-transform:uppercase;margin-top:.75rem}
+.hero-codename{font-size:clamp(.65rem,2vw,1.1rem);color:var(--text-dim);letter-spacing:.15em;text-transform:uppercase;margin-top:.75rem;margin-bottom:1.5rem;white-space:nowrap}
 /* ===== ANNIVERSARY BADGE ===== */
-.anniversary-badge{display:inline-block;padding:.4rem 1.2rem;background:rgba(0,255,102,.1);border:1px solid var(--green);border-radius:20px;color:var(--green);font-size:.8rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:1rem;animation:badge-pulse 3s ease-in-out infinite}
+.anniversary-badge{display:inline-block;padding:.3em .8em;background:rgba(0,255,102,.1);border:1px solid var(--green);border-radius:20px;color:var(--green);font-size:clamp(.55rem,1.8vw,.9rem);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:1.25rem;animation:badge-pulse 3s ease-in-out infinite;white-space:nowrap}
 @keyframes badge-pulse{0%,100%{box-shadow:0 0 8px rgba(0,255,102,.2)}50%{box-shadow:0 0 20px rgba(0,255,102,.4)}}
-.hero-tagline{font-size:clamp(1rem,2.5vw,1.35rem);color:var(--text);margin-top:.5rem;font-weight:300}
-.hero-meta{color:var(--text-dim);font-size:.8rem;letter-spacing:.15em;text-transform:uppercase;margin-top:1.5rem}
-.hero-play{display:inline-flex;align-items:center;gap:.6rem;margin-top:2rem;padding:.9rem 2.5rem;background:linear-gradient(135deg,var(--green),#00dd55);color:#000;font-weight:800;font-size:1.1rem;letter-spacing:.1em;text-transform:uppercase;border:none;border-radius:4px;cursor:pointer;text-decoration:none;transition:transform .2s,box-shadow .2s;box-shadow:0 0 30px rgba(0,255,102,.3)}
+.hero-tagline{font-size:clamp(.8rem,2.5vw,1.35rem);color:var(--text);margin-top:.5rem;font-weight:300;white-space:nowrap}
+.hero-meta{color:var(--text-dim);font-size:clamp(.6rem,1.8vw,.8rem);letter-spacing:.1em;text-transform:uppercase;margin-top:1.5rem;white-space:nowrap}
+.hero-play{display:inline-flex;align-items:center;gap:.6rem;margin-top:3.5rem;padding:.9rem 2.5rem;background:linear-gradient(135deg,var(--green),#00dd55);color:#000;font-weight:800;font-size:1.1rem;letter-spacing:.1em;text-transform:uppercase;border:none;border-radius:4px;cursor:pointer;text-decoration:none;transition:transform .2s,box-shadow .2s;box-shadow:0 0 30px rgba(0,255,102,.3)}
 .hero-play:hover{transform:translateY(-2px);box-shadow:0 0 50px rgba(0,255,102,.5);color:#000}
 .hero-note{color:var(--text-dim);font-size:.75rem;margin-top:1rem;letter-spacing:.03em}
 
@@ -91,30 +91,9 @@ nav .nav-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;width:100%;displa
 .tech-badges{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.5rem}
 .badge{background:var(--bg3);border:1px solid var(--border);padding:.3rem .75rem;border-radius:20px;font-size:.7rem;color:var(--text-dim);letter-spacing:.05em;text-transform:uppercase}
 
-/* ===== GALLERY ===== */
-.gallery-tabs{display:flex;gap:.5rem;margin-bottom:2rem;flex-wrap:wrap}
-.gallery-tab{padding:.5rem 1.25rem;background:var(--card);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);cursor:pointer;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;font-weight:600;transition:all .2s}
-.gallery-tab:hover{border-color:var(--text-dim)}
-.gallery-tab.active{border-color:var(--green);color:var(--green);background:rgba(0,255,102,.05)}
-.gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem}
-.gallery-item{position:relative;cursor:pointer;border-radius:6px;overflow:hidden;border:1px solid var(--border);transition:border-color .3s,transform .3s;aspect-ratio:4/3;background:var(--bg2)}
-.gallery-item:hover{border-color:var(--green-dim);transform:translateY(-3px)}
-.gallery-item img{width:100%;height:100%;object-fit:cover;transition:transform .4s}
-.gallery-item:hover img{transform:scale(1.05)}
-.gallery-item .caption{position:absolute;bottom:0;left:0;right:0;padding:.6rem .75rem;background:linear-gradient(transparent,rgba(0,0,0,.85));font-size:.75rem;color:var(--text);letter-spacing:.03em}
+/* ===== (gallery removed) ===== */
 
-/* ===== LIGHTBOX ===== */
-.lightbox{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.92);backdrop-filter:blur(8px);align-items:center;justify-content:center;flex-direction:column}
-.lightbox.open{display:flex}
-.lightbox img{max-width:90vw;max-height:80vh;border-radius:4px;box-shadow:0 0 60px rgba(0,0,0,.5)}
-.lightbox .lb-caption{color:var(--text);margin-top:1rem;font-size:.9rem;text-align:center;max-width:600px}
-.lightbox .lb-close{position:absolute;top:1rem;right:1.5rem;background:none;border:none;color:var(--text);font-size:2rem;cursor:pointer;opacity:.7;transition:opacity .2s;z-index:201}
-.lightbox .lb-close:hover{opacity:1}
-.lightbox .lb-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);color:#fff;font-size:1.5rem;padding:.5rem .8rem;cursor:pointer;border-radius:4px;transition:background .2s;z-index:201}
-.lightbox .lb-nav:hover{background:rgba(255,255,255,.15)}
-.lightbox .lb-prev{left:1rem}
-.lightbox .lb-next{right:1rem}
-.lightbox .lb-counter{color:var(--text-dim);font-size:.75rem;margin-top:.5rem}
+/* ===== (lightbox removed) ===== */
 
 /* ===== TIMELINE ===== */
 .timeline{position:relative;padding:2rem 0}
@@ -133,11 +112,19 @@ nav .nav-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;width:100%;displa
 .archives-sub{margin-bottom:3.5rem}
 .archives-sub h3{font-size:1.15rem;color:var(--text-bright);margin-bottom:1.25rem;display:flex;align-items:center;gap:.5rem}
 .archives-sub h3 .icon{color:var(--green);font-size:1.2rem}
-.browser-mockup{background:#111;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:1.5rem;max-width:800px}
-.browser-bar{background:#1a1a2a;padding:.5rem .75rem;display:flex;align-items:center;gap:.5rem;border-bottom:1px solid var(--border)}
-.browser-dot{width:10px;height:10px;border-radius:50%;background:#333}
-.browser-dot.r{background:#ff5f56}.browser-dot.y{background:#ffbd2e}.browser-dot.g{background:#27c93f}
-.browser-url{background:#0a0a15;color:var(--text-dim);font-size:.7rem;padding:.25rem .5rem;border-radius:3px;margin-left:.5rem;flex:1;font-family:monospace}
+.browser-mockup{background:#c0c0c0;border:2px outset #dfdfdf;border-radius:0;overflow:hidden;margin-bottom:1.5rem;max-width:800px}
+.browser-bar{background:linear-gradient(180deg,#0058a8 0%,#3a8ad4 100%);padding:.35rem .5rem;display:flex;align-items:center;gap:.4rem;border-bottom:none}
+.browser-bar-title{color:#fff;font-size:.75rem;font-weight:700;font-family:'Segoe UI',Tahoma,sans-serif;flex:1;padding-left:.25rem}
+.browser-btn{width:21px;height:21px;background:#c0c0c0;border:1px outset #dfdfdf;color:#000;font-size:.75rem;line-height:21px;text-align:center;font-family:Marlett,sans-serif;cursor:default}
+.browser-nav-btn{width:26px;height:21px;background:#d4d0c8;border:1px outset #dfdfdf;color:#000;font-size:.8rem;line-height:21px;text-align:center;cursor:pointer;font-family:sans-serif}
+.browser-nav-btn:hover{background:#e8e4dc}
+.browser-nav-btn:active{border-style:inset}
+.browser-nav-btn.disabled{color:#999;cursor:default}
+.browser-nav-btn.disabled:hover{background:#d4d0c8}
+.browser-toolbar{background:#d4d0c8;padding:.2rem .5rem;display:flex;align-items:center;gap:.25rem;border-bottom:1px solid #888}
+.browser-addr{background:#e8e8e8;padding:.25rem .5rem;display:flex;align-items:center;gap:.4rem;border-top:1px solid #888;border-bottom:1px solid #888}
+.browser-addr-label{color:#000;font-size:.7rem;font-family:'Segoe UI',Tahoma,sans-serif}
+.browser-url{background:#fff;color:#000;font-size:.7rem;padding:.2rem .4rem;border:1px inset #888;flex:1;font-family:monospace;margin-left:0}
 .browser-body{height:350px;overflow:hidden;position:relative}
 .browser-body iframe{width:100%;height:100%;border:none;transform:scale(1);transform-origin:top left}
 .archive-links{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.75rem}
@@ -187,7 +174,7 @@ nav .nav-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;width:100%;displa
 .team-card .tc-role{font-size:.75rem;color:var(--green);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.75rem}
 .team-card p{font-size:.8rem;color:var(--text-dim);line-height:1.6}
 .cactaur-block{text-align:center;padding:2rem;background:var(--card);border:1px solid var(--border);border-radius:8px}
-.cactaur-block img{width:140px;height:140px;border-radius:50%;margin:0 auto 1rem;border:2px solid var(--border);object-fit:cover}
+.cactaur-block img{width:140px;height:140px;border-radius:12px;margin:0 auto 1rem;border:2px solid var(--border);object-fit:cover}
 .cactaur-block h4{color:var(--text-bright);font-size:1.1rem;margin-bottom:.5rem;text-transform:none;letter-spacing:0}
 .cactaur-block p{color:var(--text-dim);font-size:.85rem;max-width:500px;margin:0 auto;line-height:1.6}
 
@@ -231,7 +218,6 @@ footer .heart{color:var(--green)}
   .enemy-card{grid-template-columns:1fr}
   .threat{flex-direction:row;min-width:auto}
   .threat-bar{flex-direction:row}
-  .gallery-grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
   .stat-boxes{grid-template-columns:1fr 1fr}
   .browser-body{height:250px}
 }
@@ -253,12 +239,12 @@ footer .heart{color:var(--green)}
     <ul class="nav-links">
       <li><a href="../game/web/dist/index.html">Play</a></li>
       <li><a href="#about">About</a></li>
-      <li><a href="#gallery">Gallery</a></li>
       <li><a href="#timeline">Timeline</a></li>
-      <li><a href="#archives">Archives</a></li>
       <li><a href="#preservation">Preservation</a></li>
       <li><a href="#strategy">Strategy</a></li>
       <li><a href="#team">Team</a></li>
+      <li><a href="#archives">Archives</a></li>
+      <li><a href="#source">Source</a></li>
     </ul>
     <button class="hamburger" id="hamburger" aria-label="Menu">&#9776;</button>
   </div>
@@ -266,12 +252,12 @@ footer .heart{color:var(--green)}
 <div class="mobile-menu" id="mobileMenu">
   <a href="../game/web/dist/index.html">Play</a>
   <a href="#about">About</a>
-  <a href="#gallery">Gallery</a>
   <a href="#timeline">Timeline</a>
-  <a href="#archives">Archives</a>
   <a href="#preservation">Preservation</a>
   <a href="#strategy">Strategy</a>
   <a href="#team">Team</a>
+  <a href="#archives">Archives</a>
+  <a href="#source">Source</a>
 </div>
 
 <!-- ===== HERO ===== -->
@@ -282,13 +268,11 @@ footer .heart{color:var(--green)}
     </video>
   </div>
   <div class="hero-content">
-    <h1 class="hero-title">XenoHammer</h1>
-    <div class="hero-codename">Codename: XenoHammerGL</div>
     <div class="anniversary-badge">&#127881; 25th Anniversary &mdash; 2001&ndash;2026</div>
+    <h1 class="hero-title">XenoHammer</h1>
     <p class="hero-tagline">A top-down retro modern combat arcade shooter</p>
-    <div class="hero-meta">Georgia Tech &middot; 2001 &middot; IGF Student Showcase 2002</div>
     <a href="../game/web/dist/index.html" class="hero-play">&#9654; Play Now</a>
-    <p class="hero-note">Faithfully rewritten in TypeScript &mdash; playable in any browser</p>
+    <p class="hero-note">Faithfully rewritten in TypeScript from the original C++<br><span style="display:inline-block;width:2.5em;height:2px;background:linear-gradient(90deg,transparent,rgba(0,255,102,.6),transparent);margin:.5rem auto .4rem"></span><br>Plays in any browser</p>
   </div>
 </section>
 
@@ -296,145 +280,27 @@ footer .heart{color:var(--green)}
 <section id="about">
   <div class="container">
     <div class="reveal"><div class="section-line"></div><h2>About</h2><p class="section-sub">The Story Behind the Game</p></div>
-    <div class="about-grid">
+    <div class="about-grid" style="grid-template-columns:1fr">
       <div class="about-text reveal">
-        <p><strong>XenoHammer</strong> is a top-down space combat arcade shooter created in late 2001 by four seniors at the Georgia Institute of Technology. Built in just 2.5 months using C++ and the ClanLib game libraries, it features three levels of intense combat, five distinct enemy types, a fully customizable ship, and a climactic multi-part boss battle.</p>
-        <p>The game caught the attention of the Independent Games Festival judges and was selected as one of only 10 games (from 31 entries) for the <strong>IGF 2002 Student Showcase</strong> at the Game Developers Conference in San Jose. Reviewers praised its physics-based explosions, particle effects, and overall graphical polish&mdash;remarkable for a student project of its era.</p>
-        <p>This tribute site preserves the history of XenoHammer and hosts a faithful browser-playable rewrite built in TypeScript and Canvas, so a new generation can experience the game as it was meant to be played.</p>
-      </div>
-      <div class="reveal reveal-delay-1">
-        <div class="stat-boxes">
-          <div class="stat-box"><span class="val">2.5</span><span class="lbl">Months of Dev</span></div>
-          <div class="stat-box"><span class="val">4</span><span class="lbl">Developers</span></div>
-          <div class="stat-box"><span class="val">1/10</span><span class="lbl">IGF Selected</span></div>
-          <div class="stat-box"><span class="val">3</span><span class="lbl">Levels</span></div>
-        </div>
-        <h4 style="font-size:.8rem;color:var(--text-dim);margin-bottom:.6rem;letter-spacing:.1em">TECH STACK</h4>
-        <div class="tech-badges">
-          <span class="badge">C++</span>
-          <span class="badge">ClanLib 0.6</span>
-          <span class="badge">OpenGL</span>
-          <span class="badge">Ogg Vorbis</span>
-          <span class="badge">POV-Ray</span>
-          <span class="badge">3ds Max</span>
-          <span class="badge">SourceSafe</span>
-        </div>
+        <p><strong>XenoHammer</strong> is a top-down space combat arcade shooter originally built for PC in late 2001 by four seniors at the Georgia Institute of Technology. Built in just 2.5 months using C++ and the ClanLib game libraries, it features three levels of intense combat, five distinct enemy types, a fully customizable ship, and a climactic multi-part boss battle.</p>
+        <p>The game was selected as a <strong>top 10 finalist in the IGF 2002 Student Showcase</strong> and the team was invited to display XenoHammer at a <strong>dedicated booth at the Game Developers Conference 2002</strong> in San Jose. Reviewers praised its physics-based explosions, particle effects, and overall graphical polish&mdash;remarkable for a student project of its era.</p>
+        <p>This tribute site preserves the history of XenoHammer and hosts a faithful browser-playable rewrite built in TypeScript and Canvas&mdash;made possible through AI-assisted preservation using GitHub Copilot&mdash;so a new generation can experience the game as it was meant to be played.</p>
       </div>
     </div>
-  </div>
-</section>
-
-<!-- ===== GALLERY ===== -->
-<section id="gallery">
-  <div class="container">
-    <div class="reveal"><div class="section-line"></div><h2>Gallery</h2><p class="section-sub">Screenshots from the Original Web Archives</p></div>
-    <div class="gallery-grid reveal" id="galleryGrid"></div>
   </div>
 </section>
 
 <!-- ===== TIMELINE ===== -->
 <section id="timeline">
   <div class="container">
-    <div class="reveal"><div class="section-line"></div><h2>Timeline</h2><p class="section-sub">From College Project to GDC</p></div>
+    <div class="reveal"><div class="section-line"></div><h2>Timeline</h2><p class="section-sub">From College Project to GDC and Beyond</p></div>
     <div class="timeline">
-      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Oct 2001</span><h4 class="tl-title">Development Begins</h4><p class="tl-desc">Four Georgia Tech seniors begin building a top-down space shooter using C++ and the ClanLib game libraries as their senior project.</p></div>
-      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Oct 30, 2001</span><h4 class="tl-title">&ldquo;XenoHammerGL&rdquo; Announced</h4><p class="tl-desc">The OpenGL-powered version goes public, featuring hardware-accelerated particles, translucent shield bubbles, and dynamic lighting effects.</p></div>
-      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Nov 7, 2001</span><h4 class="tl-title">Feature List Revealed</h4><p class="tl-desc">Full feature set announced: 3 levels, 5 enemy types, customizable ship loadout, scrolling briefings, parallax starfield, and an original soundtrack.</p></div>
-      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Nov 20, 2001</span><h4 class="tl-title">Alpha Release</h4><p class="tl-desc">&ldquo;Codename: XenoHammerGL&rdquo; goes live. The Cactaur community proclaims it the best-looking ClanLib game ever made.</p></div>
-      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Jan 2002</span><h4 class="tl-title">IGF Student Showcase Selection</h4><p class="tl-desc">Selected as 1 of 10 games from 31 entries for the Independent Games Festival 2002 Student Showcase, judged by the Seattle IGDA chapter.</p></div>
-      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Mar 2002</span><h4 class="tl-title">GDC 2002 &mdash; San Jose</h4><p class="tl-desc">The team showcases XenoHammer at the Game Developers Conference. Reviewers praise the physics-based explosions and graphical polish for a student project.</p></div>
+      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Oct &ndash; Nov 2001</span><h4 class="tl-title">Development &amp; Alpha Release</h4><p class="tl-desc">Four Georgia Tech seniors build a top-down space shooter in C++ using ClanLib and OpenGL. The alpha of &ldquo;Codename: XenoHammerGL&rdquo; goes live on November 20th, featuring hardware-accelerated particles, translucent shield bubbles, and dynamic lighting.</p></div>
+      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Jan 2002</span><h4 class="tl-title">IGF Student Showcase Selection</h4><p class="tl-desc">Selected for the Independent Games Festival 2002 Student Showcase, judged by the Seattle chapter of the IGDA.</p></div>
+      <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">Mar 2002</span><h4 class="tl-title">GDC 2002 &mdash; San Jose</h4><p class="tl-desc">The team is invited to display XenoHammer at a dedicated booth at the Game Developers Conference. Reviewers praise the physics-based explosions and graphical polish for a student project.</p></div>
       <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">2002 &ndash; 2025</span><h4 class="tl-title">Legacy</h4><p class="tl-desc">The game lives on in academic references, GDC archives, and the memories of the ClanLib community. The original Tripod site fades but is archived.</p></div>
       <div class="tl-item reveal"><div class="tl-dot"></div><span class="tl-date">2026</span><h4 class="tl-title">25th Anniversary &mdash; Reborn for the Web</h4><p class="tl-desc">Celebrating 25 years since development began, XenoHammer is faithfully rewritten in TypeScript and Canvas. Playable on any device&mdash;desktop or mobile, portrait or landscape&mdash;this tribute preserves the full history for a new generation.</p></div>
     </div>
-  </div>
-</section>
-
-<!-- ===== ARCHIVES ===== -->
-<section id="archives">
-  <div class="container">
-    <div class="reveal"><div class="section-line"></div><h2>Archives</h2><p class="section-sub">Preserved History &amp; Original Materials</p></div>
-
-    <!-- Original Website -->
-    <div class="archives-sub reveal">
-      <h3><span class="icon">&#127760;</span> The Original Website</h3>
-      <div class="browser-mockup">
-        <div class="browser-bar">
-          <span class="browser-dot r"></span><span class="browser-dot y"></span><span class="browser-dot g"></span>
-          <span class="browser-url">http://cultofcactaur.tripod.com/xenohammer/</span>
-        </div>
-        <div class="browser-body">
-          <iframe src="archives/raw/tripod/index.html" title="Original XenoHammer Tripod Website" loading="lazy" sandbox="allow-same-origin"></iframe>
-        </div>
-      </div>
-      <div class="archive-links">
-        <a class="archive-link" href="archives/raw/tripod/index.html" target="_blank"><span class="al-icon">&#127968;</span> Home Page</a>
-        <a class="archive-link" href="archives/raw/tripod/team.htm" target="_blank"><span class="al-icon">&#128101;</span> Team Page</a>
-        <a class="archive-link" href="archives/raw/tripod/screenshots.htm" target="_blank"><span class="al-icon">&#128247;</span> Screenshots</a>
-        <a class="archive-link" href="archives/raw/tripod/tips_and_hints.htm" target="_blank"><span class="al-icon">&#128161;</span> Tips &amp; Hints</a>
-        <a class="archive-link" href="archives/raw/tripod/docsandpresentations.htm" target="_blank"><span class="al-icon">&#128196;</span> Docs &amp; Presentations</a>
-      </div>
-      <p style="font-size:.75rem;color:var(--text-dim);margin-top:1rem">Archived from Tripod/Wayback Machine. Some links and images may not function as originally intended.</p>
-    </div>
-
-    <!-- Press & Recognition -->
-    <div class="archives-sub reveal">
-      <h3><span class="icon">&#127942;</span> Press &amp; Recognition</h3>
-      <div class="press-cards">
-        <div class="press-card">
-          <h4>GDC 2002 &mdash; Dedicated Booth at the Student Showcase</h4>
-          <p>The team presented XenoHammer in a dedicated booth at the Game Developers Conference 2002 in San Jose. Mason McCuskey attended and reviewed all ten selected games.</p>
-          <blockquote>&ldquo;The physics-based explosions were cool&hellip; overall, the quality of the graphics was very high for a student project.&rdquo;</blockquote>
-          <p>He noted the team of 3 coders and 1 artist built the game in just 2.5 months. Their post-mortem revealed the short schedule paradoxically helped&mdash;it kept the team intensely motivated. Given more time, they said they would have gone fully 3D.</p>
-          <div class="src">Source: Mason McCuskey &mdash; <a href="archives/raw/external/gdc2002_student_showcase.html" target="_blank">GDC 2002 Student Showcase article</a></div>
-        </div>
-        <div class="press-card">
-          <h4>IGF 2002 Student Showcase Selection</h4>
-          <p>The Independent Games Festival selected XenoHammer for their 2002 Student Showcase at the Game Developers Conference in San Jose. Entries were judged by the Seattle chapter of the IGDA.</p>
-          <p>Team credited: B. Smith, C. Haire, J. Shelton, R. Norris, M. Andrew</p>
-          <div class="src">Source: <a href="archives/raw/external/igf_2002_student_showcase.html" target="_blank">IGF 2002 Official Announcement</a></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Development Documents -->
-    <div class="archives-sub reveal">
-      <h3><span class="icon">&#128218;</span> Development Documents</h3>
-      <div class="doc-list">
-        <a class="doc-item" href="archives/raw/tripod/docs/Preliminary_Game_Design.doc" target="_blank">
-          <span class="doc-icon">&#128196;</span>
-          <div class="doc-info"><div class="doc-name">Preliminary Game Design</div><div class="doc-desc">Initial game proposal and design document</div></div>
-        </a>
-        <a class="doc-item" href="archives/raw/tripod/docs/Part2_Interim_Report.doc" target="_blank">
-          <span class="doc-icon">&#128196;</span>
-          <div class="doc-info"><div class="doc-name">Interim Report (Part 2)</div><div class="doc-desc">First build progress update</div></div>
-        </a>
-        <a class="doc-item" href="archives/raw/tripod/docs/Part3_Progress_Report.doc" target="_blank">
-          <span class="doc-icon">&#128196;</span>
-          <div class="doc-info"><div class="doc-name">Progress Report (Part 3)</div><div class="doc-desc">Second build progress update</div></div>
-        </a>
-        <a class="doc-item" href="archives/raw/tripod/docs/Interim_Presentation.ppt" target="_blank">
-          <span class="doc-icon">&#128202;</span>
-          <div class="doc-info"><div class="doc-name">Interim Presentation</div><div class="doc-desc">PowerPoint project presentation</div></div>
-        </a>
-        <a class="doc-item" href="archives/raw/tripod/resume_general.doc" target="_blank">
-          <span class="doc-icon">&#128100;</span>
-          <div class="doc-info"><div class="doc-name">Jason Shelton &mdash; R&eacute;sum&eacute;</div><div class="doc-desc">Team member resume (circa 2002)</div></div>
-        </a>
-        <a class="doc-item" href="archives/raw/tripod/Resume_Brian_Smith_Xeno.doc" target="_blank">
-          <span class="doc-icon">&#128100;</span>
-          <div class="doc-info"><div class="doc-name">Brian Smith &mdash; R&eacute;sum&eacute;</div><div class="doc-desc">Team member resume (circa 2002)</div></div>
-        </a>
-        <a class="doc-item" href="archives/raw/tripod/chris-resume.doc" target="_blank">
-          <span class="doc-icon">&#128100;</span>
-          <div class="doc-info"><div class="doc-name">Chris Haire &mdash; R&eacute;sum&eacute;</div><div class="doc-desc">Team member resume (circa 2002)</div></div>
-        </a>
-      </div>
-    </div>
-
-    <div class="reveal" style="text-align:center;margin-top:2.5rem">
-      <a href="archives/index.html" class="btn" style="border-color:var(--green);color:var(--green);font-size:.9rem;padding:.7rem 2rem">&#128218; Explore the Full Archive</a>
-    </div>
-
   </div>
 </section>
 
@@ -444,10 +310,10 @@ footer .heart{color:var(--green)}
     <div class="reveal"><div class="section-line"></div><h2>Preservation</h2><p class="section-sub">AI-Assisted Game Preservation</p></div>
     <div class="ai-grid">
       <div class="ai-text reveal">
-        <p>In 2025, a weekend project using <span class="ai-highlight">GitHub Copilot</span> brought XenoHammer back from the dead.</p>
+        <p>In 2026, lead engine designer Brian Smith spent a weekend with <span class="ai-highlight">GitHub Copilot</span> and brought XenoHammer back from the dead.</p>
         <p>The original C++ source code had survived 25 years&mdash;but it couldn&rsquo;t compile. The game depended on <strong>ClanLib 0.6</strong>, a game engine library that no longer exists in any usable form. No headers, no binaries, no documentation. The release binaries of XenoHammer itself were also lost to time.</p>
         <p>AI changed the equation. GitHub Copilot was able to read the 25-year-old C++ source, infer what the missing ClanLib engine did from context alone, and help port the entire game to TypeScript and HTML5 Canvas. The velocity math, the 8-angle turret lookup tables, the particle systems, the power management&mdash;all reverse-engineered from source that referenced a library nobody had anymore.</p>
-        <p>The result is a faithful browser-playable version that runs on any device. No emulator, no plugins&mdash;just a modern rewrite guided by AI that could understand code from another era.</p>
+        <p>The result is a faithful browser-playable version that runs on any device, including mobile with full touch controls. Along the way, two features that were planned but never implemented in the original&mdash;homing torpedoes and warp drive&mdash;were finally brought to life, and several long-standing bugs were fixed. No emulator, no plugins&mdash;just a modern rewrite guided by AI that could understand code from another era.</p>
         <div class="ai-badge">&#129302; Built with GitHub Copilot</div>
       </div>
       <div class="ai-before-after reveal reveal-delay-1">
@@ -553,13 +419,83 @@ footer .heart{color:var(--green)}
         <p>Composed the original soundtrack that drives the game&rsquo;s atmosphere&mdash;from the tension of combat to the pulse-pounding boss encounters.</p>
       </div>
     </div>
-    <div class="cactaur-block reveal">
-      <img src="archives/images/tripod/cactaur.jpg" alt="Cult of Cactaur Logo">
-      <h4>Cult of Cactaur</h4>
-      <p>The team&rsquo;s identity and calling card. The Cactaur community recognized XenoHammer as having &ldquo;the most stunning visuals ever seen in a ClanLib powered game.&rdquo;</p>
+  </div>
+</section>
+
+<!-- ===== ARCHIVES ===== -->
+<section id="archives">
+  <div class="container">
+    <div class="reveal"><div class="section-line"></div><h2>Archives</h2><p class="section-sub">Preserved History &amp; Original Materials</p></div>
+
+    <!-- Original Website -->
+    <div class="archives-sub reveal">
+      <h3><span class="icon">&#127760;</span> The Original Website</h3>
+      <div class="browser-mockup" id="ieBrowser">
+        <div class="browser-bar">
+          <span class="browser-bar-title">&#127760; XenoHammer - Microsoft Internet Explorer</span>
+          <span class="browser-btn">_</span><span class="browser-btn">&#9633;</span><span class="browser-btn">&times;</span>
+        </div>
+        <div class="browser-toolbar">
+          <span class="browser-nav-btn disabled" id="ieBack" title="Back">&#9664;</span>
+          <span class="browser-nav-btn disabled" id="ieFwd" title="Forward">&#9654;</span>
+          <span class="browser-nav-btn" id="ieHome" title="Home">&#8962;</span>
+        </div>
+        <div class="browser-addr">
+          <span class="browser-addr-label">Address</span>
+          <span class="browser-url" id="ieUrl">http://cultofcactaur.tripod.com/xenohammer/</span>
+        </div>
+        <div class="browser-body">
+          <iframe id="ieFrame" src="archives/raw/tripod/index.html" title="Original XenoHammer Tripod Website" loading="lazy"></iframe>
+        </div>
+      </div>
+      <p style="font-size:.75rem;color:var(--text-dim);margin-top:1rem">Archived from Tripod/Wayback Machine. Some links and images may not function as originally intended.</p>
+    </div>
+
+    <!-- Press & Recognition -->
+    <div class="archives-sub reveal">
+      <h3><span class="icon">&#127942;</span> Press &amp; Recognition</h3>
+      <div class="press-cards">
+        <div class="press-card">
+          <h4>GDC 2002 &mdash; Dedicated Booth at the Student Showcase</h4>
+          <p>The team presented XenoHammer in a dedicated booth at the Game Developers Conference 2002 in San Jose. Mason McCuskey attended and reviewed all ten selected games.</p>
+          <blockquote>&ldquo;The physics-based explosions were cool&hellip; overall, the quality of the graphics was very high for a student project.&rdquo;</blockquote>
+          <p>He noted the team of 3 coders and 1 artist built the game in just 2.5 months. Their post-mortem revealed the short schedule paradoxically helped&mdash;it kept the team intensely motivated. Given more time, they said they would have gone fully 3D.</p>
+          <div class="src">Source: Mason McCuskey &mdash; <a href="archives/raw/external/gdc2002_student_showcase.html" target="_blank">GDC 2002 Student Showcase article</a></div>
+        </div>
+        <div class="press-card">
+          <h4>IGF 2002 Student Showcase Selection</h4>
+          <p>The Independent Games Festival selected XenoHammer for their 2002 Student Showcase at the Game Developers Conference in San Jose. Entries were judged by the Seattle chapter of the IGDA.</p>
+          <p>Team credited: B. Smith, C. Haire, J. Shelton, R. Norris, M. Andrew</p>
+          <div class="src">Source: <a href="archives/raw/external/igf_2002_student_showcase.html" target="_blank">IGF 2002 Official Announcement</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="reveal" style="text-align:center;margin-top:2.5rem">
+      <a href="archives/index.html" class="btn" style="border-color:var(--green);color:var(--green);font-size:.9rem;padding:.7rem 2rem">&#128218; Explore the Full Archive</a>
+    </div>
+
+  </div>
+</section>
+
+<!-- ===== SOURCE CODE ===== -->
+<section id="source">
+  <div class="container">
+    <div class="reveal"><div class="section-line"></div><h2>Source Code</h2><p class="section-sub">Open Source &mdash; Coming Soon</p></div>
+    <div class="reveal" style="text-align:center;padding:2rem 1rem">
+      <p style="font-size:1.1rem;color:var(--text);margin-bottom:1rem">The complete source code for both the original C++ game and the TypeScript rewrite will be published on GitHub.</p>
+      <p style="color:var(--text-dim);font-size:.9rem">&#128268; Repository link coming soon &mdash; stay tuned.</p>
     </div>
   </div>
 </section>
+
+<div class="container" style="padding:2rem 0">
+  <div class="cactaur-block reveal">
+    <img src="archives/images/tripod/cactaur.jpg" alt="Cult of Cactaur Logo">
+    <h4>Cult of Cactaur</h4>
+    <p>The team&rsquo;s identity and calling card. The Cactaur community recognized XenoHammer as having &ldquo;the most stunning visuals ever seen in a ClanLib powered game.&rdquo;</p>
+  </div>
+</div>
 
 <!-- ===== FOOTER ===== -->
 <footer>
@@ -570,16 +506,6 @@ footer .heart{color:var(--green)}
     <p style="margin-top:.5rem"><a href="archives/raw/tripod/index.html">Original Tripod Site</a> &middot; <a href="archives/raw/external/igf_2002_student_showcase.html">IGF 2002</a> &middot; <a href="archives/raw/external/gdc2002_student_showcase.html">GDC 2002 Review</a></p>
   </div>
 </footer>
-
-<!-- ===== LIGHTBOX ===== -->
-<div class="lightbox" id="lightbox">
-  <button class="lb-close" aria-label="Close">&times;</button>
-  <button class="lb-nav lb-prev" aria-label="Previous">&#8249;</button>
-  <button class="lb-nav lb-next" aria-label="Next">&#8250;</button>
-  <img src="" alt="" id="lbImg">
-  <div class="lb-caption" id="lbCaption"></div>
-  <div class="lb-counter" id="lbCounter"></div>
-</div>
 
 <script>
 /* ===== STARFIELD ===== */
@@ -633,47 +559,62 @@ footer .heart{color:var(--green)}
   document.querySelectorAll('.reveal').forEach(el=>obs.observe(el))
 })();
 
-/* ===== GALLERY ===== */
+/* ===== IE BROWSER NAV ===== */
 (function(){
-  const IMAGES=[
-    {src:'archives/images/tripod/XenoHammerGL.jpg',cap:'XenoHammerGL \u2014 OpenGL version showcase (from Tripod site)'},
-    {src:'archives/images/tripod/xhattack.jpg',cap:'Attack in progress \u2014 featured on Tripod and GDC page'},
-    {src:'archives/images/gdc/xeno1.jpg',cap:'GDC promotional screenshot'}
-  ];
-  const grid=document.getElementById('galleryGrid');
-  let lbItems=IMAGES,lbIdx=0;
+  const frame=document.getElementById('ieFrame');
+  const backBtn=document.getElementById('ieBack');
+  const fwdBtn=document.getElementById('ieFwd');
+  const homeBtn=document.getElementById('ieHome');
+  const urlBar=document.getElementById('ieUrl');
+  const HOME='archives/raw/tripod/index.html';
+  const FAKE='http://cultofcactaur.tripod.com/xenohammer/';
+  const hist=[HOME];
+  let pos=0,skipNext=false;
 
-  function render(){
-    grid.innerHTML='';
-    IMAGES.forEach((img,i)=>{
-      const d=document.createElement('div');
-      d.className='gallery-item scanlines';
-      d.innerHTML='<img src="'+img.src+'" alt="'+img.cap+'" loading="lazy"><div class="caption">'+img.cap+'</div>';
-      d.addEventListener('click',()=>openLB(i));
-      grid.appendChild(d)
-    })
+  function updateUI(){
+    backBtn.classList.toggle('disabled',pos<=0);
+    fwdBtn.classList.toggle('disabled',pos>=hist.length-1);
+    const page=hist[pos].replace(/^archives\/raw\/tripod\//,'');
+    urlBar.textContent=FAKE+page;
   }
+  updateUI();
 
-  render();
+  frame.addEventListener('load',()=>{
+    if(skipNext){skipNext=false;updateUI();return}
+    try{
+      const loc=frame.contentWindow.location.pathname;
+      const idx=loc.indexOf('/archives/raw/tripod/');
+      if(idx>=0){
+        const url='archives/raw/tripod/'+loc.substring(idx+'/archives/raw/tripod/'.length);
+        if(url!==hist[pos]){
+          hist.length=pos+1;
+          hist.push(url);
+          pos++;
+        }
+      }
+    }catch(e){}
+    updateUI();
+  });
 
-  /* Lightbox */
-  const lb=document.getElementById('lightbox'),lbImg=document.getElementById('lbImg'),lbCap=document.getElementById('lbCaption'),lbCnt=document.getElementById('lbCounter');
-  function openLB(i){lbIdx=i;updateLB();lb.classList.add('open');document.body.style.overflow='hidden'}
-  function closeLB(){lb.classList.remove('open');document.body.style.overflow=''}
-  function updateLB(){const item=lbItems[lbIdx];lbImg.src=item.src;lbImg.alt=item.cap;lbCap.textContent=item.cap;lbCnt.textContent=(lbIdx+1)+' / '+lbItems.length}
-  function prevLB(){lbIdx=(lbIdx-1+lbItems.length)%lbItems.length;updateLB()}
-  function nextLB(){lbIdx=(lbIdx+1)%lbItems.length;updateLB()}
-
-  lb.querySelector('.lb-close').addEventListener('click',closeLB);
-  lb.querySelector('.lb-prev').addEventListener('click',prevLB);
-  lb.querySelector('.lb-next').addEventListener('click',nextLB);
-  lb.addEventListener('click',e=>{if(e.target===lb)closeLB()});
-  document.addEventListener('keydown',e=>{
-    if(!lb.classList.contains('open'))return;
-    if(e.key==='Escape')closeLB();
-    else if(e.key==='ArrowLeft')prevLB();
-    else if(e.key==='ArrowRight')nextLB()
-  })
+  backBtn.addEventListener('click',()=>{
+    if(pos<=0)return;
+    pos--;skipNext=true;
+    frame.src=hist[pos];
+    updateUI();
+  });
+  fwdBtn.addEventListener('click',()=>{
+    if(pos>=hist.length-1)return;
+    pos++;skipNext=true;
+    frame.src=hist[pos];
+    updateUI();
+  });
+  homeBtn.addEventListener('click',()=>{
+    hist.length=pos+1;
+    hist.push(HOME);
+    pos++;skipNext=true;
+    frame.src=HOME;
+    updateUI();
+  });
 })();
 </script>
 </body>

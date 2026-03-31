@@ -55,7 +55,10 @@ export class TouchControls {
 
     constructor(input: Input) {
         this.input = input;
-        this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 1;
+        const hasTouchAPI = 'ontouchstart' in window || navigator.maxTouchPoints > 1;
+        const isMobileOS = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        this.isTouchDevice = hasTouchAPI && isMobileOS;
 
         this.container = document.createElement('div');
         this.container.id = 'touch-controls';
@@ -377,6 +380,43 @@ export class TouchControls {
                 this.showFullscreenInstructions();
             });
         }
+
+        // Android Chrome (not standalone) — show "Install" prompt button
+        if (this.isAndroidChromeNotStandalone() && !localStorage.getItem('xh_android_dismissed')) {
+            this.fullscreenEl = document.createElement('div');
+            Object.assign(this.fullscreenEl.style, {
+                position: 'absolute',
+                borderRadius: '6px',
+                background: 'rgba(0,180,80,0.55)',
+                border: '2px solid rgba(0,255,120,0.7)',
+                pointerEvents: 'auto',
+                textAlign: 'center',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+            });
+            const label = document.createElement('span');
+            label.textContent = '⛶ Fullscreen';
+            Object.assign(label.style, {
+                fontWeight: 'bold',
+                fontFamily: 'sans-serif',
+                color: 'rgba(255,255,255,0.85)',
+                pointerEvents: 'none',
+                whiteSpace: 'nowrap',
+            });
+            this.fullscreenEl.appendChild(label);
+            this.container.appendChild(this.fullscreenEl);
+            this.fullscreenEl.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.showAndroidInstallInstructions();
+            }, { passive: false });
+            this.fullscreenEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.showAndroidInstallInstructions();
+            });
+        }
     }
 
     private isIOSSafariNotStandalone(): boolean {
@@ -385,6 +425,12 @@ export class TouchControls {
         const isStandalone = (navigator as any).standalone === true ||
             window.matchMedia('(display-mode: standalone)').matches;
         return isIOS && !isStandalone;
+    }
+
+    private isAndroidChromeNotStandalone(): boolean {
+        const isAndroid = /Android/i.test(navigator.userAgent);
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+        return isAndroid && !isStandalone;
     }
 
     private showFullscreenInstructions(): void {
@@ -447,6 +493,69 @@ export class TouchControls {
         overlay.querySelector('#xh-fs-dontshow')!.addEventListener('click', (e) => {
             e.preventDefault();
             try { localStorage.setItem('xh_fs_dismissed', '1'); } catch {}
+            overlay.remove();
+        });
+    }
+
+    private showAndroidInstallInstructions(): void {
+        if (this.fullscreenEl) {
+            this.fullscreenEl.remove();
+            this.fullscreenEl = null;
+        }
+
+        const overlay = document.createElement('div');
+        Object.assign(overlay.style, {
+            position: 'fixed',
+            top: '0', left: '0', right: '0', bottom: '0',
+            background: 'rgba(0,0,0,0.85)',
+            zIndex: '9999',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '2rem',
+            color: '#fff',
+            fontFamily: 'sans-serif',
+            textAlign: 'center',
+        });
+
+        overlay.innerHTML = `
+            <div style="max-width:360px">
+                <div style="font-size:3rem;margin-bottom:1rem">📱</div>
+                <h2 style="font-size:1.3rem;color:#0f6;margin-bottom:1rem">Install for Fullscreen</h2>
+                <p style="font-size:0.95rem;color:#ccc;line-height:1.6;margin-bottom:1.5rem">
+                    Add to your home screen for a fullscreen app experience:
+                </p>
+                <div style="text-align:left;font-size:0.9rem;color:#eee;line-height:2">
+                    <p>1. Tap the <strong>⋮</strong> menu (top-right) in Chrome</p>
+                    <p>2. Tap <strong>"Add to Home screen"</strong> or <strong>"Install app"</strong></p>
+                    <p>3. Tap <strong>Install</strong></p>
+                    <p>4. Launch from your home screen 🚀</p>
+                </div>
+                <button id="xh-android-dismiss" style="margin-top:1.5rem;padding:0.7rem 2rem;background:#0f6;color:#000;border:none;border-radius:6px;font-size:1rem;font-weight:bold;cursor:pointer">Got it!</button>
+                <p style="margin-top:1rem;font-size:0.75rem;color:#666">
+                    <a id="xh-android-dontshow" href="#" style="color:#666;text-decoration:underline">Don't show again</a>
+                </p>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        overlay.querySelector('#xh-android-dismiss')!.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            overlay.remove();
+        });
+        overlay.querySelector('#xh-android-dismiss')!.addEventListener('click', () => {
+            overlay.remove();
+        });
+        overlay.querySelector('#xh-android-dontshow')!.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            try { localStorage.setItem('xh_android_dismissed', '1'); } catch {}
+            overlay.remove();
+        });
+        overlay.querySelector('#xh-android-dontshow')!.addEventListener('click', (e) => {
+            e.preventDefault();
+            try { localStorage.setItem('xh_android_dismissed', '1'); } catch {}
             overlay.remove();
         });
     }
