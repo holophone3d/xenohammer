@@ -9,6 +9,14 @@ import { Rect, Collider, isOutOfBounds } from './Collision';
 
 export type ProjectileOwner = 'player' | 'enemy';
 
+/** A live object that a homing missile can lock onto. */
+export interface HomingTarget {
+    readonly centerX: number;
+    readonly centerY: number;
+    readonly threat: number;   // higher = more dangerous (turrets > orbs > fighters)
+    isAlive(): boolean;
+}
+
 export class Projectile {
     x: number;
     y: number;
@@ -26,11 +34,11 @@ export class Projectile {
     prevY: number;
 
     homing = false;
-    homingTrackDist = 64;
-    homingMinDist = 16;
     homingSpeed = 20;
     homingTurnRate = 3.0; // radians/sec — how fast it can steer
     distanceTraveled = 0;
+    homingArmed = false;          // true once 50px traveled
+    homingTarget: HomingTarget | null = null;  // locked-on target
 
     constructor(
         x: number, y: number,
@@ -65,49 +73,52 @@ export class Projectile {
         };
     }
 
-    update(dt: number, targetX?: number, targetY?: number): void {
+    /** Returns true if this missile needs a (new) target assignment. */
+    needsTarget(): boolean {
+        if (!this.homing || !this.homingArmed) return false;
+        return !this.homingTarget || !this.homingTarget.isAlive();
+    }
+
+    update(dt: number): void {
         if (!this.alive) return;
         this.prevX = this.x;
         this.prevY = this.y;
 
-        // Homing guidance— continuous steering after 50px traveled
-        if (this.homing && this.distanceTraveled > 50 &&
-            targetX !== undefined && targetY !== undefined) {
-            const dx = targetX - this.x;
-            const dy = targetY - this.y;
+        const moveScale = dt * 1000 / VELOCITY_DIVISOR;
+
+        // Track distance for homing arm
+        const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        this.distanceTraveled += speed * moveScale;
+        if (this.homing && !this.homingArmed && this.distanceTraveled > 50) {
+            this.homingArmed = true;
+        }
+
+        // Homing guidance — steer toward locked target
+        const t = this.homingTarget;
+        if (this.homing && this.homingArmed && t && t.isAlive()) {
+            const dx = t.centerX - this.x;
+            const dy = t.centerY - this.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
 
-            if (dist > this.homingMinDist) {
-                // Current heading angle
+            if (dist > 8) {
                 const curAngle = Math.atan2(this.vy, this.vx);
-                // Desired angle toward target
                 const desiredAngle = Math.atan2(dy, dx);
-                // Shortest angular difference
                 let diff = desiredAngle - curAngle;
                 while (diff > Math.PI) diff -= Math.PI * 2;
                 while (diff < -Math.PI) diff += Math.PI * 2;
-                // Clamp turn by turn rate
                 const maxTurn = this.homingTurnRate * dt;
                 const turn = Math.max(-maxTurn, Math.min(maxTurn, diff));
                 const newAngle = curAngle + turn;
-                // Maintain current speed
-                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy) || this.homingSpeed;
-                this.vx = Math.cos(newAngle) * speed;
-                this.vy = Math.sin(newAngle) * speed;
+                const s = speed || this.homingSpeed;
+                this.vx = Math.cos(newAngle) * s;
+                this.vy = Math.sin(newAngle) * s;
             }
         }
 
-        // Move (time-scaled: velocity × dt_ms / 32, matching original ClanLib show())
-        const moveScale = dt * 1000 / VELOCITY_DIVISOR;
+        // Move
         this.x += this.vx * moveScale;
         this.y += this.vy * moveScale;
 
-        // Track distance for homing activation
-        this.distanceTraveled += Math.sqrt(this.vx * this.vx + this.vy * this.vy) * moveScale;
-
-        // Sprite frame is set once at creation (power level), NOT animated
-
-        // Kill if out of bounds (C++: zero margin)
         if (isOutOfBounds(this.x, this.y)) {
             this.alive = false;
         }

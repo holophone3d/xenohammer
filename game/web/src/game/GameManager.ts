@@ -9,7 +9,7 @@ import { ENEMY_SCORES, RANKINGS, TURRET_VELOCITY_TABLE } from '../data/ships';
 import { rectsOverlap, spriteCollide, Collider, PLAY_AREA_W, PLAY_AREA_H } from './Collision';
 import { Player } from './Player';
 import { Enemy } from './Enemy';
-import { Projectile } from './Projectile';
+import { Projectile, HomingTarget } from './Projectile';
 import { StarField } from './StarField';
 import { HUD } from './HUD';
 import { WaveManager } from './Wave';
@@ -110,6 +110,7 @@ export class GameManager {
     private custShieldDemo = 0;
     private turretAngleAvailable = false;
     private isHomingResearched = false;
+    private homingMode: 'threat' | 'closest' | 'disabled' = 'threat';
     // C++ Sound.cpp:81-100 — two-phase fire sound (single shot → looping rapid fire)
     private playerFireSound: SoundInstance | null = null;
     private playerRapidFireActive = false;
@@ -120,7 +121,7 @@ export class GameManager {
     private warpWhiteHold: number | undefined; // hold on full-white before transition
     private bossVictoryWarp = false; // true = warp ends at Aftermath, not ReadyRoom
     // Reusable arrays to avoid per-frame allocations
-    private _homingTargets: { x: number; y: number; priority: number }[] = [];
+    private _homingTargetPool: HomingTarget[] = [];
 
     constructor(canvasId: string) {
         this.canvas = new GameCanvas(canvasId);
@@ -990,61 +991,43 @@ export class GameManager {
             }
         }
 
-        // Update projectiles with homing target finding (cone-based, priority-aware)
-        const HOMING_CONE_COS = Math.cos(60 * Math.PI / 180); // 60° half-angle forward cone
-        // Collect all homing targets: priority 1=weapons, 2=passive, 3=regular enemies
-        const homingTargets = this._homingTargets;
-        homingTargets.length = 0;
-        for (const e of this.enemies) {
-            if (e.alive) homingTargets.push({ x: e.x + (e.width ?? 32) / 2, y: e.y + (e.height ?? 32) / 2, priority: 3 });
-        }
-        if (this.boss?.alive && this.boss.isVisible()) {
-            this.boss.appendHomingTargets(homingTargets);
-        }
-        for (const ship of this.capitalShips) {
-            if (ship.isAlive()) {
-                ship.appendHomingTargets(homingTargets);
-            }
-        }
+        // Update projectiles — lock-on homing with target persistence
+        // Build target pool only if we have homing missiles that need targets
+        let targetPoolBuilt = false;
+        const pool = this._homingTargetPool;
         for (const proj of this.projectiles) {
-            if (proj.homing && proj.owner === 'player' && this.isHomingResearched && homingTargets.length > 0) {
-                const headingAngle = Math.atan2(proj.vy, proj.vx);
-                const hx = Math.cos(headingAngle);
-                const hy = Math.sin(headingAngle);
-                let bestPri = Infinity, bestDist = Infinity;
-                let bestX: number | undefined, bestY: number | undefined;
-                let fallbackPri = Infinity, fallbackDist = Infinity;
-                let fallbackX = 0, fallbackY = 0;
-                for (const t of homingTargets) {
-                    const dx = t.x - proj.x;
-                    const dy = t.y - proj.y;
-                    const d2 = dx * dx + dy * dy;
-                    // Fallback: best priority, then nearest
-                    if (t.priority < fallbackPri || (t.priority === fallbackPri && d2 < fallbackDist)) {
-                        fallbackPri = t.priority;
-                        fallbackDist = d2;
-                        fallbackX = t.x;
-                        fallbackY = t.y;
+            if (proj.homing && proj.owner === 'player' && this.isHomingResearched
+                && this.homingMode !== 'disabled') {
+                // Build target pool once per frame (lazy)
+                if (!targetPoolBuilt) {
+                    pool.length = 0;
+                    for (const e of this.enemies) {
+                        if (e.alive) {
+                            const ref = e;
+                            pool.push({
+                                get centerX() { return ref.x + (ref.width ?? 32) / 2; },
+                                get centerY() { return ref.y + (ref.height ?? 32) / 2; },
+                                threat: 2, // fighters = medium threat
+                                isAlive() { return ref.alive; },
+                            });
+                        }
                     }
-                    // Cone check: prefer higher priority, then nearest
-                    const dist = Math.sqrt(d2);
-                    if (dist < 1) continue;
-                    const dot = (dx / dist) * hx + (dy / dist) * hy;
-                    if (dot >= HOMING_CONE_COS && (t.priority < bestPri || (t.priority === bestPri && d2 < bestDist))) {
-                        bestPri = t.priority;
-                        bestDist = d2;
-                        bestX = t.x;
-                        bestY = t.y;
+                    if (this.boss?.alive && this.boss.isVisible()) {
+                        this.boss.appendHomingTargets(pool);
                     }
+                    for (const ship of this.capitalShips) {
+                        if (ship.isAlive()) {
+                            ship.appendHomingTargets(pool);
+                        }
+                    }
+                    targetPoolBuilt = true;
                 }
-                if (bestX !== undefined) {
-                    proj.update(dt, bestX, bestY);
-                } else {
-                    proj.update(dt, fallbackX, fallbackY);
+                // Assign target if missile needs one (just armed or target died)
+                if (proj.needsTarget() && pool.length > 0) {
+                    proj.homingTarget = this.selectHomingTarget(proj, pool);
                 }
-            } else {
-                proj.update(dt);
             }
+            proj.update(dt);
         }
 
         // Update explosions
@@ -2451,15 +2434,23 @@ export class GameManager {
                     }
                 }
             } else if (sel === 3 || sel === 4) {
-                // Homing research (15 RU)
+                // Homing research (15 RU) — or cycle mode if already researched
                 if (!this.isHomingResearched) {
                     if (this.player.powerPlant.resourceUnits >= 15) {
                         this.isHomingResearched = true;
+                        this.homingMode = 'threat';
                         this.player.powerPlant.resourceUnits -= 15;
+                        this.audio.playSound('MenuSelect');
                     } else {
                         this.custStatusMsg = "You Don't Have Enough Resource Units!";
                         this.custStatusTimer = 120;
                     }
+                } else {
+                    // Cycle: threat → closest → disabled → threat
+                    const modes: Array<'threat' | 'closest' | 'disabled'> = ['threat', 'closest', 'disabled'];
+                    const idx = modes.indexOf(this.homingMode);
+                    this.homingMode = modes[(idx + 1) % modes.length];
+                    this.audio.playSound('MenuChange');
                 }
             }
             return;
@@ -2767,10 +2758,18 @@ export class GameManager {
                 if (buyBtn) ctx.drawImage(buyBtn, 300, 400);
             }
         } else if (sel === 3 || sel === 4) {
-            // Missiles: Homing research (15 RU)
+            // Missiles: Homing research (15 RU) or mode selector
             if (this.isHomingResearched) {
-                ctx.fillText('Already Researched', 110, 390);
-                ctx.fillText('Homing Researched', 240, 420);
+                const modeLabels: Record<string, string> = {
+                    threat: 'Max Threat',
+                    closest: 'Closest',
+                    disabled: 'Disabled',
+                };
+                ctx.fillText('Homing Mode:', 110, 390);
+                ctx.fillStyle = this.homingMode === 'disabled' ? '#ff4444' : '#44ff44';
+                ctx.fillText(modeLabels[this.homingMode], 110, 420);
+                ctx.fillStyle = '#88ff88';
+                ctx.fillText('(click to cycle)', 110, 450);
             } else {
                 ctx.fillText('Homing', 110, 390);
                 ctx.fillText('cost = ', 160, 420);
@@ -2934,6 +2933,7 @@ export class GameManager {
             resourceUnits: this.player.powerPlant.resourceUnits,
             turretAngleAvailable: this.turretAngleAvailable,
             isHomingResearched: this.isHomingResearched,
+            homingMode: this.homingMode,
         };
         try {
             localStorage.setItem(GameManager.SAVE_KEY, JSON.stringify(data));
@@ -2965,6 +2965,9 @@ export class GameManager {
             }
             if (typeof data.isHomingResearched === 'boolean') {
                 this.isHomingResearched = data.isHomingResearched;
+            }
+            if (data.homingMode === 'threat' || data.homingMode === 'closest' || data.homingMode === 'disabled') {
+                this.homingMode = data.homingMode;
             }
             // Restore full health after load
             this.player.shields = this.player.maxShields;
@@ -3198,9 +3201,49 @@ export class GameManager {
         this.debugKeyDebounce = 15;
     }
 
+    // ---------------------------------------------------------------
+    // Homing target selection
+    // ---------------------------------------------------------------
+
+    /** Pick the best target for a homing missile based on the current homingMode. */
+    private selectHomingTarget(proj: Projectile, pool: HomingTarget[]): HomingTarget | null {
+        const live = pool.filter(t => t.isAlive());
+        if (live.length === 0) return null;
+
+        if (this.homingMode === 'closest') {
+            // Closest target to the missile
+            let best: HomingTarget | null = null;
+            let bestD2 = Infinity;
+            for (const t of live) {
+                const dx = t.centerX - proj.x;
+                const dy = t.centerY - proj.y;
+                const d2 = dx * dx + dy * dy;
+                if (d2 < bestD2) { bestD2 = d2; best = t; }
+            }
+            return best;
+        }
+
+        // 'threat' mode — highest threat first, then nearest as tiebreaker
+        let best: HomingTarget | null = null;
+        let bestThreat = -1;
+        let bestD2 = Infinity;
+        for (const t of live) {
+            const dx = t.centerX - proj.x;
+            const dy = t.centerY - proj.y;
+            const d2 = dx * dx + dy * dy;
+            if (t.threat > bestThreat || (t.threat === bestThreat && d2 < bestD2)) {
+                bestThreat = t.threat;
+                bestD2 = d2;
+                best = t;
+            }
+        }
+        return best;
+    }
+
     private debugSavedSettings: import('./PowerPlant').PowerSetting[] | null = null;
     private debugSavedRU = 0;
     private debugSavedHoming = false;
+    private debugSavedHomingMode: 'threat' | 'closest' | 'disabled' = 'threat';
 
     private debugToggleGodMode(): void {
         this.debugActive = !this.debugActive;
@@ -3211,7 +3254,9 @@ export class GameManager {
                 this.debugSavedSettings = this.player.powerPlant.settings.map(s => ({ ...s }));
                 this.debugSavedRU = this.player.powerPlant.resourceUnits;
                 this.debugSavedHoming = this.isHomingResearched;
+                this.debugSavedHomingMode = this.homingMode;
                 this.isHomingResearched = true;
+                this.homingMode = 'threat';
                 this.debugMaxPower();
             } else {
                 // Restore original settings
@@ -3221,6 +3266,7 @@ export class GameManager {
                 }
                 this.player.powerPlant.resourceUnits = this.debugSavedRU;
                 this.isHomingResearched = this.debugSavedHoming;
+                this.homingMode = this.debugSavedHomingMode;
             }
         }
     }

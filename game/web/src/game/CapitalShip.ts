@@ -17,7 +17,7 @@
 
 import { Sprite, AssetLoader } from '../engine';
 import { Rect, Collider, PLAY_AREA_W, PLAY_AREA_H } from './Collision';
-import { Projectile } from './Projectile';
+import { Projectile, HomingTarget } from './Projectile';
 import { VELOCITY_DIVISOR } from '../data/ships';
 import { generateImageMask } from './maskUtil';
 
@@ -689,32 +689,45 @@ export class CapitalShip {
         return { x: this.x + BODY_WIDTH / 2, y: this.y + BODY_HEIGHT / 2 };
     }
 
-    /** Return homing-targetable positions with priority (1=weapon, 2=passive). */
-    getHomingTargets(): { x: number; y: number; priority: number }[] {
-        const targets: { x: number; y: number; priority: number }[] = [];
+    /** Return homing-targetable components. */
+    getHomingTargets(): HomingTarget[] {
+        const targets: HomingTarget[] = [];
         this.appendHomingTargets(targets);
         return targets;
     }
 
     /** Append homing targets directly into caller's array (avoids intermediate allocation). */
-    appendHomingTargets(targets: { x: number; y: number; priority: number }[]): void {
-        const add = (c: FrigateComponent, pri: number) => {
+    appendHomingTargets(targets: HomingTarget[]): void {
+        const ship = this;
+        const addTurret = (c: FrigateComponent) => {
             if (c.alive && c.damageable) {
                 targets.push({
-                    x: this.x + c.offsetX + c.width / 2,
-                    y: this.y + c.offsetY + c.height / 2,
-                    priority: pri,
+                    get centerX() { return ship.x + c.offsetX + c.width / 2; },
+                    get centerY() { return ship.y + c.offsetY + c.height / 2; },
+                    threat: 3,  // turrets = highest threat on frigate
+                    isAlive() { return c.alive && c.damageable; },
                 });
             }
         };
-        // Priority 1: turrets (weapons)
-        add(this.rightTurret, 1);
-        add(this.leftTurret, 1);
-        // Priority 2: structural
-        add(this.rightWing, 2);
-        add(this.leftWing, 2);
-        add(this.nose, 2);
-        add(this.body, 2);
+        const addStructural = (c: FrigateComponent, threat: number) => {
+            if (c.alive && c.damageable) {
+                targets.push({
+                    get centerX() { return ship.x + c.offsetX + c.width / 2; },
+                    get centerY() { return ship.y + c.offsetY + c.height / 2; },
+                    threat,
+                    isAlive() { return c.alive && c.damageable; },
+                });
+            }
+        };
+        // Turrets (weapons — high threat)
+        addTurret(this.rightTurret);
+        addTurret(this.leftTurret);
+        // Nose cannon (medium-high threat)
+        addStructural(this.nose, 2);
+        // Structural (low threat)
+        addStructural(this.rightWing, 1);
+        addStructural(this.leftWing, 1);
+        addStructural(this.body, 1);
     }
 
     /**

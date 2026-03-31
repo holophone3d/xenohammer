@@ -139,8 +139,6 @@ export class Weapon {
 
         if (this.homingEnabled) {
             proj.homing = true;
-            proj.homingTrackDist = this.homingTrackDist;
-            proj.homingMinDist = this.homingMinDist;
             proj.homingSpeed = this.homingSpeed;
             proj.homingTurnRate = this.homingTurnRate;
         }

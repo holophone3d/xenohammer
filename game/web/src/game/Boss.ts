@@ -19,7 +19,7 @@
 
 import { Sprite, AssetLoader } from '../engine';
 import { Rect, Collider, PLAY_AREA_W, PLAY_AREA_H } from './Collision';
-import { Projectile } from './Projectile';
+import { Projectile, HomingTarget } from './Projectile';
 import { Explosion, ChainExplosion } from './Explosion';
 
 // --- Constants from C++ Boss.cpp ---
@@ -1269,22 +1269,23 @@ export class Boss {
     }
 
     /** Return center positions of all living, damageable components for homing targeting. */
-    /** Return homing-targetable positions with priority (1=weapon, 2=passive). */
-    getHomingTargets(): { x: number; y: number; priority: number }[] {
-        const targets: { x: number; y: number; priority: number }[] = [];
+    getHomingTargets(): HomingTarget[] {
+        const targets: HomingTarget[] = [];
         this.appendHomingTargets(targets);
         return targets;
     }
 
     /** Append homing targets directly into caller's array (avoids intermediate allocation). */
-    appendHomingTargets(targets: { x: number; y: number; priority: number }[]): void {
-        // Priority 1: turrets (weapons) — outer + U-component turrets
+    appendHomingTargets(targets: HomingTarget[]): void {
+        // Threat 3: turrets (weapons) — outer + U-component turrets
         for (const ai of this.outerTurretAIs) {
             if (!ai.destroyed && !ai.comp.destroyed) {
+                const ref = ai;
                 targets.push({
-                    x: ai.comp.x + ai.comp.width / 2,
-                    y: ai.comp.y + ai.comp.height / 2,
-                    priority: 1,
+                    get centerX() { return ref.comp.x + ref.comp.width / 2; },
+                    get centerY() { return ref.comp.y + ref.comp.height / 2; },
+                    threat: 3,
+                    isAlive() { return !ref.destroyed && !ref.comp.destroyed; },
                 });
             }
         }
@@ -1293,18 +1294,25 @@ export class Boss {
             this.state === BossState.Final) {
             for (const ai of this.uTurretAIs) {
                 if (!ai.destroyed && !ai.comp.destroyed) {
+                    const ref = ai;
                     targets.push({
-                        x: ai.comp.x + ai.comp.width / 2,
-                        y: ai.comp.y + ai.comp.height / 2,
-                        priority: 1,
+                        get centerX() { return ref.comp.x + ref.comp.width / 2; },
+                        get centerY() { return ref.comp.y + ref.comp.height / 2; },
+                        threat: 3,
+                        isAlive() { return !ref.destroyed && !ref.comp.destroyed; },
                     });
                 }
             }
         }
-        // Priority 2: damageable orbs, platforms
+        // Threat 1: damageable orbs, platforms (passive — low threat)
         const addPassive = (c: BossComponent) => {
             if (!c.destroyed && c.damageable) {
-                targets.push({ x: c.x + c.width / 2, y: c.y + c.height / 2, priority: 2 });
+                targets.push({
+                    get centerX() { return c.x + c.width / 2; },
+                    get centerY() { return c.y + c.height / 2; },
+                    threat: 1,
+                    isAlive() { return !c.destroyed && c.damageable; },
+                });
             }
         };
         for (const orb of this.outerOrbs) addPassive(orb);
