@@ -32,6 +32,9 @@ static SDL_GLContext  g_glcontext  = nullptr;
 static int           g_width      = 800;
 static int           g_height     = 600;
 
+// Viewport letterbox state (updated on resize/fullscreen)
+static int  g_vpX = 0, g_vpY = 0, g_vpW = 800, g_vpH = 600;
+
 // Input singletons
 static CL_InputDevice g_keyboard;
 static CL_InputDevice g_joystick;
@@ -56,6 +59,32 @@ void CL_System::keep_alive() {
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) {
             // The game checks for escape; treat window-close as escape press
+        }
+        // Alt+Enter toggles fullscreen
+        if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_RETURN &&
+            (e.key.keysym.mod & KMOD_ALT)) {
+            Uint32 flags = SDL_GetWindowFlags(g_window);
+            if (flags & SDL_WINDOW_FULLSCREEN_DESKTOP) {
+                SDL_SetWindowFullscreen(g_window, 0);
+            } else {
+                SDL_SetWindowFullscreen(g_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+            }
+        }
+        // Maintain viewport on resize/fullscreen change
+        if (e.type == SDL_WINDOWEVENT &&
+            (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
+             e.window.event == SDL_WINDOWEVENT_RESIZED)) {
+            int winW = e.window.data1;
+            int winH = e.window.data2;
+            // Letterbox: fit 800x600 centered with correct aspect ratio
+            float scaleX = (float)winW / g_width;
+            float scaleY = (float)winH / g_height;
+            float scale = (scaleX < scaleY) ? scaleX : scaleY;
+            g_vpW = (int)(g_width * scale);
+            g_vpH = (int)(g_height * scale);
+            g_vpX = (winW - g_vpW) / 2;
+            g_vpY = (winH - g_vpH) / 2;
+            glViewport(g_vpX, g_vpY, g_vpW, g_vpH);
         }
     }
 }
@@ -118,16 +147,10 @@ void CL_Display::set_videomode(int w, int h, int /*bpp*/, bool /*fullscreen*/) {
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
 
-        // Force windowed mode for now — fullscreen desktop causes viewport mismatch
-        Uint32 flags = SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL;
+        Uint32 flags = SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
 
-        // Position window near top-left so title bar + taskbar don't clip the bottom
-        int winX = SDL_WINDOWPOS_CENTERED, winY = 0;
-        SDL_Rect usable;
-        if (SDL_GetDisplayUsableBounds(0, &usable) == 0) {
-            winX = usable.x + (usable.w - w) / 2;
-            winY = usable.y;  // top of usable area (below taskbar if top-docked)
-        }
+        int winX = SDL_WINDOWPOS_CENTERED;
+        int winY = SDL_WINDOWPOS_CENTERED;
 
         g_window = SDL_CreateWindow("XenoHammer",
                                     winX, winY,
@@ -1218,16 +1241,24 @@ float CL_JoystickAxis::get_pos() {
     return raw / 32767.0f;
 }
 
+// Map raw window mouse coordinate to game coordinate (accounts for letterbox viewport)
+static int mouse_to_game_x(int raw) {
+    return (int)((raw - g_vpX) * (float)g_width / g_vpW);
+}
+static int mouse_to_game_y(int raw) {
+    return (int)((raw - g_vpY) * (float)g_height / g_vpH);
+}
+
 float CL_InputCursor::get_x() {
     int x, y;
     SDL_GetMouseState(&x, &y);
-    return (float)x;
+    return (float)mouse_to_game_x(x);
 }
 
 float CL_InputCursor::get_y() {
     int x, y;
     SDL_GetMouseState(&x, &y);
-    return (float)y;
+    return (float)mouse_to_game_y(y);
 }
 
 bool CL_Mouse::left_pressed() {
@@ -1241,13 +1272,13 @@ bool CL_Mouse::right_pressed() {
 int CL_Mouse::get_x() {
     int x;
     SDL_GetMouseState(&x, nullptr);
-    return x;
+    return mouse_to_game_x(x);
 }
 
 int CL_Mouse::get_y() {
     int y;
     SDL_GetMouseState(nullptr, &y);
-    return y;
+    return mouse_to_game_y(y);
 }
 
 // ============================================================================

@@ -28,11 +28,11 @@ list(FILTER GAME_SOURCES EXCLUDE REGEX ".*CapitalShip\\.cpp$")
 list(FILTER GAME_SOURCES EXCLUDE REGEX ".*GameManager\\.cpp$")
 list(FILTER GAME_SOURCES EXCLUDE REGEX ".*Homing\\.cpp$")
 
-file(GLOB COMPAT_PROXIES src/compat/*.cpp)
+file(GLOB COMPAT_PROXIES src/compat/game/*.cpp)
 
 file(GLOB SHIM_SOURCES
-    src/clanlib_shim/impl/*.cpp
-    src/clanlib_shim/impl/*.h
+    src/clanlib_shim/*.cpp
+    src/clanlib_shim/*.h
 )
 
 # --- Executable target -------------------------------------------------------
@@ -43,10 +43,11 @@ add_executable(xenohammer-classic
 )
 
 # --- Include directories ------------------------------------------------------
-# compat/ FIRST so it intercepts <malloc.h>, <crtdbg.h>, <gl\glaux.h>, etc.
+# compat/ and compat/io/ FIRST so they intercept <malloc.h>, <fstream.h>, <gl\glaux.h>, etc.
 # clanlib_shim/ so that #include <ClanLib/core.h> resolves
 # game/ so game headers can find each other
 target_include_directories(xenohammer-classic PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/compat/io
     ${CMAKE_CURRENT_SOURCE_DIR}/src/compat
     ${CMAKE_CURRENT_SOURCE_DIR}/src/clanlib_shim
     ${CMAKE_CURRENT_SOURCE_DIR}/src/game
