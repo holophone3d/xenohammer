@@ -120,8 +120,16 @@ void CL_Display::set_videomode(int w, int h, int /*bpp*/, bool /*fullscreen*/) {
         // Force windowed mode for now — fullscreen desktop causes viewport mismatch
         Uint32 flags = SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL;
 
+        // Position window near top-left so title bar + taskbar don't clip the bottom
+        int winX = SDL_WINDOWPOS_CENTERED, winY = 0;
+        SDL_Rect usable;
+        if (SDL_GetDisplayUsableBounds(0, &usable) == 0) {
+            winX = usable.x + (usable.w - w) / 2;
+            winY = usable.y;  // top of usable area (below taskbar if top-docked)
+        }
+
         g_window = SDL_CreateWindow("XenoHammer",
-                                    SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                                    winX, winY,
                                     w, h, flags);
         if (!g_window) {
             fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
