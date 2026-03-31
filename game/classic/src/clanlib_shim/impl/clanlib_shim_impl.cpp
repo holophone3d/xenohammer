@@ -1104,11 +1104,12 @@ AUX_RGBImageRec* auxDIBImageLoadA(const char* filename) {
     SDL_FreeSurface(bmp);
     if (!rgb) return nullptr;
 
-    AUX_RGBImageRec* rec = new AUX_RGBImageRec;
+    // Use malloc — the game frees these with free()
+    AUX_RGBImageRec* rec = (AUX_RGBImageRec*)malloc(sizeof(AUX_RGBImageRec));
     rec->sizeX = rgb->w;
     rec->sizeY = rgb->h;
     int dataSize = rgb->w * rgb->h * 3;
-    rec->data = new unsigned char[dataSize];
+    rec->data = (unsigned char*)malloc(dataSize);
 
     // SDL surfaces may have padding per row; copy row by row
     SDL_LockSurface(rgb);
