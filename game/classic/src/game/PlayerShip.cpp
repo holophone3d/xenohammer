@@ -187,7 +187,7 @@ int PlayerShip::load_shipInfo(GameManager *manager)
 	int iPowerCell2;
 	int iTurretAngle;
 	int iTechnology;
-	char *buffer = new char(50);
+	char *buffer = new char[50]; // was new char(50) — original bug: () allocates 1 byte, [] allocates 50
 
 	// declare and open
 	ifstream fp_in("savedplayer.txt", ios::in);
