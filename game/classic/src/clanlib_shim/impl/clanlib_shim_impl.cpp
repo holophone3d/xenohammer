@@ -106,7 +106,7 @@ void CL_ConsoleWindow::display_close_message() {
 // ============================================================================
 // CL_Display – SDL2+OpenGL backend
 // ============================================================================
-void CL_Display::set_videomode(int w, int h, int /*bpp*/, bool fullscreen) {
+void CL_Display::set_videomode(int w, int h, int /*bpp*/, bool /*fullscreen*/) {
     g_width  = w;
     g_height = h;
 
@@ -117,8 +117,8 @@ void CL_Display::set_videomode(int w, int h, int /*bpp*/, bool fullscreen) {
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
 
+        // Force windowed mode for now — fullscreen desktop causes viewport mismatch
         Uint32 flags = SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL;
-        if (fullscreen) flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 
         g_window = SDL_CreateWindow("XenoHammer",
                                     SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -144,7 +144,6 @@ void CL_Display::set_videomode(int w, int h, int /*bpp*/, bool fullscreen) {
         glEnable(GL_TEXTURE_2D);
     } else {
         SDL_SetWindowSize(g_window, w, h);
-        SDL_SetWindowFullscreen(g_window, fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
         glViewport(0, 0, w, h);
     }
 }
