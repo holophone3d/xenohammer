@@ -2999,6 +2999,10 @@ export class GameManager {
             if (typeof data.kills === 'number') this.player.kills = data.kills;
             if (data.settings && Array.isArray(data.settings) && data.settings.length === 3) {
                 this.player.powerPlant.settings = data.settings;
+                // Backfill homingMode for saves created before per-setting homing
+                for (const s of this.player.powerPlant.settings) {
+                    if (!s.homingMode) s.homingMode = 'threat';
+                }
             }
             if (typeof data.currentSetting === 'number') {
                 this.player.powerPlant.currentSetting = data.currentSetting;
