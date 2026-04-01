@@ -125,6 +125,9 @@ export class GameManager {
     private warningAlpha = 1.0;
     private warningAlphaUp = false;
     private homingTargetImg: HTMLImageElement | null = null;
+    // Boss warning intro
+    private bossMusicStartTime = 0;      // level stateTimer when boss music started
+    private bossWarningShown = false;     // true once warning has been triggered
 
     constructor(canvasId: string) {
         this.canvas = new GameCanvas(canvasId);
@@ -785,6 +788,8 @@ export class GameManager {
         this.particles.clear();
         this.waveManager.startLevel(levelIndex);
         this.starField.reset();
+        this.bossMusicStartTime = 0;
+        this.bossWarningShown = false;
 
         // Spawn boss for levels with hasBoss
         const levelDef = LEVELS[levelIndex];
@@ -939,10 +944,12 @@ export class GameManager {
             this.boss.update(dt, playerX, playerY, this.now, levelTimeMs);
 
             if (this.boss.shouldTriggerMusic()) {
-                this.audio.playSound('BossNear1');
+                this.audio.playSound('BossNear1', false, 1.4);
                 // Switch to boss music (original: stops Level2, plays bossTEST)
                 this.audio.stopMusic();
                 this.audio.playMusic('bossTEST', true); this.musicPlaying = 'bossTEST';
+                this.bossMusicStartTime = this.stateTimer;
+                this.bossWarningShown = false;
             }
 
             const bossProj = this.boss.getProjectiles();
@@ -1486,6 +1493,9 @@ export class GameManager {
 
         // Touch controls overlay (mobile only)
         this.touchControls?.render(ctx);
+
+        // Boss warning overlay — timed to alarm at ~6s into bossTEST
+        this.renderBossWarning(ctx);
 
         // Boss death fade-to-black during last 1s of explosions
         if (this.boss && this.boss.isDying()) {
@@ -3045,6 +3055,60 @@ export class GameManager {
         } catch { return false; }
     }
 
+    // ========== BOSS WARNING OVERLAY ==========
+
+    /**
+     * Cinematic boss warning — synced to the alarm at ~6s into bossTEST.
+     * Line 1: "WARNING: MASSIVE SHIP INCOMING" (always)
+     * Line 2: "AUTO-TARGETING JAMMED" (only if homing researched)
+     * Fades in at 5.5s, holds, fades out by 10s.
+     */
+    private renderBossWarning(ctx: CanvasRenderingContext2D): void {
+        if (this.bossMusicStartTime === 0) return;
+        const elapsed = this.stateTimer - this.bossMusicStartTime;
+        // Warning appears 5.5–10s after music starts (alarm hits at ~6s)
+        if (elapsed < 5.5 || elapsed > 10) return;
+
+        // Fade in 5.5–6.5s, hold 6.5–8.5s, fade out 8.5–10s
+        let alpha: number;
+        if (elapsed < 6.5) {
+            alpha = (elapsed - 5.5);            // 0→1 over 1s
+        } else if (elapsed < 8.5) {
+            alpha = 1.0;                         // hold
+        } else {
+            alpha = 1.0 - (elapsed - 8.5) / 1.5; // 1→0 over 1.5s
+        }
+        alpha = Math.max(0, Math.min(1, alpha));
+        if (alpha <= 0) return;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.textAlign = 'center';
+
+        // Line 1: WARNING
+        ctx.font = '28px XenoFont, monospace';
+        ctx.fillStyle = '#f44';
+        ctx.fillText('WARNING: MASSIVE SHIP INCOMING', 325, 280);
+
+        // Subtle red glow behind text
+        ctx.shadowColor = '#f00';
+        ctx.shadowBlur = 20;
+        ctx.fillText('WARNING: MASSIVE SHIP INCOMING', 325, 280);
+        ctx.shadowBlur = 0;
+
+        // Line 2: AUTO-TARGETING JAMMED (only if homing researched)
+        if (this.isHomingResearched) {
+            ctx.font = '20px XenoFont, monospace';
+            ctx.fillStyle = '#fa0';
+            ctx.shadowColor = '#f80';
+            ctx.shadowBlur = 12;
+            ctx.fillText('AUTO-TARGETING JAMMED', 325, 315);
+            ctx.shadowBlur = 0;
+        }
+
+        ctx.restore();
+    }
+
     // ========== PAUSE MENU ==========
 
     private enterPause(): void {
@@ -3507,7 +3571,7 @@ export class GameManager {
     }
 
     private debugSpawnBoss(): void {
-        console.log('[DEBUG] Spawning Boss fight (skip to entering)');
+        console.log('[DEBUG] Spawning Boss fight (full intro sequence)');
         this.level = 2;
         if (this.player) {
             this.player.resetForLevel();
@@ -3525,14 +3589,18 @@ export class GameManager {
         this.waveManager.startLevel(2);
         this.waveManager.suppressAllWaves(); // No fighter waves during debug boss
 
-        // Spawn boss and skip wait — go directly to Entering state
+        // Spawn boss — play full intro sequence (music → warning → enter)
+        // Set stateTimer to BOSS_MUSIC_TIME so boss timing works naturally
         this.boss = new Boss(this.difficulty);
         this.boss.loadSprites(this.assets);
-        this.boss.state = BossState.Entering;
-        this.boss.musicTriggered = true;
+        this.boss.musicTriggered = true; // don't re-trigger via shouldTriggerMusic()
+        this.stateTimer = 95; // 95s = BOSS_MUSIC_TIME, boss enters at 108s
 
         this.audio.stopMusic();
+        this.audio.playSound('BossNear1', false, 1.4);
         this.audio.playMusic('bossTEST', true); this.musicPlaying = 'bossTEST';
+        this.bossMusicStartTime = this.stateTimer;
+        this.bossWarningShown = false;
         this.engineSound = this.audio.playSound('ShipEngine', true);
         this.engineSound.setVolume(0.1);
         this.state = GameState.Playing;
