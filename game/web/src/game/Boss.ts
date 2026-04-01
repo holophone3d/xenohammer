@@ -26,7 +26,7 @@ import { Explosion, ChainExplosion } from './Explosion';
 const BOSS_START_X = 245;
 const BOSS_START_Y = -600;
 const BOSS_HOVER_Y = -50;           // C++: boss stops at y=-50
-const BOSS_DESCENT_SPEED = 50;      // px/s — tuned for feel (C++ literal is 10px/s but too slow)
+const BOSS_DESCENT_SPEED = 175;     // px/s — fast dramatic entrance
 const BOSS_WAIT_TIME = 108_000;     // ms before boss enters (13s after music for dramatic buildup)
 const BOSS_MUSIC_TIME = 95_000;     // ms before boss music starts (10s after last wave at 85s)
 const MORPH_TICK_MS = 7;            // ms per 1px morph step — 30% faster than original 10ms
