@@ -65,7 +65,7 @@ xenohammer_2026/
 ├── tools/
 │   ├── package_site.ps1         # Build game + package site → dist/
 │   └── deploy_azure.ps1         # Deploy dist/ to Azure
-├── agents.md                    # AI agent context (root)
+├── AGENTS.md                    # AI agent context (root)
 ├── LICENSE                      # CC BY-NC-SA 4.0
 └── README.md
 ```
@@ -158,13 +158,6 @@ SDL2 + SDL2_image + SDL2_mixer + SDL2_ttf + OpenGL
 | `CL_OpenGL::begin_2d/end_2d` | GL state save/restore |
 
 **Prerequisites:** Windows 10/11, MSVC 2022, CMake ≥ 3.20, vcpkg.
-
-### Key Technical Details (Both Tracks)
-
-- **Velocity scaling:** `VELOCITY_DIVISOR = 32` — all movement: `px = velocity × dt_ms / 32`
-- **Screen:** 800×600; play area 650×600 (left) + HUD 150×600 (right)
-- **Sprite collision:** Pixel-level masks from actual sprite alpha (not bounding boxes)
-- **Audio:** Only 2 music tracks — `Level2.ogg` (all levels) + `bossTEST.ogg` (boss)
 
 ### Deployment
 

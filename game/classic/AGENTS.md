@@ -1,6 +1,6 @@
 # XenoHammer Classic — Agent Context
 
-> ClanLib 0.6 API shim project. Read `agents.md` at repo root first for overall context.
+> ClanLib 0.6 API shim project. Read `AGENTS.md` at repo root first for overall context.
 
 ## What This Is
 

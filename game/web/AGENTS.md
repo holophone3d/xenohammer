@@ -1,6 +1,6 @@
 # XenoHammer Web — Agent Context
 
-> TypeScript/Canvas browser rewrite. Read `agents.md` at repo root first for overall context.
+> TypeScript/Canvas browser rewrite. Read `AGENTS.md` at repo root first for overall context.
 
 ## What This Is
 

@@ -6,10 +6,12 @@
 ## Mission
 
 Modernize "Codename: XenoHammer" (~2000 C++/ClanLib top-down space shooter) via two tracks:
-- **`classic/`** — Original C++ running via a ClanLib 0.6 API shim backed by SDL2 + OpenGL. **Zero game code changes** (3 original-era bug fixes only). Fully playable.
-- **`web/`** — Complete TypeScript/Canvas rewrite, browser-playable.
+- **`game/classic/`** — Original C++ running via a ClanLib 0.6 API shim backed by SDL2 + OpenGL. **Zero game code changes** (3 original-era bug fixes only). Fully playable.
+- **`game/web/`** — Complete TypeScript/Canvas rewrite, browser-playable.
 
-Both tracks share the same `assets/` directory and `SPEC.md` game specification.
+Both tracks share the same `game/SPEC.md` game specification. Each track has its
+own assets directory: `game/classic/assets/` (original PCX/WAV/OGG/BMP/TGA) and
+`game/web/assets/` (converted PNG/MP3 web-ready).
 
 ## Source Locations
 
@@ -20,44 +22,48 @@ lives at `game/classic/src/game/` (26 .cpp, 37 .h files — untouched except 3 b
 
 ```
 xenohammer_2026/
-├── SPEC.md                         # Authoritative game spec (both tracks)
-├── agents.md                       # This file — agent context
+├── AGENTS.md                       # This file — agent context
 ├── README.md
-├── game\
-│   ├── classic\                    # C++ ClanLib shim track (PLAYABLE)
+├── LICENSE                         # CC BY-NC-SA 4.0
+├── game/
+│   ├── SPEC.md                     # Authoritative game spec (both tracks)
+│   ├── classic/                    # C++ ClanLib shim track (PLAYABLE)
 │   │   ├── CMakeLists.txt          # Build config (CMake + vcpkg)
 │   │   ├── vcpkg.json              # sdl2, sdl2-image, sdl2-mixer, sdl2-ttf
-│   │   ├── assets\                 # Game assets (BMP, PCX, WAV, OGG, TTF, TGA, resource files)
-│   │   ├── src\
-│   │   │   ├── game\               # Original C++ source (26 .cpp, 37 .h) — UNTOUCHED
-│   │   │   └── compat\             # ALL compatibility/shim code
-│   │   │       ├── clanlib_shim\
-│   │   │       │   ├── ClanLib\    # 12 API headers matching ClanLib 0.6 interface
-│   │   │       │   │   └── Core\System\mutex.h
+│   │   ├── assets/                 # Original game assets (PCX, WAV, OGG, BMP, TGA, resource files)
+│   │   ├── src/
+│   │   │   ├── game/               # Original C++ source (26 .cpp, 37 .h) — UNTOUCHED
+│   │   │   └── compat/             # ALL compatibility/shim code
+│   │   │       ├── clanlib_shim/
+│   │   │       │   ├── ClanLib/    # 12 API headers matching ClanLib 0.6 interface
+│   │   │       │   │   └── Core/System/mutex.h
 │   │   │       │   └── clanlib_shim_impl.cpp  # Single-file implementation (~1,200 lines)
-│   │   │       ├── io\             # Pre-standard C++ headers (fstream.h, iostream.h, iomanip.h)
-│   │   │       ├── gl\             # GLAUX shim (glaux.h → auxDIBImageLoadA via SDL2_image)
-│   │   │       └── game\           # Build proxies (GameManager_proxy.cpp, Homing_proxy.cpp)
-│   │   └── build\                  # CMake build output (sln lives here after cmake)
+│   │   │       ├── io/             # Pre-standard C++ headers (fstream.h, iostream.h, iomanip.h)
+│   │   │       ├── gl/             # GLAUX shim (glaux.h → auxDIBImageLoadA via SDL2_image)
+│   │   │       └── game/           # Build proxies (GameManager_proxy.cpp, Homing_proxy.cpp)
+│   │   └── build/                  # CMake build output (sln lives here after cmake)
 │   │
-│   ├── web\                        # TypeScript rewrite (Vite + vanilla TS)
-│   │   ├── src\
-│   │   │   ├── main.ts             # Entry, game loop (requestAnimationFrame)
-│   │   │   ├── engine\             # Canvas, Input, Audio, Sprite, Particles, AssetLoader
-│   │   │   ├── game\               # GameManager, Player, Enemy, Boss, Projectile, Weapon,
-│   │   │   │                       #   AI, Collision, HUD, StarField, Wave, PowerPlant, PowerUp
-│   │   │   └── data\               # ships.ts (VELOCITY_DIVISOR), levels.ts (140 waves)
-│   │   ├── debug.mjs               # Puppeteer automated test (9 screenshots)
-│   │   └── public\assets           # Junction → ../../assets (shared)
-│   └── SPEC.md
+│   └── web/                        # TypeScript rewrite (Vite + vanilla TS)
+│       ├── src/
+│       │   ├── main.ts             # Entry, game loop (requestAnimationFrame)
+│       │   ├── engine/             # Canvas, Input, Audio, Sprite, Particles, AssetLoader
+│       │   ├── game/               # GameManager, Player, Enemy, Boss, Projectile, Weapon,
+│       │   │                       #   AI, Collision, HUD, StarField, Wave, PowerPlant, PowerUp
+│       │   └── data/               # ships.ts (VELOCITY_DIVISOR), levels.ts (140 waves)
+│       ├── assets/                 # Web-ready assets (PNG sprites, MP3 audio, TTF fonts)
+│       ├── tools/debug.mjs         # Puppeteer automated test (screenshots)
+│       └── public/                 # Static files (icons, manifest)
 │
-├── assets\                         # Shared assets (PNG, WAV, OGG, fonts)
-│   ├── graphics\                   # PCX→PNG converted sprites
-│   ├── sounds\
-│   ├── fonts\
-│   └── reference_screenshots\      # 10 screenshots from original game + README.md
+├── site/                           # Landing/tribute page (static HTML)
+│   ├── index.html                  # Landing page with hero video
+│   ├── hero-gameplay.webm          # Hero section gameplay video
+│   └── archives/                   # Original website museum content
 │
-└── tools\                          # convert_pcx_to_png.py
+├── dist/                           # Deployment output (site + game build)
+│
+└── tools/                          # Build & deploy scripts
+    ├── package_site.ps1            # Build game + package site → dist/
+    └── deploy_azure.ps1            # Deploy dist/ to Azure
 ```
 
 ---
@@ -141,10 +147,8 @@ npx vite          # Dev server at http://localhost:5173/
 
 ```powershell
 cd game\web
-node debug.mjs    # Captures 9 screenshots through full game flow
+node tools/debug.mjs    # Captures screenshots through full game flow
 ```
-
-Compare output against `assets\reference_screenshots\`.
 
 ---
 
@@ -214,7 +218,7 @@ The parser handles `section/endsection`, nested sections, and `type`/`resource`/
 
 ### Velocity Scaling — VELOCITY_DIVISOR = 32
 ALL movement: `actual_px = (velocity × dt_ms) / 32`. At 60fps ≈ halves all velocities.
-Web: `moveScale = dt * 1000 / 32`. Defined in `web/src/data/ships.ts`.
+Web: `moveScale = dt * 1000 / 32`. Defined in `game/web/src/data/ships.ts`.
 
 ### Screen: 800×600. Play area: 650×600 (left). HUD: 150×600 (right, x=650–800).
 
@@ -290,9 +294,8 @@ Moving RIGHT → frame-- ; Moving LEFT → frame++.
 
 ## Testing
 - **Classic:** Build & run the .exe, play through all 3 levels
-- **Web Puppeteer:** `cd game\web && node debug.mjs` — captures 9 screenshots
+- **Web Puppeteer:** `cd game\web && node tools/debug.mjs` — captures screenshots
 - **Web dev server:** `cd game\web && npx vite` → `http://localhost:5173/`
-- **Reference:** Compare with `assets\reference_screenshots\`
 
 ## Common Pitfalls (lessons learned across 70+ sessions)
 

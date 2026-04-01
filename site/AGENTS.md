@@ -1,6 +1,6 @@
 # XenoHammer Website — Agent Context
 
-> Marketing/landing page for XenoHammer. Read `agents.md` at repo root first.
+> Marketing/landing page for XenoHammer. Read `AGENTS.md` at repo root first.
 
 ## What This Is
 
