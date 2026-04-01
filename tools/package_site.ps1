@@ -102,6 +102,13 @@ function Copy-Site {
         Write-Host 'Copied images'
     }
 
+    # Copy favicons
+    foreach ($f in @('favicon.ico', 'favicon-32x32.png')) {
+        $src = Join-Path $SiteDir $f
+        if (Test-Path $src) { Copy-Item $src -Destination $DistDir }
+    }
+    Write-Host 'Copied favicons'
+
     # Read, rewrite, and write site/index.html
     $html = Get-Content -Path (Join-Path $SiteDir 'index.html') -Raw -Encoding UTF8
     $html = $html.Replace('../game/web/dist/index.html', 'play/index.html')
