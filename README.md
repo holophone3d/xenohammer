@@ -17,36 +17,56 @@ capital ships, and a massive multi-component boss across 3 levels. Features incl
 - **Power Management** — Balance between shields, engines, and weapons
 - **Homing Missiles** — Researchable upgrade that locks onto priority targets
 
+## Two Tracks
+
+### 🌐 Web Rewrite (`game/web/`)
+
+A complete TypeScript/Canvas 2D rewrite — playable in any modern browser. Zero
+runtime dependencies, no game engine or framework. The rendering is locked to
+800×600 internal resolution with CSS `transform: scale()` for responsive display.
+
+### 🖥️ Classic (`game/classic/`)
+
+The original ~2000 C++ source running on modern Windows with **zero game code
+changes**. A custom ClanLib 0.6 API shim translates all engine calls to
+SDL2 + OpenGL at compile time. The 26 original game source files compile
+unmodified against 12 shim headers and a single ~1,200-line implementation file.
+Three original-era bugs were fixed (buffer overflow, iterator invalidation,
+uninitialized variables) — all present in the year-2000 source.
+
 ## Project Structure
 
 ```
 xenohammer_2026/
-├── game/                        # Game source and assets
+├── game/
 │   ├── SPEC.md                  # Authoritative game specification
-│   └── web/                     # Browser rewrite (TypeScript + Canvas 2D)
-│       ├── src/
-│       │   ├── main.ts          # Entry point, game loop
-│       │   ├── engine/          # Canvas, Input, Audio, Sprite, Particles, TouchControls
-│       │   ├── game/            # GameManager, Player, Enemy, Boss, Projectile, HUD, etc.
-│       │   └── data/            # Ship configs, level/wave definitions
-│       ├── assets/              # Game assets (sprites, sounds, fonts, icons)
-│       │   ├── graphics/        # PCX→PNG converted sprites
-│       │   ├── sounds/          # WAV + MP3 sound effects and music
-│       │   ├── fonts/           # Custom bitmap font
-│       │   └── icon-pack/       # App icons, manifest, favicons (source of truth)
-│       ├── public/              # Vite static files (synced from icon-pack at build)
-│       ├── tools/               # Puppeteer scripts (debug, hero capture)
-│       ├── vite.config.ts       # Build config with icon sync plugin
-│       └── dist/                # Vite build output (gitignored)
+│   ├── web/                     # TypeScript + Canvas 2D browser rewrite
+│   │   ├── src/
+│   │   │   ├── main.ts          # Entry point, game loop
+│   │   │   ├── engine/          # Canvas, Input, Audio, Sprite, Particles
+│   │   │   ├── game/            # GameManager, Player, Enemy, Boss, HUD, etc.
+│   │   │   └── data/            # Ship configs, level/wave definitions
+│   │   ├── assets/              # Shared game assets (sprites, sounds, fonts)
+│   │   └── vite.config.ts       # Build config
+│   └── classic/                 # Original C++ with ClanLib 0.6 API shim
+│       ├── CMakeLists.txt       # Build config (CMake + vcpkg)
+│       ├── vcpkg.json           # SDL2, SDL2_image, SDL2_mixer, SDL2_ttf
+│       ├── assets/              # Original game assets (PCX, WAV, OGG, BMP, TGA)
+│       └── src/
+│           ├── game/            # Original C++ source (26 .cpp, 37 .h) — untouched
+│           └── compat/          # All compatibility/shim code
+│               ├── clanlib_shim/  # ClanLib 0.6 API headers + SDL2/GL implementation
+│               ├── io/            # Pre-standard C++ header shims
+│               ├── gl/            # GLAUX shim
+│               └── game/          # VC6 build compatibility proxies
 ├── site/                        # Landing/tribute page
 │   ├── index.html               # Landing page with hero video
-│   ├── hero-gameplay.webm       # Gameplay capture for landing page
-│   └── archives/                # Archived Tripod/external content
+│   └── archives/                # Archived original website content
 ├── tools/
 │   ├── package_site.ps1         # Build game + package site → dist/
-│   └── deploy_azure.ps1         # Deploy dist/ to Azure (Storage + SWA)
-├── agents.md                    # AI agent context
-├── dist/                        # Packaged deployable site (gitignored)
+│   └── deploy_azure.ps1         # Deploy dist/ to Azure
+├── agents.md                    # AI agent context (root)
+├── LICENSE                      # CC BY-NC-SA 4.0
 └── README.md
 ```
 
@@ -57,6 +77,20 @@ xenohammer_2026/
 cd game\web
 npm install
 npm run dev    # → http://localhost:5173/
+```
+
+### Build and run the classic version
+```powershell
+cd game\classic
+
+# First-time setup (requires vcpkg):
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="<vcpkg-root>\scripts\buildsystems\vcpkg.cmake"
+
+# Build:
+cmake --build build --config Release
+
+# Run:
+.\build\Release\xenohammer-classic.exe
 ```
 
 ### Build and package the full site
@@ -82,13 +116,11 @@ node tools/debug.mjs                   # captures screenshots through full game 
 ### Web Rewrite (`game/web/`)
 
 The web version is a complete TypeScript rewrite using vanilla Canvas 2D — no game
-engine or framework dependencies. The rendering is locked to 800×600 internal
-resolution with CSS `transform: scale()` for responsive display.
+engine or framework dependencies.
 
 **Design constraints:**
-- **Zero runtime dependencies** — the game ships as a single JS bundle + assets, no npm packages in production
+- **Zero runtime dependencies** — single JS bundle + assets, no npm packages in production
 - **No game engine or framework** — vanilla TypeScript + Canvas 2D API only
-- **No build-time code generation** — all game data (ships, levels, waves) is hand-authored TypeScript
 - **Dev dependencies are tooling only** — Vite (bundler), TypeScript (compiler), Puppeteer (testing)
 
 | Layer | Key Files | Purpose |
@@ -98,28 +130,46 @@ resolution with CSS `transform: scale()` for responsive display.
 | Data | `ships.ts`, `levels.ts` | Ship configs, 140 waves across 3 levels |
 | Mobile | `TouchControls.ts` | Virtual joystick + buttons (mobile OS only) |
 
-**Key technical details:**
+### Classic (`game/classic/`)
+
+The classic version compiles the original C++ source unmodified. A compatibility
+layer under `src/compat/` provides all the missing dependencies:
+
+```
+Original game code (26 .cpp, 37 .h — untouched)
+        │
+        ▼
+ClanLib 0.6 API headers (12 shim headers)
+        │
+        ▼
+clanlib_shim_impl.cpp (~1,200 lines)
+        │
+        ▼
+SDL2 + SDL2_image + SDL2_mixer + SDL2_ttf + OpenGL
+```
+
+| ClanLib API | Shim Implementation |
+|---|---|
+| `CL_Display`, `CL_Surface` | SDL2 window + OpenGL textured quads |
+| `CL_Font` | SDL2_ttf (TTF) + bitmap glyph scanner (TGA) |
+| `CL_SoundBuffer` | SDL2_mixer (WAV + OGG) |
+| `CL_Keyboard`, `CL_Mouse` | SDL2 event polling |
+| `CL_ResourceManager` | Custom ClanLib 0.6 `.scr` file parser |
+| `CL_OpenGL::begin_2d/end_2d` | GL state save/restore |
+
+**Prerequisites:** Windows 10/11, MSVC 2022, CMake ≥ 3.20, vcpkg.
+
+### Key Technical Details (Both Tracks)
+
 - **Velocity scaling:** `VELOCITY_DIVISOR = 32` — all movement: `px = velocity × dt_ms / 32`
-- **Play area:** 650×600 (left) + HUD 150×600 (right panel)
+- **Screen:** 800×600; play area 650×600 (left) + HUD 150×600 (right)
 - **Sprite collision:** Pixel-level masks from actual sprite alpha (not bounding boxes)
-- **Audio:** Web Audio API with autoplay policy handling; OGG→MP3 converted via VLC
-- **Input:** `pressedQueue` pattern to handle fast keydown+keyup in same frame
+- **Audio:** Only 2 music tracks — `Level2.ogg` (all levels) + `bossTEST.ogg` (boss)
 
 ### Deployment
 
 The site is hosted on **Azure Static Web App** at [www.xenohammer.com](https://www.xenohammer.com).
-
-- `tools/package_site.ps1` — Runs `vite build`, assembles `dist/` with landing page at root and game at `/play/`
-- `tools/deploy_azure.ps1` — Deploys to Azure Storage Account and/or Static Web App
-- DNS: `www.xenohammer.com` → CNAME to Azure SWA; apex forwards via GoDaddy 301
-
-### Asset Pipeline
-
-- Original PCX sprites → PNG (via `convert_assets.py`, one-time)
-- All transparent pixels cleaned to `(0,0,0,0)` to prevent magenta bleed
-- Icons: `assets/icon-pack/icon-1024.png` is the master; derived sizes generated from it
-- Maskable icons: 75% content scale with dark padding for Android safe zone
-- `vite.config.ts` syncs icons from `assets/icon-pack/` → `public/` at build time
+`tools/package_site.ps1` assembles `dist/` with the landing page at root and game at `/play/`.
 
 ## Game Specification
 
@@ -130,3 +180,8 @@ asset manifest.
 ## Original Source
 
 The unmodified original C++ source (read-only reference) is at `E:\Source\xenohammer\`.
+
+## License
+
+This project is licensed under [CC BY-NC-SA 4.0](LICENSE) — you may share and adapt
+for non-commercial purposes with attribution and share-alike.
