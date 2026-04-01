@@ -138,6 +138,17 @@ nav .nav-inner{max-width:1100px;margin:0 auto;padding:0 1.5rem;width:100%;displa
 .press-card p{font-size:.85rem;color:var(--text-dim);line-height:1.7}
 .press-card blockquote{border-left:3px solid var(--green);padding-left:1rem;margin:.75rem 0;color:var(--text);font-style:italic;font-size:.9rem;line-height:1.7}
 .press-card .src{font-size:.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-top:.5rem}
+.classic-dl-card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:1.5rem 1.75rem;display:flex;align-items:center;gap:2rem;transition:border-color .3s}
+.classic-dl-card:hover{border-color:var(--green-dim)}
+.classic-dl-info{flex:1}
+.classic-dl-info h4{font-size:1rem;color:var(--text-bright);margin-bottom:.6rem;text-transform:none;letter-spacing:0}
+.classic-dl-info p{font-size:.85rem;color:var(--text-dim);line-height:1.7;margin-bottom:.75rem}
+.classic-dl-info strong{color:var(--text)}
+.classic-dl-specs{list-style:none;font-size:.8rem;color:var(--text-dim);line-height:2}
+.classic-dl-action{flex-shrink:0;text-align:center}
+.classic-dl-size{display:block;font-size:.7rem;color:var(--text-dim);margin-top:.5rem;letter-spacing:.05em}
+.archive-explore-btn{display:inline-flex;align-items:center;gap:.5rem;padding:.75rem 2.5rem;border:1px solid var(--green-dim);border-radius:4px;color:var(--green);font-size:.9rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;background:rgba(0,255,102,.04);transition:all .25s}
+.archive-explore-btn:hover{background:rgba(0,255,102,.1);border-color:var(--green);box-shadow:0 0 20px rgba(0,255,102,.15);color:var(--green)}
 .doc-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.75rem}
 .doc-item{display:flex;align-items:start;gap:.75rem;padding:.85rem 1rem;background:var(--card);border:1px solid var(--border);border-radius:4px;transition:border-color .2s}
 .doc-item:hover{border-color:var(--green-dim)}
@@ -220,6 +231,8 @@ footer .heart{color:var(--green)}
   .threat-bar{flex-direction:row}
   .stat-boxes{grid-template-columns:1fr 1fr}
   .browser-body{height:250px}
+  .classic-dl-card{flex-direction:column;text-align:center}
+  .classic-dl-specs{text-align:left}
 }
 @media(max-width:480px){
   .stat-boxes{grid-template-columns:1fr}
@@ -471,15 +484,27 @@ footer .heart{color:var(--green)}
     </div>
 
     <!-- Classic Windows Build -->
-    <div class="archives-sub reveal" id="classic" style="text-align:center">
+    <div class="archives-sub reveal" id="classic">
       <h3><span class="icon">&#128187;</span> Classic Windows Build</h3>
-      <p style="color:var(--text);margin:1rem auto;max-width:600px;line-height:1.7">Want the old-school experience? We also rebuilt the <strong>original unmodified C++ source</strong> as a standalone Windows executable. A custom SDL2+OpenGL compatibility layer reimplements the missing ClanLib 0.6 engine API&mdash;reverse-engineered entirely from the game&rsquo;s usage patterns&mdash;so the original code runs natively on modern hardware. All 342 assets are embedded in a single portable 14.5&nbsp;MB exe. No install required.</p>
-      <a href="downloads/xenohammer-classic.exe" download class="hero-play" style="display:inline-block;margin:1rem 0;font-size:1rem;padding:.75rem 2rem">&#11015; Download for Windows (14.5 MB)</a>
-      <p style="color:var(--text-dim);font-size:.85rem;margin-top:.75rem">Windows 10/11 64-bit &middot; Alt+Enter for fullscreen &middot; No dependencies</p>
+      <div class="classic-dl-card">
+        <div class="classic-dl-info">
+          <h4>The Original C++ &mdash; Rebuilt for Modern Windows</h4>
+          <p>We rebuilt the <strong>original unmodified C++ source</strong> as a standalone Windows executable. A custom SDL2+OpenGL compatibility layer reimplements the missing ClanLib 0.6 engine API&mdash;reverse-engineered entirely from the game&rsquo;s usage patterns&mdash;so the original code runs natively on modern hardware.</p>
+          <ul class="classic-dl-specs">
+            <li>&#128230; Single portable exe &middot; 14.5 MB &middot; all 342 assets embedded</li>
+            <li>&#9989; Windows 10/11 64-bit &middot; no install, no dependencies</li>
+            <li>&#127918; Alt+Enter for fullscreen &middot; save/load supported</li>
+          </ul>
+        </div>
+        <div class="classic-dl-action">
+          <a href="downloads/xenohammer-classic.exe" download class="hero-play" style="font-size:.95rem;padding:.75rem 2rem;margin:0">&#11015; Download for Windows</a>
+          <span class="classic-dl-size">14.5 MB &middot; 64-bit</span>
+        </div>
+      </div>
     </div>
 
-    <div class="reveal" style="text-align:center;margin-top:2.5rem">
-      <a href="archives/index.html" class="btn" style="border-color:var(--green);color:var(--green);font-size:.9rem;padding:.7rem 2rem">&#128218; Explore the Full Archive</a>
+    <div class="reveal" style="text-align:center;margin-top:2rem">
+      <a href="archives/index.html" class="archive-explore-btn">&#128218; Explore the Full Archive</a>
     </div>
 
   </div>
