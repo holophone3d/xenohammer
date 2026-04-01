@@ -121,6 +121,10 @@ export class GameManager {
     private bossVictoryWarp = false; // true = warp ends at Aftermath, not ReadyRoom
     // Reusable arrays to avoid per-frame allocations
     private _homingTargetPool: HomingTarget[] = [];
+    // Homing target overlay — pulsing alpha (C++ GL_Handler warningAlpha)
+    private warningAlpha = 1.0;
+    private warningAlphaUp = false;
+    private homingTargetImg: HTMLImageElement | null = null;
 
     constructor(canvasId: string) {
         this.canvas = new GameCanvas(canvasId);
@@ -150,6 +154,9 @@ export class GameManager {
         // Load HUD and starfield sprites
         this.hud.loadSprites(this.assets);
         this.starField.loadSprites(this.assets);
+
+        // Homing target overlay sprite
+        this.homingTargetImg = this.assets.tryGetImage('ship_selected');
 
         // Create player early so customization screen can access PowerPlant
         this.player = new Player();
@@ -1048,6 +1055,15 @@ export class GameManager {
         // Update particles
         this.particles.update(dt);
 
+        // Pulse homing target overlay alpha (C++ GL_Handler: 0.3–1.0, -0.01 down, +0.1 up)
+        if (!this.warningAlphaUp) {
+            this.warningAlpha -= 0.01;
+            if (this.warningAlpha < 0.3) this.warningAlphaUp = true;
+        } else {
+            this.warningAlpha += 0.1;
+            if (this.warningAlpha > 1.0) { this.warningAlpha = 1.0; this.warningAlphaUp = false; }
+        }
+
         // Collision detection
         this.checkCollisions();
 
@@ -1364,6 +1380,9 @@ export class GameManager {
         for (const enemy of this.enemies) {
             if (enemy.alive) enemy.draw(ctx);
         }
+
+        // Homing target overlays (additive, drawn over targeted enemies)
+        this.drawHomingTargetOverlays(ctx);
 
         // Victory warp streak trail (during boss death)
         if (this.bossVictoryWarp && this.player) {
@@ -3248,6 +3267,40 @@ export class GameManager {
         fn();
         this.setDebugMenuOpen(false);
         this.debugKeyDebounce = 15;
+    }
+
+    // ---------------------------------------------------------------
+    // Homing target overlay rendering
+    // ---------------------------------------------------------------
+
+    /** Draw pulsing ship_selected overlay on enemies actively tracked by homing missiles. */
+    private drawHomingTargetOverlays(ctx: CanvasRenderingContext2D): void {
+        const img = this.homingTargetImg;
+        if (!img || this.warningAlpha <= 0) return;
+
+        // Quick scan — any active homing locks at all?
+        let hasAny = false;
+        for (const proj of this.projectiles) {
+            if (proj.alive && proj.homing && proj.homingArmed && proj.homingTarget?.isAlive()) {
+                hasAny = true;
+                break;
+            }
+        }
+        if (!hasAny) return;
+
+        // Draw overlays in one additive-blending batch
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = this.warningAlpha;
+        for (const proj of this.projectiles) {
+            if (!proj.alive || !proj.homing || !proj.homingArmed) continue;
+            const t = proj.homingTarget;
+            if (!t || !t.isAlive()) continue;
+            // C++: 60px quad (offset 30) for fighters, 90px for frigates
+            // Web targets individual components so 60px fits all
+            ctx.drawImage(img, t.centerX - 30, t.centerY - 30, 60, 60);
+        }
+        ctx.restore();
     }
 
     // ---------------------------------------------------------------
