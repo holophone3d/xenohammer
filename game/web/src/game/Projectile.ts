@@ -35,10 +35,11 @@ export class Projectile {
 
     homing = false;
     homingSpeed = 20;
-    homingTurnRate = 3.0; // radians/sec — how fast it can steer
     distanceTraveled = 0;
     homingArmed = false;          // true once 50px traveled
     homingTarget: HomingTarget | null = null;  // locked-on target
+    /** C++ `traking` — once within 64px on both axes, tracking stops permanently */
+    private homingTracking = true;
 
     constructor(
         x: number, y: number,
@@ -93,26 +94,24 @@ export class Projectile {
             this.homingArmed = true;
         }
 
-        // Homing guidance — steer toward locked target
+        // Homing guidance — C++ direct vector normalization (no gradual turning)
         const t = this.homingTarget;
         if (this.homing && this.homingArmed && t && t.isAlive()) {
-            const dx = t.centerX - this.x;
-            const dy = t.centerY - this.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (this.homingTracking) {
+                const dx = t.centerX - this.x;
+                const dy = t.centerY - this.y;
+                const hyp = Math.sqrt(dx * dx + dy * dy);
 
-            if (dist > 8) {
-                const curAngle = Math.atan2(this.vy, this.vx);
-                const desiredAngle = Math.atan2(dy, dx);
-                let diff = desiredAngle - curAngle;
-                while (diff > Math.PI) diff -= Math.PI * 2;
-                while (diff < -Math.PI) diff += Math.PI * 2;
-                const maxTurn = this.homingTurnRate * dt;
-                const turn = Math.max(-maxTurn, Math.min(maxTurn, diff));
-                const newAngle = curAngle + turn;
-                const s = speed || this.homingSpeed;
-                this.vx = Math.cos(newAngle) * s;
-                this.vy = Math.sin(newAngle) * s;
+                // C++ trak=64: within 64px on both axes → stop tracking permanently
+                if (Math.abs(dx) <= 64 && Math.abs(dy) <= 64) {
+                    this.homingTracking = false;
+                } else if (hyp > 0) {
+                    // Snap velocity directly toward target at homing speed (C++ magnitude 20)
+                    this.vx = (dx * this.homingSpeed) / hyp;
+                    this.vy = (dy * this.homingSpeed) / hyp;
+                }
             }
+            // When not tracking, missile keeps its last velocity (old_dx/old_dy in C++)
         }
 
         // Move

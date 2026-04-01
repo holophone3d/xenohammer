@@ -1019,7 +1019,8 @@ export class GameManager {
                             });
                         }
                     }
-                    if (this.boss?.alive && this.boss.isVisible()) {
+                    if (this.boss?.alive && this.boss.isVisible()
+                        && this.boss.state === BossState.Final) {
                         this.boss.appendHomingTargets(pool);
                     }
                     for (const ship of this.capitalShips) {

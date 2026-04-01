@@ -845,6 +845,7 @@ export class Boss {
                     frames.push(this.assets.getImage(`enemy_${i + 1}`));
                 }
                 sprite = new Sprite(frames, 100);
+                sprite.generateMasks();
                 sprite.setFrame(Math.min(3, frames.length - 1));
                 sprite.loop = false;
             } catch { /* no sprite */ }
