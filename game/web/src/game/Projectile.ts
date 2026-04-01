@@ -38,7 +38,7 @@ export class Projectile {
     distanceTraveled = 0;
     homingArmed = false;          // true once 50px traveled
     homingTarget: HomingTarget | null = null;  // locked-on target
-    /** C++ `traking` — once within 64px on both axes, tracking stops permanently */
+    /** When within close range on both axes, tracking pauses (resumes if target moves away) */
     private homingTracking = true;
 
     constructor(
@@ -102,16 +102,22 @@ export class Projectile {
                 const dy = t.centerY - this.y;
                 const hyp = Math.sqrt(dx * dx + dy * dy);
 
-                // C++ trak=64: within 64px on both axes → stop tracking permanently
-                if (Math.abs(dx) <= 64 && Math.abs(dy) <= 64) {
+                // Close-range: stop adjusting to prevent oscillation (like C++ trak)
+                if (Math.abs(dx) <= 40 && Math.abs(dy) <= 40) {
                     this.homingTracking = false;
                 } else if (hyp > 0) {
-                    // Snap velocity directly toward target at homing speed (C++ magnitude 20)
+                    // Snap velocity directly toward target at homing speed
                     this.vx = (dx * this.homingSpeed) / hyp;
                     this.vy = (dy * this.homingSpeed) / hyp;
                 }
+            } else {
+                // Re-enable tracking if target has moved out of close range
+                const dx = t.centerX - this.x;
+                const dy = t.centerY - this.y;
+                if (Math.abs(dx) > 48 || Math.abs(dy) > 48) {
+                    this.homingTracking = true;
+                }
             }
-            // When not tracking, missile keeps its last velocity (old_dx/old_dy in C++)
         }
 
         // Move
