@@ -179,7 +179,7 @@ asset manifest.
 
 ## Original Source
 
-The unmodified original C++ source (read-only reference) is at `E:\Source\xenohammer\`.
+The original C++ source is at `game/classic/src/game/` within this repo (untouched except 3 bug fixes).
 
 ## License
 

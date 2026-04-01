@@ -13,15 +13,13 @@ Both tracks share the same `assets/` directory and `SPEC.md` game specification.
 
 ## Source Locations
 
-| Path | Description |
-|------|-------------|
-| `E:\Source\xenohammer_2026\` | This project (both tracks) |
-| `E:\Source\xenohammer\` | Original C++ source — **READ-ONLY reference** |
+All source is self-contained in this repository. The original C++ game source
+lives at `game/classic/src/game/` (26 .cpp, 37 .h files — untouched except 3 bug fixes).
 
 ## Project Layout
 
 ```
-E:\Source\xenohammer_2026\
+xenohammer_2026/
 ├── SPEC.md                         # Authoritative game spec (both tracks)
 ├── agents.md                       # This file — agent context
 ├── README.md

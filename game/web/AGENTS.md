@@ -134,7 +134,7 @@ Fix: All 241 sprites post-processed to (0,0,0,0) for transparent pixels.
 
 ## C++ Reference
 
-The original source at `E:\Source\xenohammer\` is the authoritative reference.
+The original source at `game/classic/src/game/` (within this repo) is the authoritative reference.
 Always read the actual C++ code — don't guess. Key files:
 
 | C++ File | Web Equivalent | What to check |

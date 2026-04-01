@@ -13,8 +13,8 @@ description: >
 ## Purpose
 
 This skill performs a systematic, line-by-line comparison between the original
-C++ XenoHammer source (`E:\Source\xenohammer\`) and the web TypeScript rewrite
-(`web/src/`). It produces authoritative findings with exact values, identifies
+C++ XenoHammer source (`game/classic/src/game/`) and the web TypeScript rewrite
+(`game/web/src/`). It produces authoritative findings with exact values, identifies
 discrepancies, and recommends fixes.
 
 This skill encodes learnings from 21 iterative audit sessions covering: velocity
@@ -25,11 +25,12 @@ ships, wave spawning, UI/menus, audio, input handling, visual effects, and more.
 
 | Track | Path | Language | Notes |
 |-------|------|----------|-------|
-| Original C++ | `E:\Source\xenohammer\` | C++ / ClanLib 0.6.x | READ-ONLY reference |
-| Web rewrite | `E:\Source\xenohammer_2026\web\src\` | TypeScript / Canvas | Active development |
-| Shared assets | `E:\Source\xenohammer_2026\assets\` | PNG, WAV, OGG/MP3 | Converted from PCX |
-| Game spec | `E:\Source\xenohammer_2026\SPEC.md` | Markdown | Authoritative reference |
-| Reference screenshots | `E:\Source\xenohammer_2026\assets\reference_screenshots\` | PNG | 10 original game captures |
+| Original C++ | `game/classic/src/game/` | C++ / ClanLib 0.6.x | Original source (3 bug fixes only) |
+| Web rewrite | `game/web/src/` | TypeScript / Canvas | Active development |
+| Shared assets | `assets/` | PNG, WAV, OGG/MP3 | Converted from PCX |
+| Classic assets | `game/classic/assets/` | PCX, WAV, OGG, BMP, TGA | Original format assets |
+| Game spec | `game/SPEC.md` | Markdown | Authoritative reference |
+| Reference screenshots | `assets/reference_screenshots/` | PNG | 10 original game captures |
 
 ## Key C++ Source Files
 
