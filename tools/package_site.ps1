@@ -94,6 +94,14 @@ function Copy-Site {
         Write-Host 'Copied downloads'
     }
 
+    # Copy images folder if it exists
+    $srcImages = Join-Path $SiteDir 'images'
+    $dstImages = Join-Path $DistDir 'images'
+    if (Test-Path $srcImages) {
+        Copy-Item -Path $srcImages -Destination $dstImages -Recurse
+        Write-Host 'Copied images'
+    }
+
     # Read, rewrite, and write site/index.html
     $html = Get-Content -Path (Join-Path $SiteDir 'index.html') -Raw -Encoding UTF8
     $html = $html.Replace('../game/web/dist/index.html', 'play/index.html')
