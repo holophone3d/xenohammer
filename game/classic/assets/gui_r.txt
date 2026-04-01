@@ -1,0 +1,64 @@
+section Graphics
+{
+	startScreen = XenoStart.pcx (type=surface);
+	room_GUI = room.pcx (type=surface);
+	room_screen = room_screen.pcx (type=surface);
+	cust_GUI = room_screen.pcx (type=surface);
+	b_pressed = b_pressed.pcx (type=surface);
+	b_unpressed = b_unpressed.pcx (type=surface);
+	gui_button = gui_button.pcx (type=surface);
+	buy_button = buy.pcx (type=surface);
+	cust_start = cust_start.pcx (type=surface);
+	backstory = backstory.pcx (type=surface,tcol = 13);
+	aftermath = aftermath.pcx (type=surface,tcol = 13);
+	briefing_lvl_1 = briefing_lvl_1.pcx (type=surface,tcol = 253);
+	briefing_lvl_2 = briefing_lvl_2.pcx (type=surface,tcol = 253);
+	briefing_lvl_3 = briefing_lvl_3.pcx (type=surface,tcol = 13);
+	game_over = game_over.pcx (type=surface, tcol = 0);
+	right_turret_pannel = turret_pannel_right.pcx (type=surface);
+	left_turret_pannel = turret_pannel_left.pcx (type=surface);
+	turret_selector = turret_selector.pcx (type=surface,tcol=0);
+	ship_specs = ship_specs.pcx (type=surface);
+}
+
+section Fonts {
+	fnt_clansoft = mine.ttf (type=TTF);
+	fnt_large = mine.ttf (type=TTF);
+	fnt_inactive = mine.ttf (type=TTF);  
+	fnt_ingame = font.tga (
+	type=font,
+	trans_limit=0.05,
+	subtract_width=0,
+	spacelen=8, 
+	letters=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+	);
+	fnt_ingame_1 = font_1.tga (
+	type=font,
+	trans_limit=0.05,
+	subtract_width=0,
+	spacelen=8, 
+	letters=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+	);
+ 	} 
+
+sur_cursor = pointer.pcx (type=surface, x=0, y=0, width=16,height=16,array=8x1, tcol=7);
+
+section Window
+{
+	font = resources/font_black.tga(
+		type=font,
+		trans_limit=0.05,
+		x=0, y=0,
+		subtract_width=0,
+		spacelen=4,
+		letters="!'#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_'abcdefghijklmnopqrstuvwxyz{|}~");
+
+	font_disabled = resources/font_gray.tga(
+		type=font,
+		trans_limit=0.05,
+		x=0, y=0,
+		subtract_width=0,
+		spacelen=4,
+		letters="!'#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_'abcdefghijklmnopqrstuvwxyz{|}~");
+}
+

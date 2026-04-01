@@ -1,0 +1,91 @@
+[player kills]
+644
+
+[resource units]
+8
+
+[researched technology]
+1
+0
+
+[setting 1]
+[noseblaster]
+5
+5
+
+[left turret]
+5
+5
+135
+
+[right turret]
+5
+5
+45
+
+[left missle]
+5
+5
+
+[right missle]
+5
+5
+
+[ship power]
+5
+5
+
+[setting 2]
+[noseblaster]
+5
+5
+
+[left turret]
+5
+5
+90
+
+[right turret]
+5
+5
+90
+
+[left missle]
+5
+5
+
+[right missle]
+5
+5
+
+[ship power]
+5
+5
+
+[setting 3]
+[noseblaster]
+5
+5
+
+[left turret]
+5
+5
+135
+
+[right turret]
+5
+5
+45
+
+[left missle]
+5
+5
+
+[right missle]
+5
+5
+
+[ship power]
+5
+5
+

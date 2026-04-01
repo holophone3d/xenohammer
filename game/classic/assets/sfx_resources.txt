@@ -1,0 +1,23 @@
+section Game
+{
+	section Sound 
+	{
+
+	sfx_playerShipEngine = ShipEngine.wav (type=sample);
+	sfx_playerShipFire = PlayerGun1.wav (type=sample);
+	sfx_playerShipRapidFire = PlayerGun2.wav (type=sample);
+	sfx_enemyLightShipFire = AlienWeapon1.wav (type=sample);
+	sfx_enemyGunShipFire = WarCraftFire.wav (type=sample);
+	sfx_explosion = ExploMini1.wav (type=sample);
+	sfx_spaceAmbient = Space.wav (type=sample);
+	sfx_backgroundMusic = Level2.ogg (type=sample);
+	sfx_bossBackgroundMusic = BossTEST.ogg (type=sample);
+	sfx_bossNear = BossNear1.wav (type=sample);
+	sfx_resourceCollected = CoinCollected.wav (type=sample);
+	sfx_GUI = MenuChange.wav (type=sample);
+	sfx_GUIMouseClick = MenuSelect.wav (type=sample);
+	
+
+	}	
+	
+}

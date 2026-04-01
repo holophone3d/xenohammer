@@ -1,0 +1,50 @@
+frame main_frame
+{
+	x = 0;
+	y = 0;
+	width = 800;
+	height = 600;
+}
+frame info_bar
+{
+	x = 0;
+	y = 0;
+	width = 800;
+	height = 40;
+}
+frame user_settings
+{
+	x = 517;
+	y = 45;
+	width = 286;
+	height = 218;
+}
+frame show_frame
+{
+	x = 517;
+	y = 268;
+	width = 286;
+	height = 280;
+}
+frame done_frame
+{
+	x = 517;
+	y = 553;
+	width = 286;
+	height = 47;
+}
+frame active_frame
+{
+	x = 0;
+	y = 306;
+	width = 512;
+	height = 294;
+}
+frame ship_frame
+{
+	x = 0;
+	y = 45;
+	width = 512;
+	height = 256;
+}
+

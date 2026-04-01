@@ -1,0 +1,324 @@
+section Game
+{
+	section Graphics
+	{
+
+		console = console.pcx (type= surface);
+		ship_selected = ship_selected.pcx (type=surface,tcol=1);
+
+		//playership sprites
+		playerShip00 = PlayerSprite00.pcx ( type = surface,tcol = 253);
+		playerShip01 = PlayerSprite01.pcx ( type = surface,tcol = 253);
+		playerShip02 = PlayerSprite02.pcx ( type = surface,tcol = 253);
+		playerShip03 = PlayerSprite03.pcx ( type = surface,tcol = 253);
+		playerShip04 = PlayerSprite04.pcx ( type = surface,tcol = 253);
+		playerShip05 = PlayerSprite05.pcx ( type = surface,tcol = 253);
+		playerShip06 = PlayerSprite06.pcx ( type = surface,tcol = 253);
+		playerShip07 = PlayerSprite07.pcx ( type = surface,tcol = 253);
+		playerShip08 = PlayerSprite08.pcx ( type = surface,tcol = 253);
+		playerShip09 = PlayerSprite09.pcx ( type = surface,tcol = 253);
+		playerShip10 = PlayerSprite10.pcx ( type = surface,tcol = 253);
+		playerShip11 = PlayerSprite11.pcx ( type = surface,tcol = 253);
+		playerShip12 = PlayerSprite12.pcx ( type = surface,tcol = 253);
+		playerShip13 = PlayerSprite13.pcx ( type = surface,tcol = 253);
+		playerShip14 = PlayerSprite14.pcx ( type = surface,tcol = 253);
+		playerShip15 = PlayerSprite15.pcx ( type = surface,tcol = 253);
+		playerShip16 = PlayerSprite16.pcx ( type = surface,tcol = 253);
+		
+		//GUI playership sprite
+		speed_ship = speed_ship.pcx (type=surface, tcol = 93);
+		
+
+		//powerup graphic
+		powerUp = powerup.pcx (type = surface, tcol = 45);
+
+		//weapon blast sprites
+		EnergyBlast0 = blaster_1.pcx (type = surface, tcol = 248);
+		EnergyBlast1 = blaster_2.pcx (type = surface, tcol = 248);
+		EnergyBlast2 = blaster_3.pcx (type = surface, tcol = 248);
+		EnergyBlast3 = blaster_4.pcx (type = surface, tcol = 248);
+		EnergyBlast4 = blaster_5.pcx (type = surface, tcol = 248);
+		EnergyBullet0 = turret_1.pcx (type = surface, tcol = 253);
+		EnergyBullet1 = turret_2.pcx (type = surface, tcol = 253);
+		EnergyBullet2 = turret_3.pcx (type = surface, tcol = 253);
+		EnergyBullet3 = turret_4.pcx (type = surface, tcol = 253);
+		EnergyBullet4 = turret_5.pcx (type = surface, tcol = 253);
+		EnergyMissle0 = torp_1.pcx (type = surface, tcol = 36);
+		EnergyMissle1 = torp_2.pcx (type = surface, tcol = 43);
+		EnergyMissle2 = torp_3.pcx (type = surface, tcol = 48);
+		EnergyMissle3 = torp_4.pcx (type = surface, tcol = 64);
+		EnergyMissle4 = torp_5.pcx (type = surface, tcol = 92);
+		EnemyBlast0 = enemy_1.pcx (type = surface, tcol = 235);
+		EnemyBlast1 = enemy_2.pcx (type = surface, tcol = 235);
+		EnemyBlast2 = enemy_3.pcx (type = surface, tcol = 235);
+		EnemyBlast3 = enemy_4.pcx (type = surface, tcol = 235);
+		EnemyBlast4 = enemy_5.pcx (type = surface, tcol = 235);
+		EnemyBlast5 = enemy_6.pcx (type = surface, tcol = 235);
+		EnemyBlast6 = enemy_7.pcx (type = surface, tcol = 235);
+		EnemyBlast7 = enemy_8.pcx (type = surface, tcol = 235);
+		EnemyBlast8 = enemy_9.pcx (type = surface, tcol = 235);
+
+
+
+
+
+		//GunShip
+		enemyGunShip00 = Gunship00.pcx (type = surface, tcol = 255);
+		enemyGunShip01 = Gunship01.pcx (type = surface, tcol = 255);
+		enemyGunShip02 = Gunship02.pcx (type = surface, tcol = 255);
+		enemyGunShip03 = Gunship03.pcx (type = surface, tcol = 255);
+		enemyGunShip04 = Gunship04.pcx (type = surface, tcol = 255);
+		enemyGunShip05 = Gunship05.pcx (type = surface, tcol = 255);
+		enemyGunShip06 = Gunship06.pcx (type = surface, tcol = 255);
+		enemyGunShip07 = Gunship07.pcx (type = surface, tcol = 255);
+		enemyGunShip08 = Gunship08.pcx (type = surface, tcol = 255);
+		enemyGunShip09 = Gunship09.pcx (type = surface, tcol = 255);
+		enemyGunShip10 = Gunship10.pcx (type = surface, tcol = 255);
+		enemyGunShip11 = Gunship11.pcx (type = surface, tcol = 255);
+		enemyGunShip12 = Gunship12.pcx (type = surface, tcol = 255);
+		enemyGunShip13 = Gunship13.pcx (type = surface, tcol = 255);
+		enemyGunShip14 = Gunship14.pcx (type = surface, tcol = 255);
+		enemyGunShip15 = Gunship15.pcx (type = surface, tcol = 255);
+		enemyGunShip16 = Gunship16.pcx (type = surface, tcol = 255);
+
+
+		//enemy ship
+		enemyLightF00 = LightF00.pcx ( type = surface,tcol = 253);
+		enemyLightF01 = LightF01.pcx ( type = surface,tcol = 253);
+		enemyLightF02 = LightF02.pcx ( type = surface,tcol = 253);
+		enemyLightF03 = LightF03.pcx ( type = surface,tcol = 253);
+		enemyLightF04 = LightF04.pcx ( type = surface,tcol = 253);
+		enemyLightF05 = LightF05.pcx ( type = surface,tcol = 253);
+		enemyLightF06 = LightF06.pcx ( type = surface,tcol = 253);
+		enemyLightF07 = LightF07.pcx ( type = surface,tcol = 253);
+		enemyLightF08 = LightF08.pcx ( type = surface,tcol = 253);
+		enemyLightF09 = LightF09.pcx ( type = surface,tcol = 253);
+		enemyLightF10 = LightF10.pcx ( type = surface,tcol = 253);
+		enemyLightF11 = LightF11.pcx ( type = surface,tcol = 253);
+		enemyLightF12 = LightF12.pcx ( type = surface,tcol = 253);
+		enemyLightF13 = LightF13.pcx ( type = surface,tcol = 253);
+		enemyLightF14 = LightF14.pcx ( type = surface,tcol = 253);
+		enemyLightF15 = LightF15.pcx ( type = surface,tcol = 253);
+		enemyLightF16 = LightF16.pcx ( type = surface,tcol = 253);
+		enemyLightF17 = LightF17.pcx ( type = surface,tcol = 253);
+		enemyLightF18 = LightF18.pcx ( type = surface,tcol = 253);
+		enemyLightF19 = LightF19.pcx ( type = surface,tcol = 253);
+		enemyLightF20 = LightF20.pcx ( type = surface,tcol = 253);
+		enemyLightF21 = LightF21.pcx ( type = surface,tcol = 253);
+		enemyLightF22 = LightF22.pcx ( type = surface,tcol = 253);
+		enemyLightF23 = LightF23.pcx ( type = surface,tcol = 253);
+		enemyLightF24 = LightF24.pcx ( type = surface,tcol = 253);
+		enemyLightF25 = LightF25.pcx ( type = surface,tcol = 253);
+		enemyLightF26 = LightF26.pcx ( type = surface,tcol = 253);
+		enemyLightF27 = LightF27.pcx ( type = surface,tcol = 253);
+		enemyLightF28 = LightF28.pcx ( type = surface,tcol = 253);
+		enemyLightF29 = LightF29.pcx ( type = surface,tcol = 253);
+		enemyLightF30 = LightF30.pcx ( type = surface,tcol = 253);
+		enemyLightF31 = LightF31.pcx ( type = surface,tcol = 253);
+
+
+		
+		//enemy ship
+		enemyFighterB00 = FighterB00.pcx ( type = surface,tcol = 191);
+		enemyFighterB01 = FighterB01.pcx ( type = surface,tcol = 191);
+		enemyFighterB02 = FighterB02.pcx ( type = surface,tcol = 191);
+		enemyFighterB03 = FighterB03.pcx ( type = surface,tcol = 191);
+		enemyFighterB04 = FighterB04.pcx ( type = surface,tcol = 191);
+		enemyFighterB05 = FighterB05.pcx ( type = surface,tcol = 191);
+		enemyFighterB06 = FighterB06.pcx ( type = surface,tcol = 191);
+		enemyFighterB07 = FighterB07.pcx ( type = surface,tcol = 191);
+		enemyFighterB08 = FighterB08.pcx ( type = surface,tcol = 191);
+		enemyFighterB09 = FighterB09.pcx ( type = surface,tcol = 191);
+		enemyFighterB10 = FighterB10.pcx ( type = surface,tcol = 191);
+		enemyFighterB11 = FighterB11.pcx ( type = surface,tcol = 191);
+		enemyFighterB12 = FighterB12.pcx ( type = surface,tcol = 191);
+		enemyFighterB13 = FighterB13.pcx ( type = surface,tcol = 191);
+		enemyFighterB14 = FighterB14.pcx ( type = surface,tcol = 191);
+		enemyFighterB15 = FighterB15.pcx ( type = surface,tcol = 191);
+		enemyFighterB16 = FighterB16.pcx ( type = surface,tcol = 191);
+		enemyFighterB17 = FighterB17.pcx ( type = surface,tcol = 191);
+		enemyFighterB18 = FighterB18.pcx ( type = surface,tcol = 191);
+		enemyFighterB19 = FighterB19.pcx ( type = surface,tcol = 191);
+		enemyFighterB20 = FighterB20.pcx ( type = surface,tcol = 191);
+		enemyFighterB21 = FighterB21.pcx ( type = surface,tcol = 191);
+		enemyFighterB22 = FighterB22.pcx ( type = surface,tcol = 191);
+		enemyFighterB23 = FighterB23.pcx ( type = surface,tcol = 191);
+		enemyFighterB24 = FighterB24.pcx ( type = surface,tcol = 191);
+		enemyFighterB25 = FighterB25.pcx ( type = surface,tcol = 191);
+		enemyFighterB26 = FighterB26.pcx ( type = surface,tcol = 191);
+		enemyFighterB27 = FighterB27.pcx ( type = surface,tcol = 191);
+		enemyFighterB28 = FighterB28.pcx ( type = surface,tcol = 191);
+		enemyFighterB29 = FighterB29.pcx ( type = surface,tcol = 191);
+		enemyFighterB30 = FighterB30.pcx ( type = surface,tcol = 191);
+		enemyFighterB31 = FighterB31.pcx ( type = surface,tcol = 191);
+
+
+
+		//small explosion
+		explosion00 = SmallExp000.pcx ( type = surface, tcol = 0);
+		explosion01 = SmallExp001.pcx ( type = surface, tcol = 0);
+		explosion02 = SmallExp002.pcx ( type = surface, tcol = 0);
+		explosion03 = SmallExp003.pcx ( type = surface, tcol = 0);
+		explosion04 = SmallExp004.pcx ( type = surface, tcol = 0);
+		explosion05 = SmallExp005.pcx ( type = surface, tcol = 0);
+		explosion06 = SmallExp006.pcx ( type = surface, tcol = 0);
+		explosion07 = SmallExp007.pcx ( type = surface, tcol = 0);
+		explosion08 = SmallExp008.pcx ( type = surface, tcol = 0);
+		explosion09 = SmallExp009.pcx ( type = surface, tcol = 0);
+		explosion10 = SmallExp010.pcx ( type = surface, tcol = 0);
+		explosion11 = SmallExp011.pcx ( type = surface, tcol = 0);
+		explosion12 = SmallExp012.pcx ( type = surface, tcol = 0);
+		explosion13 = SmallExp013.pcx ( type = surface, tcol = 0);
+		explosion14 = SmallExp014.pcx ( type = surface, tcol = 0);
+		explosion15 = SmallExp015.pcx ( type = surface, tcol = 0);
+
+
+		//big explosion
+		Bigexplosion00 = BigExp00.pcx ( type = surface, tcol = 0);
+		Bigexplosion01 = BigExp01.pcx ( type = surface, tcol = 0);
+		Bigexplosion02 = BigExp02.pcx ( type = surface, tcol = 0);
+		Bigexplosion03 = BigExp03.pcx ( type = surface, tcol = 0);
+		Bigexplosion04 = BigExp04.pcx ( type = surface, tcol = 0);
+		Bigexplosion05 = BigExp05.pcx ( type = surface, tcol = 0);
+		Bigexplosion06 = BigExp06.pcx ( type = surface, tcol = 0);
+		Bigexplosion07 = BigExp07.pcx ( type = surface, tcol = 0);
+		Bigexplosion08 = BigExp08.pcx ( type = surface, tcol = 0);
+		Bigexplosion09 = BigExp09.pcx ( type = surface, tcol = 0);
+		Bigexplosion10 = BigExp10.pcx ( type = surface, tcol = 0);
+		Bigexplosion11 = BigExp11.pcx ( type = surface, tcol = 0);
+		Bigexplosion12 = BigExp12.pcx ( type = surface, tcol = 0);
+		Bigexplosion13 = BigExp13.pcx ( type = surface, tcol = 0);
+		Bigexplosion14 = BigExp14.pcx ( type = surface, tcol = 0);
+		Bigexplosion15 = BigExp15.pcx ( type = surface, tcol = 0);
+
+		earth = earth.pcx (type = surface, tcol = 227 );
+		moon = moon.pcx (type = surface, tcol = 0 );
+
+		CapShipBody = CapShipBody.pcx (type = surface, tcol = 188);
+		//CapShipBody = capShip.pcx (type = surface, tcol = 191);
+		CapShipNose = CapShipNose.pcx (type = surface, tcol = 205);
+		CapShipNoseDest = CapShipNoseDest.pcx (type = surface, tcol = 1);
+		CapShipRt = CapShipRt.pcx (type = surface, tcol = 27);
+		CapShipLt = CapShipLt.pcx (type = surface, tcol = 20);
+		CapShipRtDest = CapShipRtDest.pcx (type = surface, tcol = 25);
+		CapShipLtDest = CapShipLtDest.pcx (type = surface, tcol = 19);
+
+		gun_turret00 = Turret00.pcx (type =surface, tcol = 31);
+		gun_turret01 = Turret01.pcx (type =surface, tcol = 31);
+		gun_turret02 = Turret02.pcx (type =surface, tcol = 31);
+		gun_turret03 = Turret03.pcx (type =surface, tcol = 31);
+		gun_turret04 = Turret04.pcx (type =surface, tcol = 31);
+		gun_turret05 = Turret05.pcx (type =surface, tcol = 31);
+		gun_turret06 = Turret06.pcx (type =surface, tcol = 31);
+		gun_turret07 = Turret07.pcx (type =surface, tcol = 31);
+		gun_turret08 = Turret08.pcx (type =surface, tcol = 31);
+		gun_turret09 = Turret09.pcx (type =surface, tcol = 31);
+		gun_turret10 = Turret10.pcx (type =surface, tcol = 31);
+		gun_turret11 = Turret11.pcx (type =surface, tcol = 31);
+		gun_turret12 = Turret12.pcx (type =surface, tcol = 31);
+		gun_turret13 = Turret13.pcx (type =surface, tcol = 31);
+		gun_turret14 = Turret14.pcx (type =surface, tcol = 31);
+		gun_turret15 = Turret15.pcx (type =surface, tcol = 31);
+		gun_turret16 = Turret16.pcx (type =surface, tcol = 31);
+		gun_turret17 = Turret17.pcx (type =surface, tcol = 31);
+		gun_turret18 = Turret18.pcx (type =surface, tcol = 31);
+		gun_turret19 = Turret19.pcx (type =surface, tcol = 31);
+		gun_turret20 = Turret20.pcx (type =surface, tcol = 31);
+		gun_turret21 = Turret21.pcx (type =surface, tcol = 31);
+		gun_turret22 = Turret22.pcx (type =surface, tcol = 31);
+		gun_turret23 = Turret23.pcx (type =surface, tcol = 31);
+		gun_turret24 = Turret24.pcx (type =surface, tcol = 31);
+		gun_turret25 = Turret25.pcx (type =surface, tcol = 31);
+		gun_turret26 = Turret26.pcx (type =surface, tcol = 31);
+		gun_turret27 = Turret27.pcx (type =surface, tcol = 31);
+		gun_turret28 = Turret28.pcx (type =surface, tcol = 31);
+		gun_turret29 = Turret29.pcx (type =surface, tcol = 31);
+		gun_turret30 = Turret30.pcx (type =surface, tcol = 31);
+		gun_turret31 = Turret31.pcx (type =surface, tcol = 31);
+		gun_turretDest = Turret32.pcx (type =surface, tcol = 31);
+
+
+		//animations for level start/end
+		
+		// _ <- Just the underscore... we need this for all anims 
+		level_anim_1 = in_game_1.pcx (type=surface, tcol = 13);
+		//start of any level -> prints "LEVEL "
+		level_anim_2 = in_game_2.pcx (type=surface, tcol = 13);
+		level_anim_3 = in_game_3.pcx (type=surface, tcol = 13);
+		level_anim_4 = in_game_4.pcx (type=surface, tcol = 13);
+		level_anim_5 = in_game_5.pcx (type=surface, tcol = 13);
+		level_anim_6 = in_game_6.pcx (type=surface, tcol = 13);
+		level_anim_7 = in_game_7.pcx (type=surface, tcol = 13);
+		// prints "1"
+		level_anim_8 = in_game_8.pcx (type=surface, tcol = 13);
+		//prints "2"
+		level_anim_2_start =  in_game_start2.pcx (type=surface, tcol =13);
+		level_anim_3_start =  in_game_start3.pcx (type=surface, tcol =1);
+		// end of level - >prints "end of LEVEL "
+		level_anim_9 = in_game_9.pcx (type=surface, tcol = 13);
+		level_anim_10 = in_game_10.pcx (type=surface, tcol = 13);
+		level_anim_11 = in_game_11.pcx (type=surface, tcol = 13);
+		level_anim_12 = in_game_12.pcx (type=surface, tcol = 13);
+		level_anim_13 = in_game_13.pcx (type=surface, tcol = 13);
+		level_anim_14 = in_game_14.pcx (type=surface, tcol = 13);
+		level_anim_15 = in_game_15.pcx (type=surface, tcol = 13);
+		level_anim_16 = in_game_16.pcx (type=surface, tcol = 13);
+		level_anim_17 = in_game_17.pcx (type=surface, tcol = 13);
+		level_anim_18 = in_game_18.pcx (type=surface, tcol = 13);
+		level_anim_19 = in_game_19.pcx (type=surface, tcol = 13);
+		level_anim_20 = in_game_20.pcx (type=surface, tcol = 13);
+		level_anim_21 = in_game_21.pcx (type=surface, tcol = 13);
+		//prints "1" at the end of the line
+		level_anim_22 = in_game_22.pcx (type=surface, tcol = 13);
+		level_anim_2_end = in_game_end2.pcx (type=surface, tcol =13);
+		
+		
+		node_orb00 = Orb00.pcx (type =surface, tcol = 191);
+		node_orb01 = Orb01.pcx (type =surface, tcol = 191);
+		node_orb02 = Orb02.pcx (type =surface, tcol = 191);
+		node_orb03 = Orb03.pcx (type =surface, tcol = 191);
+		node_orb04 = Orb04.pcx (type =surface, tcol = 191);
+		node_orb05 = Orb05.pcx (type =surface, tcol = 191);
+		node_orb06 = Orb06.pcx (type =surface, tcol = 191);
+		node_orb07 = Orb07.pcx (type =surface, tcol = 191);
+		node_orb08 = Orb08.pcx (type =surface, tcol = 191);
+		node_orb09 = Orb09.pcx (type =surface, tcol = 191);
+		node_orb10 = Orb10.pcx (type =surface, tcol = 191);
+		node_orb11 = Orb11.pcx (type =surface, tcol = 191);
+		node_orb12 = Orb12.pcx (type =surface, tcol = 191);
+		node_orb13 = Orb13.pcx (type =surface, tcol = 191);
+		node_orb14 = Orb14.pcx (type =surface, tcol = 191);
+		node_orb15 = Orb15.pcx (type =surface, tcol = 191);
+		node_orb16 = Orb16.pcx (type =surface, tcol = 191);
+		node_orb17 = Orb17.pcx (type =surface, tcol = 191);
+		node_orb18 = Orb18.pcx (type =surface, tcol = 191);
+		node_orb19 = Orb19.pcx (type =surface, tcol = 191);
+		node_orb20 = Orb20.pcx (type =surface, tcol = 191);
+		node_orb21 = Orb21.pcx (type =surface, tcol = 191);
+		node_orb22 = Orb22.pcx (type =surface, tcol = 191);
+		node_orb23 = Orb23.pcx (type =surface, tcol = 191);
+		node_orb24 = Orb24.pcx (type =surface, tcol = 191);
+		node_orb25 = Orb25.pcx (type =surface, tcol = 191);
+		node_orb26 = Orb26.pcx (type =surface, tcol = 191);
+		node_orb27 = Orb27.pcx (type =surface, tcol = 191);
+		node_orb28 = Orb28.pcx (type =surface, tcol = 191);
+		node_orb29 = Orb29.pcx (type =surface, tcol = 191);
+		node_orb30 = Orb30.pcx (type =surface, tcol = 191);
+		node_orb31 = Orb31.pcx (type =surface, tcol = 191);
+		node_orb32 = Orb32.pcx (type =surface, tcol = 191);
+
+		node1 = BossNode1.pcx (type =surface, tcol = 191);
+		node1Dest = BossNode1Destroyed.pcx (type= surface, tcol = 171);
+		node2 = BossNode2.pcx (type =surface, tcol = 191);
+		platformr = BossRightPlatform.pcx (type =surface, tcol = 191);
+		platforml = BossLeftPlatform.pcx (type =surface, tcol = 191);
+		platformd = BossDownPlatform.pcx (type =surface, tcol = 191);
+		bossul = BossLeftU.pcx (type =surface, tcol = 191);
+		bossur = BossRightU.pcx (type =surface, tcol = 191);
+		connectorh = ConnectorH.pcx (type = surface, tcol = 74);
+		connectorul = ConnectorUL.pcx (type = surface, tcol = 65);
+		connectorur = ConnectorUR.pcx (type = surface, tcol = 89);
+
+		bossShield = bossShield.pcx (type=surface, tcol = 1);
+	}
+}
