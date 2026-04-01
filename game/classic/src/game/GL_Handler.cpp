@@ -1,4 +1,5 @@
 #include "GL_Handler.h"
+#include "asset_pack.h"
 #include "GameManager.h"
 #include "TParticleClass.h"
 #include "Projectile.h"
@@ -48,12 +49,19 @@ void GL_Handler::createTriangleStrip(int x, int y, int x1, int y1, int offset_x,
 
 AUX_RGBImageRec *GL_Handler::LoadBMP(char *Filename)				// Loads A Bitmap Image
 {
-	FILE *File=NULL;								// File Handle
 	if (!Filename)									// Make Sure A Filename Was Given
 	{
 		return NULL;							// If Not Return NULL
 	}
-	File=fopen(Filename,"r");						// Check To See If The File Exists
+	// Try embedded asset pack first (no loose files in release builds)
+	if (AssetPack::active()) {
+		SDL_RWops* rw = AssetPack::open(Filename);
+		if (rw) {
+			SDL_RWclose(rw);
+			return auxDIBImageLoad(Filename);
+		}
+	}
+	FILE *File=fopen(Filename,"r");						// Check To See If The File Exists
 	if (File)										// Does The File Exist?
 	{
 		fclose(File);								// Close The Handle

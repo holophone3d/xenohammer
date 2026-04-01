@@ -4,10 +4,10 @@
 
 ## What This Is
 
-The original ~2000 C++ XenoHammer source running on modern Windows with **zero game
-code changes**. A custom ClanLib 0.6 API shim translates all engine calls to
-SDL2 + OpenGL at compile time. The 26 original game source files compile unmodified
-against 12 shim headers and a single ~1,200-line implementation file.
+The original ~2000 C++ XenoHammer source running on modern Windows with **minimal game
+code changes** (5 surgical fixes). A custom ClanLib 0.6 API shim translates all engine
+calls to SDL2 + OpenGL at compile time. The 26 original game source files compile
+against 12 shim headers and a single ~1,400-line implementation file.
 
 ## Build
 
@@ -28,15 +28,42 @@ msbuild xenohammer-classic.sln /p:Configuration=Release /p:Platform=x64 /v:minim
 .\Release\xenohammer-classic.exe
 ```
 
-vcpkg fetches: SDL2, SDL2_image, SDL2_mixer (with Vorbis), SDL2_ttf.
-Assets are copied to the build output dir by a CMake post-build step.
+vcpkg fetches: SDL2, SDL2_image, SDL2_mixer (with Vorbis), SDL2_ttf, miniz.
+
+### Build Output
+
+By default the build produces a **single self-contained exe** (~14.5 MB). All game
+assets are packed into a ZIP and embedded as a Windows PE resource. All libraries
+are statically linked (no DLLs). Drop the exe anywhere and run.
+
+### CMake Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `COPY_ASSETS` | `OFF` | Copy loose asset files next to the exe (for development) |
+| `VCPKG_TARGET_TRIPLET` | `x64-windows-static` | Static linking. Set to `x64-windows` for dynamic (DLL) builds |
+
+```powershell
+# Development build with loose assets for editing:
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="..." -DCOPY_ASSETS=ON
+
+# Dynamic linking (produces exe + DLLs instead of single exe):
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="..." -DVCPKG_TARGET_TRIPLET=x64-windows
+```
+
+### Asset Embedding
+
+All 342 game assets are packed into a ZIP at build time and embedded as a Windows
+PE resource in the exe. At runtime, `AssetPack` loads the ZIP from the exe's own
+memory — no disk extraction. Falls back transparently to disk I/O if no embedded
+ZIP is found (development builds with `COPY_ASSETS=ON`).
 
 ## Project Structure
 
 ```
 game/classic/
 ├── CMakeLists.txt              # Build config (CMake + vcpkg)
-├── vcpkg.json                  # Dependencies manifest
+├── vcpkg.json                  # Dependencies: SDL2, SDL2_image, SDL2_mixer, SDL2_ttf, miniz
 ├── assets/                     # Game assets (BMP, PCX, WAV, OGG, TTF, TGA, .scr resource files)
 ├── src/
 │   ├── game/                   # Original C++ source (26 .cpp, 37 .h) — DO NOT MODIFY
@@ -55,7 +82,8 @@ game/classic/
 │       │   │   ├── ttf.h       # Stub (TTF handled via display.h CL_Font)
 │       │   │   ├── vorbis.h    # Stub (Vorbis handled via SDL2_mixer)
 │       │   │   └── Core/System/mutex.h  # CL_Mutex stub (no threading needed)
-│       │   └── clanlib_shim_impl.cpp    # THE implementation file (~1,200 lines)
+│       │   ├── asset_pack.h/cpp        # Embedded ZIP asset loader (PE resource → miniz)
+│       │   └── clanlib_shim_impl.cpp    # THE implementation file (~1,400 lines)
 │       ├── io/                 # fstream.h, iostream.h, iomanip.h (pre-standard → modern)
 │       ├── gl/                 # glaux.h (auxDIBImageLoadA → SDL2_image BMP loader)
 │       └── game/               # GameManager_proxy.cpp, Homing_proxy.cpp (VC6 workarounds)
@@ -88,15 +116,17 @@ game/classic/
 - Include order matters: `compat/io/` FIRST (intercepts `<fstream.h>` etc.)
 - All shim code lives under `src/compat/` (clanlib_shim, io, gl, game proxies)
 
-## Game Source Changes (3 total — all original-era bugs)
+## Game Source Changes (5 total)
 
-| File | Line | Bug | Fix |
-|------|------|-----|-----|
+| File | Line | Issue | Fix |
+|------|------|-------|-----|
 | `PlayerShip.cpp` | 190 | `new char(50)` = 1 byte alloc | `new char[50]` |
 | `GameManager.cpp` | 1135 | Iterator double-increment after erase | Standard erase-in-loop |
 | `GameObject.cpp` | 22 | `update_time_start/end` uninitialized | Zero-init in constructor |
+| `pcxload.cpp` | 34 | Raw `fopen` can't read embedded assets | Try AssetPack first, fall back to fopen |
+| `GL_Handler.cpp` | 49 | `fopen` existence check fails for embedded BMP assets | Try AssetPack first, fall back to fopen |
 
-**DO NOT make any other changes to files in `src/game/`.** The goal is zero game code modifications. All shim/compat work goes in `src/compat/`.
+Minimize changes to `src/game/` files. All shim/compat work goes in `src/compat/`.
 
 ## Critical Implementation Details
 
