@@ -32,11 +32,11 @@ E:\Source\xenohammer_2026\
 │   │   ├── assets\                 # Game assets (BMP, PCX, WAV, OGG, TTF, TGA, resource files)
 │   │   ├── src\
 │   │   │   ├── game\               # Original C++ source (26 .cpp, 37 .h) — UNTOUCHED
-│   │   │   ├── clanlib_shim\
-│   │   │   │   ├── ClanLib\        # 12 API headers matching ClanLib 0.6 interface
-│   │   │   │   │   └── Core\System\mutex.h
-│   │   │   │   └── clanlib_shim_impl.cpp  # Single-file implementation (~1,200 lines)
-│   │   │   └── compat\
+│   │   │   └── compat\             # ALL compatibility/shim code
+│   │   │       ├── clanlib_shim\
+│   │   │       │   ├── ClanLib\    # 12 API headers matching ClanLib 0.6 interface
+│   │   │       │   │   └── Core\System\mutex.h
+│   │   │       │   └── clanlib_shim_impl.cpp  # Single-file implementation (~1,200 lines)
 │   │   │       ├── io\             # Pre-standard C++ headers (fstream.h, iostream.h, iomanip.h)
 │   │   │       ├── gl\             # GLAUX shim (glaux.h → auxDIBImageLoadA via SDL2_image)
 │   │   │       └── game\           # Build proxies (GameManager_proxy.cpp, Homing_proxy.cpp)

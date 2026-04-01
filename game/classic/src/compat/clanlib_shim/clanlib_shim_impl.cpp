@@ -706,7 +706,8 @@ static void font_render_text(CL_Font::Impl* impl, int x, int y, const char* text
     SDL_FreeSurface(surf);
 
     // ClanLib 0.6 print_* treats Y as the bottom of the text
-    int adjusted_y = y - th;
+    // ClanLib 0.6 Y = text baseline; SDL_ttf renders from top-left
+    int adjusted_y = y - TTF_FontAscent(impl->font);
 
     int dx;
     switch (align) {

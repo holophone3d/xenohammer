@@ -40,22 +40,22 @@ game/classic/
 ├── assets/                     # Game assets (BMP, PCX, WAV, OGG, TTF, TGA, .scr resource files)
 ├── src/
 │   ├── game/                   # Original C++ source (26 .cpp, 37 .h) — DO NOT MODIFY
-│   ├── clanlib_shim/
-│   │   ├── ClanLib/            # 12 API headers matching ClanLib 0.6 interface
-│   │   │   ├── core.h          # CL_System (keep_alive, get_time)
-│   │   │   ├── display.h       # CL_Display, CL_Surface, CL_Font, CL_Canvas
-│   │   │   ├── gl.h            # CL_OpenGL::begin_2d/end_2d, glViewport intercept
-│   │   │   ├── input.h         # CL_Keyboard, CL_Mouse, CL_InputDevice
-│   │   │   ├── sound.h         # CL_SoundBuffer, CL_SetupSound
-│   │   │   ├── resources.h     # CL_ResourceManager (.scr file parser)
-│   │   │   ├── application.h   # CL_ClanApplication (entry point macro)
-│   │   │   ├── gui.h           # Stub (not used)
-│   │   │   ├── system.h        # Includes core.h
-│   │   │   ├── ttf.h           # Stub (TTF handled via display.h CL_Font)
-│   │   │   ├── vorbis.h        # Stub (Vorbis handled via SDL2_mixer)
-│   │   │   └── Core/System/mutex.h  # CL_Mutex stub (no threading needed)
-│   │   └── clanlib_shim_impl.cpp    # THE implementation file (~1,200 lines)
-│   └── compat/
+│   └── compat/                 # ALL compatibility/shim code lives here
+│       ├── clanlib_shim/
+│       │   ├── ClanLib/        # 12 API headers matching ClanLib 0.6 interface
+│       │   │   ├── core.h      # CL_System (keep_alive, get_time)
+│       │   │   ├── display.h   # CL_Display, CL_Surface, CL_Font, CL_Canvas
+│       │   │   ├── gl.h        # CL_OpenGL::begin_2d/end_2d, glViewport intercept
+│       │   │   ├── input.h     # CL_Keyboard, CL_Mouse, CL_InputDevice
+│       │   │   ├── sound.h     # CL_SoundBuffer, CL_SetupSound
+│       │   │   ├── resources.h # CL_ResourceManager (.scr file parser)
+│       │   │   ├── application.h # CL_ClanApplication (entry point macro)
+│       │   │   ├── gui.h       # Stub (not used)
+│       │   │   ├── system.h    # Includes core.h
+│       │   │   ├── ttf.h       # Stub (TTF handled via display.h CL_Font)
+│       │   │   ├── vorbis.h    # Stub (Vorbis handled via SDL2_mixer)
+│       │   │   └── Core/System/mutex.h  # CL_Mutex stub (no threading needed)
+│       │   └── clanlib_shim_impl.cpp    # THE implementation file (~1,200 lines)
 │       ├── io/                 # fstream.h, iostream.h, iomanip.h (pre-standard → modern)
 │       ├── gl/                 # glaux.h (auxDIBImageLoadA → SDL2_image BMP loader)
 │       └── game/               # GameManager_proxy.cpp, Homing_proxy.cpp (VC6 workarounds)
@@ -64,7 +64,7 @@ game/classic/
 
 ## Key Files
 
-### `clanlib_shim_impl.cpp` — The heart of the shim (~1,200 lines)
+### `compat/clanlib_shim/clanlib_shim_impl.cpp` — The heart of the shim (~1,200 lines)
 
 | Section | What it does |
 |---------|-------------|
@@ -86,6 +86,7 @@ game/classic/
 - **GameManager.cpp → GameManager_proxy.cpp** — wraps with VC6 for-scope compat
 - **Homing.cpp → Homing_proxy.cpp** — fixes include ordering
 - Include order matters: `compat/io/` FIRST (intercepts `<fstream.h>` etc.)
+- All shim code lives under `src/compat/` (clanlib_shim, io, gl, game proxies)
 
 ## Game Source Changes (3 total — all original-era bugs)
 
@@ -95,7 +96,7 @@ game/classic/
 | `GameManager.cpp` | 1135 | Iterator double-increment after erase | Standard erase-in-loop |
 | `GameObject.cpp` | 22 | `update_time_start/end` uninitialized | Zero-init in constructor |
 
-**DO NOT make any other changes to files in `src/game/`.** The goal is zero game code modifications.
+**DO NOT make any other changes to files in `src/game/`.** The goal is zero game code modifications. All shim/compat work goes in `src/compat/`.
 
 ## Critical Implementation Details
 

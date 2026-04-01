@@ -57,10 +57,10 @@ game/classic/
 ├── assets/                     # Game assets (PCX→PNG sprites, WAV/OGG sounds, fonts)
 ├── src/
 │   ├── game/                   # Original C++ source (26 .cpp, 37 .h) — UNTOUCHED
-│   ├── clanlib_shim/
-│   │   ├── ClanLib/            # 12 API headers matching ClanLib 0.6 interface
-│   │   └── clanlib_shim_impl.cpp   # Single-file implementation (~1,100 lines)
 │   └── compat/
+│       ├── clanlib_shim/
+│       │   ├── ClanLib/        # 12 API headers matching ClanLib 0.6 interface
+│       │   └── clanlib_shim_impl.cpp   # Single-file implementation (~1,200 lines)
 │       ├── io/                 # Pre-standard C++ headers (fstream.h, iostream.h, iomanip.h)
 │       ├── gl/                 # GLAUX shim (glaux.h → auxDIBImageLoadA)
 │       └── game/               # Build proxies for VC6 compatibility workarounds
