@@ -226,7 +226,7 @@
     "room_screen": "graphics/room_screen.webp",
     "Shield": "graphics/Shield.webp",
     "ship_specs": "graphics/ship_specs.webp",
-    "ship_selected": "graphics/ship_selected.png",
+    "ship_selected": "graphics/ship_selected.webp",
     "SmallExp000": "graphics/SmallExp000.webp",
     "SmallExp001": "graphics/SmallExp001.webp",
     "SmallExp002": "graphics/SmallExp002.webp",
