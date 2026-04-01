@@ -9,6 +9,9 @@ code changes** (5 surgical fixes). A custom ClanLib 0.6 API shim translates all 
 calls to SDL2 + OpenGL at compile time. The 26 original game source files compile
 against 12 shim headers and a single ~1,400-line implementation file.
 
+The Release build produces a **single portable exe** (~14.5 MB) — all assets embedded,
+all libraries statically linked. Drop it on any 64-bit Windows machine and play.
+
 ## Build
 
 ```powershell

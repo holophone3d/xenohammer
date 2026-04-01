@@ -1,6 +1,7 @@
 // clanlib_shim_impl.cpp – SDL2+OpenGL backend for the ClanLib 0.6.x shim
 // Compile this single file into your project alongside the game sources.
 
+#define SDL_MAIN_HANDLED        // Prevent SDL from redirecting stdout/stderr to files
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_ttf.h>
@@ -1406,13 +1407,21 @@ AUX_RGBImageRec* auxDIBImageLoadA(const char* filename) {
     return rec;
 }
 
-// ============================================================================
-// SDL main entry point – delegates to CL_ClanApplication
-// ============================================================================
 int main(int argc, char* argv[]) {
+    SDL_SetMainReady();
     if (CL_ClanApplication::app) {
         return CL_ClanApplication::app->main(argc, argv);
     }
     fprintf(stderr, "No CL_ClanApplication instance registered.\n");
     return 1;
 }
+
+// ============================================================================
+// Windows entry point – no SDL2main (avoids stdout/stderr file redirection)
+// ============================================================================
+#ifdef _WIN32
+#include <windows.h>
+int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
+    return main(__argc, __argv);
+}
+#endif

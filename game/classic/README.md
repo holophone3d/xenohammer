@@ -1,9 +1,12 @@
 # XenoHammer Classic
 
-The original ~2000 C++ XenoHammer source running on modern Windows — **virtually
-zero game code changes**. A custom ClanLib 0.6 API shim translates all engine
-calls to SDL2 + OpenGL at compile time. The 26 original game source files compile
-unmodified against 12 shim headers and a single ~1,200-line implementation file.
+The original ~2000 C++ XenoHammer source running on modern Windows — **5 minimal
+game code changes**. A custom ClanLib 0.6 API shim translates all engine calls to
+SDL2 + OpenGL at compile time.
+
+The Release build produces a **single portable exe** (~14.5 MB) — all assets
+embedded, all libraries statically linked, zero DLLs. Drop it on any 64-bit
+Windows machine and play.
 
 ## How It Works
 
@@ -37,30 +40,33 @@ ClanLib 0.6 API headers ──► clanlib_shim_impl.cpp
 | `CL_Canvas`, `CL_PCXProvider`, `CL_TargaProvider` | SDL2_image format loaders |
 | `auxDIBImageLoadA` (GLAUX) | SDL2_image BMP → RGB24 for GL_Handler textures |
 
-### Game source changes (3 total, all original-era bugs)
+### Game source changes (5 total)
 
-| File | Bug | Fix |
+| File | Issue | Fix |
 |---|---|---|
 | `PlayerShip.cpp:190` | `new char(50)` allocates 1 byte, not 50 | `new char[50]` |
 | `GameManager.cpp:1135` | Iterator double-increment after `erase()` | Standard erase-in-loop pattern |
 | `GameObject.cpp:22` | `update_time_start/end` uninitialized | Zero-initialize in constructor |
+| `pcxload.cpp:34` | Raw `fopen` can't read embedded assets | Try AssetPack first, fall back to fopen |
+| `GL_Handler.cpp:49` | `fopen` existence check fails for embedded BMP assets | Try AssetPack first, fall back to fopen |
 
-All three bugs existed in the original code but were masked by MSVC 6.0's
-lenient runtime. Modern MSVC debug/release modes expose them.
+The first three bugs existed in the original code but were masked by MSVC 6.0's
+lenient runtime. The last two enable the embedded asset pack (no loose files on disk).
 
 ## Project Structure
 
 ```
 game/classic/
 ├── CMakeLists.txt              # Build config (CMake + vcpkg)
-├── vcpkg.json                  # Dependencies: SDL2, SDL2_image, SDL2_mixer, SDL2_ttf
-├── assets/                     # Game assets (PCX→PNG sprites, WAV/OGG sounds, fonts)
+├── vcpkg.json                  # Dependencies: SDL2, SDL2_image, SDL2_mixer, SDL2_ttf, miniz
+├── assets/                     # Game assets (PCX, BMP, WAV, OGG, TGA, fonts, resource files)
 ├── src/
-│   ├── game/                   # Original C++ source (26 .cpp, 37 .h) — UNTOUCHED
+│   ├── game/                   # Original C++ source (26 .cpp, 37 .h)
 │   └── compat/
 │       ├── clanlib_shim/
 │       │   ├── ClanLib/        # 12 API headers matching ClanLib 0.6 interface
-│       │   └── clanlib_shim_impl.cpp   # Single-file implementation (~1,200 lines)
+│       │   ├── asset_pack.h/cpp  # Embedded ZIP asset loader (PE resource → miniz)
+│       │   └── clanlib_shim_impl.cpp   # Single-file implementation (~1,400 lines)
 │       ├── io/                 # Pre-standard C++ headers (fstream.h, iostream.h, iomanip.h)
 │       ├── gl/                 # GLAUX shim (glaux.h → auxDIBImageLoadA)
 │       └── game/               # Build proxies for VC6 compatibility workarounds
@@ -78,21 +84,46 @@ game/classic/
 
 ```powershell
 cd game\classic
+
+# First-time setup (requires vcpkg):
 cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="<vcpkg-root>\scripts\buildsystems\vcpkg.cmake"
-cmake --build build --config Debug
+
+# Build:
+cmake --build build --config Release
 ```
 
-vcpkg automatically fetches SDL2, SDL2_image, SDL2_mixer (with Vorbis), and SDL2_ttf.
-Assets are copied to the build output directory by a post-build step.
+vcpkg automatically fetches SDL2, SDL2_image, SDL2_mixer (with Vorbis), SDL2_ttf,
+and miniz.
+
+### Build Output
+
+The default build produces a **single self-contained exe** (~14.5 MB):
+- All 342 game assets packed into a ZIP and embedded as a Windows PE resource
+- All libraries statically linked (`/MT`, no DLLs required)
+- Fully portable — drop on any 64-bit Windows machine and run
+
+### CMake Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `COPY_ASSETS` | `OFF` | Copy loose asset files next to the exe (for development/debugging) |
+| `VCPKG_TARGET_TRIPLET` | `x64-windows-static` | Static linking. Set to `x64-windows` for dynamic (DLL) builds |
+
+```powershell
+# Development build with loose assets for editing:
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="..." -DCOPY_ASSETS=ON
+
+# Dynamic linking (produces exe + DLLs):
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="..." -DVCPKG_TARGET_TRIPLET=x64-windows
+```
 
 ## Run
 
 ```powershell
-.\build\Debug\xenohammer-classic.exe
+.\build\Release\xenohammer-classic.exe
 ```
 
-The game looks for assets in the working directory (the build output dir).
-A `savedplayer.txt` file in the same directory provides save/load support.
+Alt+Enter toggles fullscreen. Save/load uses `savedplayer.txt` in the exe directory.
 
 ## What Works
 

@@ -27,12 +27,11 @@ runtime dependencies, no game engine or framework. The rendering is locked to
 
 ### 🖥️ Classic (`game/classic/`)
 
-The original ~2000 C++ source running on modern Windows with **zero game code
-changes**. A custom ClanLib 0.6 API shim translates all engine calls to
-SDL2 + OpenGL at compile time. The 26 original game source files compile
-unmodified against 12 shim headers and a single ~1,200-line implementation file.
-Three original-era bugs were fixed (buffer overflow, iterator invalidation,
-uninitialized variables) — all present in the year-2000 source.
+The original ~2000 C++ source running on modern Windows via a custom ClanLib 0.6
+API shim backed by SDL2 + OpenGL. Produces a **single portable exe** (~14.5 MB)
+with all assets embedded and all libraries statically linked — drop it on any
+64-bit Windows machine and play. Five minimal game code changes (3 original-era
+bug fixes + 2 asset-pack adaptations).
 
 ## Project Structure
 
@@ -50,12 +49,12 @@ xenohammer_2026/
 │   │   └── vite.config.ts       # Build config
 │   └── classic/                 # Original C++ with ClanLib 0.6 API shim
 │       ├── CMakeLists.txt       # Build config (CMake + vcpkg)
-│       ├── vcpkg.json           # SDL2, SDL2_image, SDL2_mixer, SDL2_ttf
+│       ├── vcpkg.json           # SDL2, SDL2_image, SDL2_mixer, SDL2_ttf, miniz
 │       ├── assets/              # Original game assets (PCX, WAV, OGG, BMP, TGA)
 │       └── src/
-│           ├── game/            # Original C++ source (26 .cpp, 37 .h) — untouched
+│           ├── game/            # Original C++ source (26 .cpp, 37 .h)
 │           └── compat/          # All compatibility/shim code
-│               ├── clanlib_shim/  # ClanLib 0.6 API headers + SDL2/GL implementation
+│               ├── clanlib_shim/  # ClanLib 0.6 API headers + SDL2/GL impl + asset pack
 │               ├── io/            # Pre-standard C++ header shims
 │               ├── gl/            # GLAUX shim
 │               └── game/          # VC6 build compatibility proxies
@@ -132,17 +131,17 @@ engine or framework dependencies.
 
 ### Classic (`game/classic/`)
 
-The classic version compiles the original C++ source unmodified. A compatibility
-layer under `src/compat/` provides all the missing dependencies:
+The classic version compiles the original C++ source with 5 minimal changes. A
+compatibility layer under `src/compat/` provides all the missing dependencies:
 
 ```
-Original game code (26 .cpp, 37 .h — untouched)
+Original game code (26 .cpp, 37 .h)
         │
         ▼
 ClanLib 0.6 API headers (12 shim headers)
         │
         ▼
-clanlib_shim_impl.cpp (~1,200 lines)
+clanlib_shim_impl.cpp (~1,400 lines) + asset_pack.cpp
         │
         ▼
 SDL2 + SDL2_image + SDL2_mixer + SDL2_ttf + OpenGL
@@ -157,7 +156,8 @@ SDL2 + SDL2_image + SDL2_mixer + SDL2_ttf + OpenGL
 | `CL_ResourceManager` | Custom ClanLib 0.6 `.scr` file parser |
 | `CL_OpenGL::begin_2d/end_2d` | GL state save/restore |
 
-**Prerequisites:** Windows 10/11, MSVC 2022, CMake ≥ 3.20, vcpkg.
+**Build prerequisites:** Windows 10/11, MSVC 2022, CMake ≥ 3.20, vcpkg.
+**Output:** Single portable exe (~14.5 MB) — all assets embedded, all libraries statically linked.
 
 ### Deployment
 
@@ -172,7 +172,7 @@ asset manifest.
 
 ## Original Source
 
-The original C++ source is at `game/classic/src/game/` within this repo (untouched except 3 bug fixes).
+The original C++ source is at `game/classic/src/game/` within this repo (5 minimal changes from original).
 
 ## License
 

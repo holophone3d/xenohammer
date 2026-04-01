@@ -6,7 +6,7 @@
 ## Mission
 
 Modernize "Codename: XenoHammer" (~2000 C++/ClanLib top-down space shooter) via two tracks:
-- **`game/classic/`** — Original C++ running via a ClanLib 0.6 API shim backed by SDL2 + OpenGL. **Zero game code changes** (3 original-era bug fixes only). Fully playable.
+- **`game/classic/`** — Original C++ running via a ClanLib 0.6 API shim backed by SDL2 + OpenGL. Five minimal game code changes (3 original-era bug fixes + 2 asset-pack adaptations). Single portable exe (~14.5 MB). Fully playable.
 - **`game/web/`** — Complete TypeScript/Canvas rewrite, browser-playable.
 
 Both tracks share the same `game/SPEC.md` game specification. Each track has its
@@ -16,7 +16,7 @@ own assets directory: `game/classic/assets/` (original PCX/WAV/OGG/BMP/TGA) and
 ## Source Locations
 
 All source is self-contained in this repository. The original C++ game source
-lives at `game/classic/src/game/` (26 .cpp, 37 .h files — untouched except 3 bug fixes).
+lives at `game/classic/src/game/` (26 .cpp, 37 .h files — 5 minimal changes).
 
 ## Project Layout
 
@@ -37,7 +37,8 @@ xenohammer_2026/
 │   │   │       ├── clanlib_shim/
 │   │   │       │   ├── ClanLib/    # 12 API headers matching ClanLib 0.6 interface
 │   │   │       │   │   └── Core/System/mutex.h
-│   │   │       │   └── clanlib_shim_impl.cpp  # Single-file implementation (~1,200 lines)
+│   │   │       │   ├── asset_pack.h/cpp        # Embedded ZIP asset loader (PE resource → miniz)
+│   │   │       │   └── clanlib_shim_impl.cpp  # Single-file implementation (~1,400 lines)
 │   │   │       ├── io/             # Pre-standard C++ headers (fstream.h, iostream.h, iomanip.h)
 │   │   │       ├── gl/             # GLAUX shim (glaux.h → auxDIBImageLoadA via SDL2_image)
 │   │   │       └── game/           # Build proxies (GameManager_proxy.cpp, Homing_proxy.cpp)
@@ -72,7 +73,7 @@ xenohammer_2026/
 
 ### Prerequisites
 
-- **Windows 10/11**
+- **Windows 10/11** (64-bit)
 - **CMake ≥ 3.20**
 - **MSVC 2022** (Visual Studio Community or Build Tools)
 - **vcpkg** installed and bootstrapped
@@ -84,36 +85,36 @@ cd game\classic
 cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="C:\path\to\vcpkg\scripts\buildsystems\vcpkg.cmake"
 ```
 
-vcpkg automatically fetches SDL2, SDL2_image, SDL2_mixer (with Vorbis), SDL2_ttf.
-The solution file lands at `game\classic\build\xenohammer-classic.sln`.
+vcpkg automatically fetches SDL2, SDL2_image, SDL2_mixer (with Vorbis), SDL2_ttf, and miniz.
 
 ### Build
 
 ```powershell
-# From the project root or game\classic\build:
-cd game\classic\build
-msbuild xenohammer-classic.sln /p:Configuration=Release /p:Platform=x64 /v:minimal
-
-# Or via CMake:
+cd game\classic
 cmake --build build --config Release
 ```
 
-**If `msbuild` isn't on PATH**, use the full path:
-```powershell
-& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" xenohammer-classic.sln /p:Configuration=Release /p:Platform=x64 /v:minimal /nologo
-```
+### Build output
 
-Assets are copied to the build output directory by a CMake post-build step.
+The default build produces a **single self-contained exe** (~14.5 MB):
+- All 342 game assets packed into a ZIP and embedded as a Windows PE resource
+- All libraries statically linked (`/MT`, no DLLs required)
+- Fully portable — drop on any 64-bit Windows machine and run
+
+### CMake options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `COPY_ASSETS` | `OFF` | Copy loose asset files next to the exe (for development) |
+| `VCPKG_TARGET_TRIPLET` | `x64-windows-static` | Static linking. Set to `x64-windows` for dynamic (DLL) builds |
 
 ### Run
 
 ```powershell
 .\game\classic\build\Release\xenohammer-classic.exe
-# or Debug:
-.\game\classic\build\Debug\xenohammer-classic.exe
 ```
 
-The game looks for assets in the working directory (the build output dir). Alt+Enter toggles fullscreen.
+Alt+Enter toggles fullscreen. Save/load uses `savedplayer.txt` in the exe directory.
 
 ### What works (classic)
 
@@ -157,13 +158,13 @@ node tools/debug.mjs    # Captures screenshots through full game flow
 The shim reverse-engineers ClanLib 0.6 from usage patterns in the game code and provides drop-in API replacements:
 
 ```
-Original game code (26 .cpp, 37 .h — untouched)
+Original game code (26 .cpp, 37 .h — 5 minimal changes)
         │
         ▼
 ClanLib 0.6 API headers (12 shim headers)
         │
         ▼
-clanlib_shim_impl.cpp (~1,200 lines)
+clanlib_shim_impl.cpp (~1,400 lines)
         │
         ▼
 SDL2 + SDL2_image + SDL2_mixer + SDL2_ttf + OpenGL
@@ -183,15 +184,17 @@ SDL2 + SDL2_image + SDL2_mixer + SDL2_ttf + OpenGL
 | `CL_Canvas`, `CL_PCXProvider`, `CL_TargaProvider` | SDL2_image format loaders |
 | `auxDIBImageLoadA` (GLAUX) | SDL2_image BMP → RGB24 for GL_Handler textures |
 
-### Game source changes (3 total — all original-era bugs)
+### Game source changes (5 total)
 
-| File | Bug | Fix |
+| File | Issue | Fix |
 |---|---|---|
 | `PlayerShip.cpp:190` | `new char(50)` allocates 1 byte, not 50 | `new char[50]` |
 | `GameManager.cpp:1135` | Iterator double-increment after `erase()` | Standard erase-in-loop pattern |
 | `GameObject.cpp:22` | `update_time_start/end` uninitialized | Zero-initialize in constructor |
+| `pcxload.cpp:34` | Raw `fopen` can't read embedded assets | Try AssetPack first, fall back to fopen |
+| `GL_Handler.cpp:49` | `fopen` existence check fails for embedded BMP assets | Try AssetPack first, fall back to fopen |
 
-All three bugs existed in the original code but were masked by MSVC 6.0's lenient runtime.
+The first three are original-era bugs masked by MSVC 6.0. The last two enable the embedded asset pack.
 
 ### Key shim implementation details
 
