@@ -308,6 +308,7 @@ export class Boss {
 
     // --- Orb animations ---
     private centerOrbSprite: Sprite | null = null;
+    private centerOrbDestroyedImg: HTMLImageElement | null = null;
     private outerOrbSprites: Sprite[] = [];
 
     // --- Shield ---
@@ -484,6 +485,7 @@ export class Boss {
                 this.outerOrbSprites.push(orb);
             }
         }
+        this.centerOrbDestroyedImg = tryImg('orb32');
 
         // Turret sprites (Turret00–Turret32)
         this.turretSprites = [];
@@ -1358,7 +1360,7 @@ export class Boss {
         // Energy beam dense layer (under sprites — no hard edges visible)
         this.drawEnergyBeams(ctx);
 
-        // Center orb
+        // Center orb — show destroyed frame (orb32) when destroyed, matching C++
         if (!this.centerOrb.destroyed) {
             const ox = this.centerOrb.x;
             const oy = this.centerOrb.y;
@@ -1367,6 +1369,8 @@ export class Boss {
             } else {
                 this.drawFallbackOrb(ctx, ox + 32, oy + 32, 0);
             }
+        } else if (this.centerOrbDestroyedImg) {
+            ctx.drawImage(this.centerOrbDestroyedImg, this.centerOrb.x, this.centerOrb.y);
         }
 
         // Outer orbs
