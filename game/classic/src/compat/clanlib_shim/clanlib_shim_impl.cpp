@@ -17,6 +17,8 @@
 #include <ClanLib/ttf.h>
 #include <ClanLib/gui.h>
 
+#include "asset_pack.h"
+
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -25,6 +27,47 @@
 #include <iostream>
 #include <filesystem>
 #include <vector>
+
+// ============================================================================
+// Asset loading helpers — route through AssetPack (embedded ZIP) when active,
+// fall back to disk files for development builds.
+// ============================================================================
+
+static SDL_Surface* asset_IMG_Load(const char* path) {
+    SDL_RWops* rw = AssetPack::open(path);
+    if (rw) {
+        // TGA/PCX have no reliable magic bytes — provide format hint from extension
+        const char* ext = strrchr(path, '.');
+        const char* type = nullptr;
+        if (ext) {
+            ext++;
+            if (_stricmp(ext, "tga") == 0) type = "TGA";
+            else if (_stricmp(ext, "pcx") == 0) type = "PCX";
+            else if (_stricmp(ext, "bmp") == 0) type = "BMP";
+            else if (_stricmp(ext, "png") == 0) type = "PNG";
+        }
+        return type ? IMG_LoadTyped_RW(rw, 1, type) : IMG_Load_RW(rw, 1);
+    }
+    return IMG_Load(path);
+}
+
+static Mix_Chunk* asset_Mix_LoadWAV(const char* path) {
+    SDL_RWops* rw = AssetPack::open(path);
+    if (rw) return Mix_LoadWAV_RW(rw, 1);
+    return Mix_LoadWAV(path);
+}
+
+static Mix_Music* asset_Mix_LoadMUS(const char* path) {
+    SDL_RWops* rw = AssetPack::open(path);
+    if (rw) return Mix_LoadMUS_RW(rw, 1);
+    return Mix_LoadMUS(path);
+}
+
+static TTF_Font* asset_TTF_OpenFont(const char* path, int size) {
+    SDL_RWops* rw = AssetPack::open(path);
+    if (rw) return TTF_OpenFontRW(rw, 1, size);
+    return TTF_OpenFont(path, size);
+}
 
 // ============================================================================
 // Internal globals
@@ -110,10 +153,12 @@ void CL_SetupCore::init() {
     if (IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG) == 0) {
         fprintf(stderr, "IMG_Init failed: %s\n", IMG_GetError());
     }
+    AssetPack::init();
     CL_Input::init();
 }
 
 void CL_SetupCore::deinit() {
+    AssetPack::shutdown();
     if (g_sdl_joystick) {
         SDL_JoystickClose(g_sdl_joystick);
         g_sdl_joystick = nullptr;
@@ -290,7 +335,7 @@ CL_Surface::~CL_Surface() {
 }
 
 void CL_Surface::init_from_file(const char* path) {
-    SDL_Surface* surf = IMG_Load(path);
+    SDL_Surface* surf = asset_IMG_Load(path);
     if (!surf) {
         fprintf(stderr, "CL_Surface: failed to load '%s': %s\n", path, IMG_GetError());
         return;
@@ -308,7 +353,7 @@ CL_Surface* CL_Surface::load(const char* res_id, CL_ResourceManager* mgr) {
         if (it != mgr->resources.end()) {
             std::string full = mgr->base_path + "/" + it->second.file;
 
-            SDL_Surface* surf = IMG_Load(full.c_str());
+            SDL_Surface* surf = asset_IMG_Load(full.c_str());
             if (!surf) {
                 fprintf(stderr, "CL_Surface::load: failed '%s': %s\n", full.c_str(), IMG_GetError());
                 return s;
@@ -548,7 +593,7 @@ CL_Font* CL_Font::load(const char* res_id, CL_ResourceManager* mgr) {
                 if (sl != it->second.options.end()) f->impl->spacelen = std::stoi(sl->second);
 
                 // Load the TGA/image
-                SDL_Surface* surf = IMG_Load(full.c_str());
+                SDL_Surface* surf = asset_IMG_Load(full.c_str());
                 if (!surf) {
                     fprintf(stderr, "CL_Font::load: bitmap font '%s' failed to load image '%s'\n",
                             res_id, full.c_str());
@@ -610,7 +655,7 @@ CL_Font* CL_Font::load(const char* res_id, CL_ResourceManager* mgr) {
             if (sz != it->second.options.end()) size = std::stoi(sz->second);
             f->impl->size = size;
 
-            f->impl->font = TTF_OpenFont(full.c_str(), size);
+            f->impl->font = asset_TTF_OpenFont(full.c_str(), size);
             if (!f->impl->font) {
                 fprintf(stderr, "CL_Font::load: TTF_OpenFont('%s') failed: %s\n",
                         full.c_str(), TTF_GetError());
@@ -633,7 +678,7 @@ void CL_Font::change_size(int size) {
     if (size == impl->size && impl->font) return;
     impl->size = size;
     if (impl->font) TTF_CloseFont(impl->font);
-    impl->font = TTF_OpenFont(impl->path.c_str(), size);
+    impl->font = asset_TTF_OpenFont(impl->path.c_str(), size);
 }
 
 // Bitmap font text rendering
@@ -881,11 +926,11 @@ CL_SoundBuffer::CL_SoundBuffer(void* provider, bool /*delete_provider*/) : impl(
     auto* vorbis = static_cast<CL_VorbisSoundProvider*>(provider);
     if (vorbis && !vorbis->filepath.empty()) {
         // Try loading as music (for long files like .ogg)
-        impl->music = Mix_LoadMUS(vorbis->filepath.c_str());
+        impl->music = asset_Mix_LoadMUS(vorbis->filepath.c_str());
         if (impl->music) {
             impl->is_music = true;
         } else {
-            impl->chunk = Mix_LoadWAV(vorbis->filepath.c_str());
+            impl->chunk = asset_Mix_LoadWAV(vorbis->filepath.c_str());
         }
     }
 }
@@ -904,9 +949,9 @@ CL_SoundBuffer* CL_SoundBuffer::load(const char* res_id, CL_ResourceManager* mgr
         auto it = mgr->resources.find(res_id);
         if (it != mgr->resources.end()) {
             std::string full = mgr->base_path + "/" + it->second.file;
-            sb->impl->chunk = Mix_LoadWAV(full.c_str());
+            sb->impl->chunk = asset_Mix_LoadWAV(full.c_str());
             if (!sb->impl->chunk) {
-                sb->impl->music = Mix_LoadMUS(full.c_str());
+                sb->impl->music = asset_Mix_LoadMUS(full.c_str());
                 sb->impl->is_music = (sb->impl->music != nullptr);
             }
             if (!sb->impl->chunk && !sb->impl->music) {
@@ -1005,15 +1050,17 @@ CL_ResourceManager::CL_ResourceManager(const char* filename, bool /*something*/)
     base_path = fs::path(filename).parent_path().string();
     if (base_path.empty()) base_path = ".";
 
-    std::ifstream in(filename);
-    if (!in.is_open()) {
-        fprintf(stderr, "CL_ResourceManager: cannot open '%s'\n", filename);
-        return;
-    }
-
-    // Read entire file content
-    std::string content((std::istreambuf_iterator<char>(in)),
+    // Try embedded asset pack first, fall back to disk
+    std::string content = AssetPack::read_text(filename);
+    if (content.empty()) {
+        std::ifstream in(filename);
+        if (!in.is_open()) {
+            fprintf(stderr, "CL_ResourceManager: cannot open '%s'\n", filename);
+            return;
+        }
+        content.assign((std::istreambuf_iterator<char>(in)),
                          std::istreambuf_iterator<char>());
+    }
 
     // Preprocess: join multi-line entries (lines inside unclosed parentheses)
     std::vector<std::string> lines;
@@ -1329,7 +1376,7 @@ CL_ClanApplication* CL_ClanApplication::app = nullptr;
 #include <gl/glaux.h>
 
 AUX_RGBImageRec* auxDIBImageLoadA(const char* filename) {
-    SDL_Surface* bmp = IMG_Load(filename);
+    SDL_Surface* bmp = asset_IMG_Load(filename);
     if (!bmp) {
         fprintf(stderr, "auxDIBImageLoad: failed to load '%s': %s\n", filename, IMG_GetError());
         return nullptr;

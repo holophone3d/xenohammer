@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(xenohammer-classic LANGUAGES CXX)
+project(xenohammer-classic LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -10,6 +10,7 @@ find_package(SDL2_image CONFIG REQUIRED)
 find_package(SDL2_mixer CONFIG REQUIRED)
 find_package(SDL2_ttf   CONFIG REQUIRED)
 find_package(OpenGL     REQUIRED)
+find_package(miniz      CONFIG REQUIRED)
 
 # --- Collect source files ----------------------------------------------------
 file(GLOB GAME_SOURCES
@@ -35,12 +36,35 @@ file(GLOB SHIM_SOURCES
     src/compat/clanlib_shim/*.h
 )
 
+# --- Embedded asset ZIP (single-file EXE) ------------------------------------
+set(ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets")
+set(ASSETS_ZIP "${CMAKE_CURRENT_BINARY_DIR}/assets.zip")
+set(ASSETS_RC  "${CMAKE_CURRENT_BINARY_DIR}/assets.rc")
+
+# Pack all assets into a ZIP archive at build time
+add_custom_command(
+    OUTPUT ${ASSETS_ZIP}
+    COMMAND ${CMAKE_COMMAND} -E tar cf ${ASSETS_ZIP} --format=zip -- .
+    WORKING_DIRECTORY ${ASSETS_DIR}
+    COMMENT "Packing game assets into ZIP archive"
+)
+
+# Generate Windows resource file that embeds the ZIP
+file(WRITE ${ASSETS_RC} "#include <winres.h>\nASSETS_ZIP RCDATA \"assets.zip\"\n")
+
+# Ensure ZIP is built before the RC is compiled
+add_custom_target(pack_assets DEPENDS ${ASSETS_ZIP})
+
 # --- Executable target -------------------------------------------------------
 add_executable(xenohammer-classic
     ${GAME_SOURCES}
     ${SHIM_SOURCES}
     ${COMPAT_PROXIES}
+    ${ASSETS_RC}
 )
+
+# Ensure ZIP is packed before RC compilation
+add_dependencies(xenohammer-classic pack_assets)
 
 # --- Include directories ------------------------------------------------------
 # compat/ and compat/io/ FIRST so they intercept <malloc.h>, <fstream.h>, <gl\glaux.h>, etc.
@@ -62,6 +86,7 @@ target_link_libraries(xenohammer-classic PRIVATE
     $<IF:$<TARGET_EXISTS:SDL2_ttf::SDL2_ttf>,SDL2_ttf::SDL2_ttf,SDL2_ttf::SDL2_ttf-static>
     OpenGL::GL
     OpenGL::GLU
+    miniz::miniz
 )
 
 # Suppress warnings in game source (year-2000 C++ is noisy)
@@ -72,7 +97,8 @@ else()
 endif()
 
 # --- Post-build: copy assets next to the executable -------------------------
-# Mirrors original layout where EXE + assets sat side-by-side in Debug/
+# Assets are also embedded in the EXE via ZIP resource, but loose files are
+# still copied for development (savedplayer.txt, debugging, etc.)
 add_custom_command(TARGET xenohammer-classic POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/assets"
