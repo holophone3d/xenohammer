@@ -20,7 +20,7 @@ public:
     CL_ComponentManager(const char* gui_file, CL_StyleManager* style, ...);
     virtual ~CL_ComponentManager() = default;
 
-    // Static factory used by ClanLib 0.6 (4-arg version)
+    // Static factory used by ClanLib 0.5 (4-arg version)
     static CL_ComponentManager* create(const char* gui_file, bool something,
                                         CL_StyleManager* style, CL_GUIManager* gui);
 };
@@ -39,7 +39,7 @@ public:
     static void deinit();
 };
 
-// Stub GUI widgets that ClanLib 0.6 provided
+// Stub GUI widgets that ClanLib 0.5 provided
 class CL_Button {
 public:
     CL_Button() = default;

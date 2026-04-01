@@ -25,7 +25,7 @@ ships, wave spawning, UI/menus, audio, input handling, visual effects, and more.
 
 | Track | Path | Language | Notes |
 |-------|------|----------|-------|
-| Original C++ | `game/classic/src/game/` | C++ / ClanLib 0.6.x | Original source (3 bug fixes only) |
+| Original C++ | `game/classic/src/game/` | C++ / ClanLib 0.5.x | Original source (3 bug fixes only) |
 | Web rewrite | `game/web/src/` | TypeScript / Canvas | Active development |
 | Shared assets | `assets/` | PNG, WAV, OGG/MP3 | Converted from PCX |
 | Classic assets | `game/classic/assets/` | PCX, WAV, OGG, BMP, TGA | Original format assets |

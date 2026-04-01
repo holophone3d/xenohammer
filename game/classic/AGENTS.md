@@ -1,11 +1,11 @@
 # XenoHammer Classic — Agent Context
 
-> ClanLib 0.6 API shim project. Read `AGENTS.md` at repo root first for overall context.
+> ClanLib 0.5 API shim project. Read `AGENTS.md` at repo root first for overall context.
 
 ## What This Is
 
 The original ~2000 C++ XenoHammer source running on modern Windows with **minimal game
-code changes** (5 surgical fixes). A custom ClanLib 0.6 API shim translates all engine
+code changes** (5 surgical fixes). A custom ClanLib 0.5 API shim translates all engine
 calls to SDL2 + OpenGL at compile time. The 26 original game source files compile
 against 12 shim headers and a single ~1,400-line implementation file.
 
@@ -72,7 +72,7 @@ game/classic/
 │   ├── game/                   # Original C++ source (26 .cpp, 37 .h) — DO NOT MODIFY
 │   └── compat/                 # ALL compatibility/shim code lives here
 │       ├── clanlib_shim/
-│       │   ├── ClanLib/        # 12 API headers matching ClanLib 0.6 interface
+│       │   ├── ClanLib/        # 12 API headers matching ClanLib 0.5 interface
 │       │   │   ├── core.h      # CL_System (keep_alive, get_time)
 │       │   │   ├── display.h   # CL_Display, CL_Surface, CL_Font, CL_Canvas
 │       │   │   ├── gl.h        # CL_OpenGL::begin_2d/end_2d, glViewport intercept
@@ -140,7 +140,7 @@ Solution: `#define glViewport shim_glViewport` in `ClanLib/gl.h`.
 The shim impl `#undef`s it to call the real `glViewport`.
 
 ### Font Y = Baseline
-ClanLib 0.6 `print_center/print_left/print_right` Y = text baseline.
+ClanLib 0.5 `print_center/print_left/print_right` Y = text baseline.
 SDL_ttf renders from top-left. Conversion: `render_y = y - TTF_FontAscent(font)`.
 Bitmap fonts (TGA spritesheets) use Y = top of text with no adjustment.
 
@@ -149,7 +149,7 @@ Bitmap fonts (TGA spritesheets) use Y = top of text with no adjustment.
 `stop()` must check `channel == -2` → `Mix_HaltMusic()`, not just `channel >= 0`.
 
 ### Resource File Format (.scr)
-ClanLib 0.6 custom format parsed by `CL_ResourceManager`:
+ClanLib 0.5 custom format parsed by `CL_ResourceManager`:
 ```
 section sprite_name
     type = sprite

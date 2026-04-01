@@ -27,7 +27,7 @@ runtime dependencies, no game engine or framework. The rendering is locked to
 
 ### 🖥️ Classic (`game/classic/`)
 
-The original ~2000 C++ source running on modern Windows via a custom ClanLib 0.6
+The original ~2000 C++ source running on modern Windows via a custom ClanLib 0.5
 API shim backed by SDL2 + OpenGL. Produces a **single portable exe** (~14.5 MB)
 with all assets embedded and all libraries statically linked — drop it on any
 64-bit Windows machine and play. Five minimal game code changes (3 original-era
@@ -47,14 +47,14 @@ xenohammer_2026/
 │   │   │   └── data/            # Ship configs, level/wave definitions
 │   │   ├── assets/              # Shared game assets (sprites, sounds, fonts)
 │   │   └── vite.config.ts       # Build config
-│   └── classic/                 # Original C++ with ClanLib 0.6 API shim
+│   └── classic/                 # Original C++ with ClanLib 0.5 API shim
 │       ├── CMakeLists.txt       # Build config (CMake + vcpkg)
 │       ├── vcpkg.json           # SDL2, SDL2_image, SDL2_mixer, SDL2_ttf, miniz
 │       ├── assets/              # Original game assets (PCX, WAV, OGG, BMP, TGA)
 │       └── src/
 │           ├── game/            # Original C++ source (26 .cpp, 37 .h)
 │           └── compat/          # All compatibility/shim code
-│               ├── clanlib_shim/  # ClanLib 0.6 API headers + SDL2/GL impl + asset pack
+│               ├── clanlib_shim/  # ClanLib 0.5 API headers + SDL2/GL impl + asset pack
 │               ├── io/            # Pre-standard C++ header shims
 │               ├── gl/            # GLAUX shim
 │               └── game/          # VC6 build compatibility proxies
@@ -138,7 +138,7 @@ compatibility layer under `src/compat/` provides all the missing dependencies:
 Original game code (26 .cpp, 37 .h)
         │
         ▼
-ClanLib 0.6 API headers (12 shim headers)
+ClanLib 0.5 API headers (12 shim headers)
         │
         ▼
 clanlib_shim_impl.cpp (~1,400 lines) + asset_pack.cpp
@@ -153,7 +153,7 @@ SDL2 + SDL2_image + SDL2_mixer + SDL2_ttf + OpenGL
 | `CL_Font` | SDL2_ttf (TTF) + bitmap glyph scanner (TGA) |
 | `CL_SoundBuffer` | SDL2_mixer (WAV + OGG) |
 | `CL_Keyboard`, `CL_Mouse` | SDL2 event polling |
-| `CL_ResourceManager` | Custom ClanLib 0.6 `.scr` file parser |
+| `CL_ResourceManager` | Custom ClanLib 0.5 `.scr` file parser |
 | `CL_OpenGL::begin_2d/end_2d` | GL state save/restore |
 
 **Build prerequisites:** Windows 10/11, MSVC 2022, CMake ≥ 3.20, vcpkg.

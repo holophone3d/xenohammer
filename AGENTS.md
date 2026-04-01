@@ -6,7 +6,7 @@
 ## Mission
 
 Modernize "Codename: XenoHammer" (~2000 C++/ClanLib top-down space shooter) via two tracks:
-- **`game/classic/`** — Original C++ running via a ClanLib 0.6 API shim backed by SDL2 + OpenGL. Five minimal game code changes (3 original-era bug fixes + 2 asset-pack adaptations). Single portable exe (~14.5 MB). Fully playable.
+- **`game/classic/`** — Original C++ running via a ClanLib 0.5 API shim backed by SDL2 + OpenGL. Five minimal game code changes (3 original-era bug fixes + 2 asset-pack adaptations). Single portable exe (~14.5 MB). Fully playable.
 - **`game/web/`** — Complete TypeScript/Canvas rewrite, browser-playable.
 
 Both tracks share the same `game/SPEC.md` game specification. Each track has its
@@ -35,7 +35,7 @@ xenohammer_2026/
 │   │   │   ├── game/               # Original C++ source (26 .cpp, 37 .h) — UNTOUCHED
 │   │   │   └── compat/             # ALL compatibility/shim code
 │   │   │       ├── clanlib_shim/
-│   │   │       │   ├── ClanLib/    # 12 API headers matching ClanLib 0.6 interface
+│   │   │       │   ├── ClanLib/    # 12 API headers matching ClanLib 0.5 interface
 │   │   │       │   │   └── Core/System/mutex.h
 │   │   │       │   ├── asset_pack.h/cpp        # Embedded ZIP asset loader (PE resource → miniz)
 │   │   │       │   └── clanlib_shim_impl.cpp  # Single-file implementation (~1,400 lines)
@@ -155,13 +155,13 @@ node tools/debug.mjs    # Captures screenshots through full game flow
 
 ## Architecture — Classic ClanLib Shim
 
-The shim reverse-engineers ClanLib 0.6 from usage patterns in the game code and provides drop-in API replacements:
+The shim reverse-engineers ClanLib 0.5 from usage patterns in the game code and provides drop-in API replacements:
 
 ```
 Original game code (26 .cpp, 37 .h — 5 minimal changes)
         │
         ▼
-ClanLib 0.6 API headers (12 shim headers)
+ClanLib 0.5 API headers (12 shim headers)
         │
         ▼
 clanlib_shim_impl.cpp (~1,400 lines)
@@ -179,7 +179,7 @@ SDL2 + SDL2_image + SDL2_mixer + SDL2_ttf + OpenGL
 | `CL_Font` | SDL2_ttf (TTF) + bitmap glyph scanner (TGA spritesheets) |
 | `CL_SoundBuffer`, `CL_SetupSound` | SDL2_mixer (WAV chunks + OGG music) |
 | `CL_InputDevice`, `CL_Keyboard`, `CL_Mouse` | SDL2 event polling + viewport coordinate mapping |
-| `CL_ResourceManager` | Custom ClanLib 0.6 `.scr` resource file parser |
+| `CL_ResourceManager` | Custom ClanLib 0.5 `.scr` resource file parser |
 | `CL_OpenGL::begin_2d/end_2d` | GL state save/restore (projection, blend, textures) |
 | `CL_Canvas`, `CL_PCXProvider`, `CL_TargaProvider` | SDL2_image format loaders |
 | `auxDIBImageLoadA` (GLAUX) | SDL2_image BMP → RGB24 for GL_Handler textures |
@@ -202,11 +202,11 @@ The first three are original-era bugs masked by MSVC 6.0. The last two enable th
 
 **Music stop sentinel:** `CL_SoundBuffer_Session::stop()` uses `channel == -2` as a sentinel for music (vs SDL_mixer channels ≥ 0). The stop method checks for this sentinel and calls `Mix_HaltMusic()`.
 
-**Font Y convention:** ClanLib 0.6 `print_center/print_left/print_right` Y parameter = text **baseline**. SDL_ttf renders from top-left, so: `render_y = y - TTF_FontAscent(font)`.
+**Font Y convention:** ClanLib 0.5 `print_center/print_left/print_right` Y parameter = text **baseline**. SDL_ttf renders from top-left, so: `render_y = y - TTF_FontAscent(font)`.
 
 **Bitmap fonts:** TGA spritesheets with glyphs scanned by column. The shim walks pixel columns to find glyph boundaries and builds a width table. Rendering uses GL textured quads per glyph.
 
-**Resource parser:** ClanLib 0.6 `.scr` files use a custom format:
+**Resource parser:** ClanLib 0.5 `.scr` files use a custom format:
 ```
 section sprite_name
     type = sprite

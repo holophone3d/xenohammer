@@ -6,7 +6,7 @@
 #define _HAS_STD_BYTE 0
 #endif
 
-// Standard library headers that ClanLib 0.6 transitively provided
+// Standard library headers that ClanLib 0.5 transitively provided
 #include <string>
 #include <list>
 #include <vector>

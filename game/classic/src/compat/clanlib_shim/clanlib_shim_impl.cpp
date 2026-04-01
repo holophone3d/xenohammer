@@ -1,4 +1,4 @@
-// clanlib_shim_impl.cpp – SDL2+OpenGL backend for the ClanLib 0.6.x shim
+// clanlib_shim_impl.cpp – SDL2+OpenGL backend for the ClanLib 0.5.x shim
 // Compile this single file into your project alongside the game sources.
 
 #define SDL_MAIN_HANDLED        // Prevent SDL from redirecting stdout/stderr to files
@@ -751,8 +751,8 @@ static void font_render_text(CL_Font::Impl* impl, int x, int y, const char* text
     int th = surf->h;
     SDL_FreeSurface(surf);
 
-    // ClanLib 0.6 print_* treats Y as the bottom of the text
-    // ClanLib 0.6 Y = text baseline; SDL_ttf renders from top-left
+    // ClanLib 0.5 print_* treats Y as the bottom of the text
+    // ClanLib 0.5 Y = text baseline; SDL_ttf renders from top-left
     int adjusted_y = y - TTF_FontAscent(impl->font);
 
     int dx;
@@ -1042,7 +1042,7 @@ const std::string& CL_Resource::get_location() {
     return entry.file;
 }
 
-// Minimal ClanLib 0.6 resource file parser.
+// Minimal ClanLib 0.5 resource file parser.
 // Supports nested sections: section Game { section Graphics { ... } }
 // Handles: "section X {" on one line, multi-line parenthetical options.
 // Flattens to "Game/Graphics/id" keys.

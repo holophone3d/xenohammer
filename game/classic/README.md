@@ -1,7 +1,7 @@
 # XenoHammer Classic
 
 The original ~2000 C++ XenoHammer source running on modern Windows — **5 minimal
-game code changes**. A custom ClanLib 0.6 API shim translates all engine calls to
+game code changes**. A custom ClanLib 0.5 API shim translates all engine calls to
 SDL2 + OpenGL at compile time.
 
 The Release build produces a **single portable exe** (~14.5 MB) — all assets
@@ -10,7 +10,7 @@ Windows machine and play.
 
 ## How It Works
 
-The original game was built on [ClanLib 0.6](http://www.clanlib.org/), an obscure
+The original game was built on [ClanLib 0.5](http://www.clanlib.org/), an obscure
 C++ game engine from the late 1990s for which no source or documentation survives.
 Rather than rewrite the game, this project reverse-engineers the ClanLib API from
 usage patterns in the game code and provides drop-in replacements backed by modern
@@ -20,7 +20,7 @@ libraries.
 Original game code (untouched)
         │
         ▼
-ClanLib 0.6 API headers ──► clanlib_shim_impl.cpp
+ClanLib 0.5 API headers ──► clanlib_shim_impl.cpp
    (12 shim headers)              │
                                   ▼
                          SDL2 + SDL2_image + SDL2_mixer + SDL2_ttf + OpenGL
@@ -35,7 +35,7 @@ ClanLib 0.6 API headers ──► clanlib_shim_impl.cpp
 | `CL_Font` | SDL2_ttf (TTF fonts) + bitmap glyph scanner (TGA spritesheets) |
 | `CL_SoundBuffer`, `CL_SetupSound` | SDL2_mixer (WAV chunks + OGG/music) |
 | `CL_InputDevice`, `CL_Keyboard` | SDL2 event polling |
-| `CL_ResourceManager` | Custom ClanLib 0.6 resource file parser |
+| `CL_ResourceManager` | Custom ClanLib 0.5 resource file parser |
 | `CL_OpenGL::begin_2d/end_2d` | GL state save/restore (projection, blend, textures) |
 | `CL_Canvas`, `CL_PCXProvider`, `CL_TargaProvider` | SDL2_image format loaders |
 | `auxDIBImageLoadA` (GLAUX) | SDL2_image BMP → RGB24 for GL_Handler textures |
@@ -64,7 +64,7 @@ game/classic/
 │   ├── game/                   # Original C++ source (26 .cpp, 37 .h)
 │   └── compat/
 │       ├── clanlib_shim/
-│       │   ├── ClanLib/        # 12 API headers matching ClanLib 0.6 interface
+│       │   ├── ClanLib/        # 12 API headers matching ClanLib 0.5 interface
 │       │   ├── asset_pack.h/cpp  # Embedded ZIP asset loader (PE resource → miniz)
 │       │   └── clanlib_shim_impl.cpp   # Single-file implementation (~1,400 lines)
 │       ├── io/                 # Pre-standard C++ headers (fstream.h, iostream.h, iomanip.h)

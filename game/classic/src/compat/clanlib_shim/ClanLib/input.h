@@ -3,7 +3,7 @@
 #include <vector>
 #include <utility>
 
-// ClanLib 0.6.x key constants mapped to SDL2 scancodes
+// ClanLib 0.5.x key constants mapped to SDL2 scancodes
 #define CL_KEY_ESCAPE  SDL_SCANCODE_ESCAPE
 #define CL_KEY_SPACE   SDL_SCANCODE_SPACE
 #define CL_KEY_ENTER   SDL_SCANCODE_RETURN
