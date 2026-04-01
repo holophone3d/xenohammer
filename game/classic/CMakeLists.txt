@@ -96,12 +96,15 @@ else()
     target_compile_options(xenohammer-classic PRIVATE -w)
 endif()
 
-# --- Post-build: copy assets next to the executable -------------------------
-# Assets are also embedded in the EXE via ZIP resource, but loose files are
-# still copied for development (savedplayer.txt, debugging, etc.)
-add_custom_command(TARGET xenohammer-classic POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/assets"
-        "$<TARGET_FILE_DIR:xenohammer-classic>"
-    COMMENT "Copying game assets to output directory"
-)
+# --- Post-build: optionally copy loose assets next to the executable ---------
+# Assets are embedded in the EXE via ZIP resource, so loose copies are only
+# needed for development (savedplayer.txt editing, debugging, etc.)
+option(COPY_ASSETS "Copy loose asset files next to the executable" OFF)
+if(COPY_ASSETS)
+    add_custom_command(TARGET xenohammer-classic POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets"
+            "$<TARGET_FILE_DIR:xenohammer-classic>"
+        COMMENT "Copying game assets to output directory"
+    )
+endif()
