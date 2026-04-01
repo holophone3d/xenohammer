@@ -86,6 +86,14 @@ function Copy-Site {
         Write-Host 'Copied hero video'
     }
 
+    # Copy downloads folder if it exists
+    $srcDownloads = Join-Path $SiteDir 'downloads'
+    $dstDownloads = Join-Path $DistDir 'downloads'
+    if (Test-Path $srcDownloads) {
+        Copy-Item -Path $srcDownloads -Destination $dstDownloads -Recurse
+        Write-Host 'Copied downloads'
+    }
+
     # Read, rewrite, and write site/index.html
     $html = Get-Content -Path (Join-Path $SiteDir 'index.html') -Raw -Encoding UTF8
     $html = $html.Replace('../game/web/dist/index.html', 'play/index.html')
