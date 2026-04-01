@@ -1,8 +1,15 @@
 cmake_minimum_required(VERSION 3.20)
+
+# Static linking — single-exe distribution (no DLLs required)
+if(NOT DEFINED VCPKG_TARGET_TRIPLET)
+    set(VCPKG_TARGET_TRIPLET "x64-windows-static" CACHE STRING "")
+endif()
+
 project(xenohammer-classic LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 # --- Dependencies via find_package (vcpkg provides these) -------------------
 find_package(SDL2       CONFIG REQUIRED)
