@@ -102,12 +102,12 @@ function Copy-Site {
         Write-Host 'Copied images'
     }
 
-    # Copy favicons
-    foreach ($f in @('favicon.ico', 'favicon-32x32.png')) {
+    # Copy favicons and sitemap
+    foreach ($f in @('favicon.ico', 'favicon-32x32.png', 'sitemap.xml')) {
         $src = Join-Path $SiteDir $f
         if (Test-Path $src) { Copy-Item $src -Destination $DistDir }
     }
-    Write-Host 'Copied favicons'
+    Write-Host 'Copied favicons and sitemap'
 
     # Read, rewrite, and write site/index.html
     $html = Get-Content -Path (Join-Path $SiteDir 'index.html') -Raw -Encoding UTF8
