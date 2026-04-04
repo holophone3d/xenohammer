@@ -159,6 +159,8 @@ Active setting uses green font (`font`), inactive uses dimmed font (`inactive_fo
 **Research Options:**
 - Turret Rotation Research: 5 RU — unlocks turret angle selection
 - Missile Homing Research: 15 RU — enables missile target tracking
+- Nova Burst Research: 25 RU — blaster impacts spawn 10 turret-sprite fragments in 360° spread (20% damage each, 1s TTL)
+- Arc Matrix Research: 50 RU — overcharge shield (300 HP, regens at half speed when base shields full); incoming damage triggers branching chain lightning (1 target at full damage → 2 at ½ → up to 6 at ⅙)
 
 **Turret Angle Options:**
 - Left turret angles: 90°, 135°, 180°, 225°, 270°

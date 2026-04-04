@@ -49,7 +49,7 @@ xenohammer_2026/
 │       │   ├── main.ts             # Entry, game loop (requestAnimationFrame)
 │       │   ├── engine/             # Canvas, Input, Audio, Sprite, Particles, AssetLoader
 │       │   ├── game/               # GameManager, Player, Enemy, Boss, Projectile, Weapon,
-│       │   │                       #   AI, Collision, HUD, StarField, Wave, PowerPlant, PowerUp
+│       │   │                       #   AI, Collision, HUD, StarField, Wave, PowerPlant, PowerUp, ChainLightning
 │       │   └── data/               # ships.ts (VELOCITY_DIVISOR), levels.ts (140 waves)
 │       ├── assets/                 # Web-ready assets (PNG sprites, MP3 audio, TTF fonts)
 │       ├── tools/debug.mjs         # Puppeteer automated test (screenshots)
@@ -244,6 +244,11 @@ Each weapon has TWO power cells: cell1 controls fire rate, cell2 controls damage
 Frame 0 = banked RIGHT, Frame 8 = center, Frame 16 = banked LEFT.
 Moving RIGHT → frame-- ; Moving LEFT → frame++.
 
+### Web-Only Upgrades (not in original C++)
+- **Nova Burst** (25 RU, Blaster): On blaster impact, spawns 10 turret_1 sprite fragments in random 360° spread. Each deals 20% of blaster damage, lives for 1 second. Fragments skip the enemy the parent blaster hit (reference-based exclusion). Collision deferred one frame via `projCount` snapshot to prevent instant self-collision.
+- **Arc Matrix** (50 RU, Ship Power): Adds 300 HP overcharge shield that regens at half speed when base shields are full. Incoming damage absorbed by arc matrix triggers branching chain lightning: 1 target at full damage → up to 2 at ½ → up to 6 at ⅙ (max 9 targets). Visual: pulsing blue bubble with surface arcs, multi-layer animated bolts with flash/fade. Lightning sound on discharge. Key files: `ChainLightning.ts`, `Player.ts` (takeDamage, draw), `GameManager.ts` (tryArcMatrixLightning, spawnNovaFragments).
+Moving RIGHT → frame-- ; Moving LEFT → frame++.
+
 ## Key C++ Source Files (original, READ-ONLY reference)
 
 | File | Contents |
@@ -273,7 +278,10 @@ Moving RIGHT → frame-- ; Moving LEFT → frame++.
 - Weapon power cell system with getPowerMUX multipliers
 - Boss fight: all phases, shield collision, turret AI with dual timing gates
 - Boss cascade destruction, death sequence, U-arm deployment
-- Debug menu: level jumps, god mode, +10 RUs
+- Debug menu: level jumps, god mode, +100 RUs
+- Nova Burst upgrade: blaster fragmentation (10 turret-sprite fragments, 360° spread, 20% damage, 1s TTL)
+- Arc Matrix upgrade: overcharge shield (300 HP, ½ regen) with branching chain lightning (1→2→6 targets)
+- Chain lightning: animated multi-layer bolts with flash, fork branches, impact sparks, lightning sound
 
 ## What's Missing / Needs Fixing (Web)
 
@@ -316,3 +324,5 @@ Moving RIGHT → frame-- ; Moving LEFT → frame++.
 12. **Only TWO music tracks exist** — don't search for level-specific music.
 13. **Wave type 1 = HEAVYFIGHTER, not gunship** — gunships are 30% random spawns per wave.
 14. **Projectile frames are NOT animated** — frame = power_cell_2 - 1, set once at creation.
+15. **Spawning projectiles mid-collision-loop** — `for-of` on arrays iterates appended elements. Save `array.length` before the loop and use index-based iteration so spawned fragments aren't collision-checked in the same frame (they'd die instantly at the spawn point).
+16. **Position-based entity matching is unreliable** — enemies move between frames. Use object references, not coordinates, to identify specific entities across frames.

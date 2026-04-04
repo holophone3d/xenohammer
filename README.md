@@ -16,6 +16,8 @@ capital ships, and a massive multi-component boss across 3 levels. Features incl
 - **Epic Boss Fight** — Multi-component boss with shields, orbs, turrets, and platforms
 - **Power Management** — Balance between shields, engines, and weapons
 - **Homing Missiles** — Researchable upgrade that locks onto priority targets
+- **Nova Burst** — Blaster fragmentation upgrade: impacts spawn 10 turret projectiles in 360°
+- **Arc Matrix** — Overcharge shield with reactive chain lightning
 
 ## Two Tracks
 
@@ -126,6 +128,7 @@ engine or framework dependencies.
 |-------|-----------|---------|
 | Engine | `Canvas.ts`, `Input.ts`, `Audio.ts`, `Sprite.ts`, `Particles.ts` | Core rendering, input, audio |
 | Game | `GameManager.ts`, `Player.ts`, `Enemy.ts`, `Boss.ts`, `CapitalShip.ts` | Gameplay logic, AI, state machines |
+| Game | `ChainLightning.ts` | Arc Matrix chain lightning effect |
 | Data | `ships.ts`, `levels.ts` | Ship configs, 140 waves across 3 levels |
 | Mobile | `TouchControls.ts` | Virtual joystick + buttons (mobile OS only) |
 
