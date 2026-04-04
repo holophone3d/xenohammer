@@ -2940,7 +2940,7 @@ export class GameManager {
         if (sel === 0) {
             // Nose Blaster: Nova Burst research (25 RU)
             if (this.isNovaResearched) {
-                ctx.fillText('Already Researched', 110, 390);
+                ctx.fillText('Nova Burst (Already Researched)', 110, 390);
                 ctx.fillText('cost = ', 160, 420);
                 ctx.fillText('n/a', 240, 420);
             } else {
@@ -2952,7 +2952,7 @@ export class GameManager {
         } else if (sel === 5) {
             // Power Plant: Arc Matrix research (50 RU)
             if (this.isArcMatrixResearched) {
-                ctx.fillText('Already Researched', 110, 390);
+                ctx.fillText('Arc Matrix (Already Researched)', 110, 390);
                 ctx.fillText('cost = ', 160, 420);
                 ctx.fillText('n/a', 240, 420);
             } else {
@@ -2964,7 +2964,7 @@ export class GameManager {
         } else if (sel === 1 || sel === 2) {
             // Turrets: Turret Rotation research (5 RU)
             if (this.turretAngleAvailable) {
-                ctx.fillText('Already Researched', 110, 390);
+                ctx.fillText('Turret Rotation (Already Researched)', 110, 390);
                 ctx.fillText('cost = ', 160, 420);
                 ctx.fillText('n/a', 240, 420);
                 // Turret angle panel at (450, 320)
@@ -2982,7 +2982,7 @@ export class GameManager {
         } else if (sel === 3 || sel === 4) {
             // Missiles: Homing research or mode selector buttons
             if (this.isHomingResearched) {
-                ctx.fillText('Already Researched', 110, 390);
+                ctx.fillText('Homing (Already Researched)', 110, 390);
                 ctx.fillText('cost = ', 160, 420);
                 ctx.fillText('n/a', 240, 420);
                 this.renderHomingModeButtons(ctx);
