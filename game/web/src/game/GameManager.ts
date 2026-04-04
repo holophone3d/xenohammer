@@ -2,10 +2,10 @@
  * GameManager — main game state machine and orchestrator.
  */
 
-import { GameCanvas, Input, AudioManager, AssetLoader, ParticleSystem, SoundInstance } from '../engine';
+import { GameCanvas, Input, AudioManager, AssetLoader, ParticleSystem, SoundInstance, Sprite } from '../engine';
 import type { TouchControls } from '../engine';
 import { LEVELS } from '../data/levels';
-import { ENEMY_SCORES, RANKINGS, TURRET_VELOCITY_TABLE } from '../data/ships';
+import { ENEMY_SCORES, RANKINGS, TURRET_VELOCITY_TABLE, NOVA_FRAGMENT_COUNT, NOVA_FRAGMENT_DAMAGE_RATIO, NOVA_FRAGMENT_SPEED } from '../data/ships';
 import { rectsOverlap, spriteCollide, Collider, PLAY_AREA_W, PLAY_AREA_H } from './Collision';
 import { Player } from './Player';
 import { Enemy } from './Enemy';
@@ -17,6 +17,7 @@ import { CapitalShip } from './CapitalShip';
 import { Boss, BossState } from './Boss';
 import { Explosion, ChainExplosion } from './Explosion';
 import { PowerUp } from './PowerUp';
+import { ChainLightning, LightningTarget } from './ChainLightning';
 
 /** In-place array compaction — avoids allocating a new array like .filter() does. */
 function compactInPlace<T>(arr: T[], keep: (item: T) => boolean): void {
@@ -110,6 +111,9 @@ export class GameManager {
     private custShieldDemo = 0;
     private turretAngleAvailable = false;
     private isHomingResearched = false;
+    private isNovaResearched = false;
+    private isArcMatrixResearched = false;
+    private chainLightning = new ChainLightning();
     // C++ Sound.cpp:81-100 — two-phase fire sound (single shot → looping rapid fire)
     private playerFireSound: SoundInstance | null = null;
     private playerRapidFireActive = false;
@@ -778,6 +782,8 @@ export class GameManager {
             this.player = new Player();
             this.player.loadSprite(this.assets);
         }
+        // Sync arc matrix research state to player (starts at 0, regens during gameplay)
+        this.player.arcMatrixResearched = this.isArcMatrixResearched;
         this.enemies = [];
         this.projectiles = [];
         this.gameExplosions = [];
@@ -1062,6 +1068,7 @@ export class GameManager {
 
         // Update particles
         this.particles.update(dt);
+        this.chainLightning.update(this.now);
 
         // Pulse homing target overlay alpha (C++ GL_Handler: 0.3–1.0, -0.01 down, +0.1 up)
         if (!this.warningAlphaUp) {
@@ -1127,6 +1134,72 @@ export class GameManager {
             }
         }
     }
+
+    /** After player.takeDamage(), check if arc matrix discharged and trigger chain lightning */
+    private tryArcMatrixLightning(): void {
+        const p = this.player!;
+        if (p.lastArcMatrixLightningPower <= 0) return;
+
+        // Snapshot which enemies are alive before lightning
+        const aliveBeforeLightning = new Set(this.enemies.filter(e => e.alive));
+
+        // Build unified target list: enemies + capital ship components + boss components
+        const targets: LightningTarget[] = [...this.enemies];
+
+        for (const ship of this.capitalShips) {
+            if (!ship.isAlive()) continue;
+            for (const { component } of ship.getComponentRects()) {
+                if (!component.alive || !component.damageable) continue;
+                const compX = ship.x + component.offsetX + component.width / 2;
+                const compY = ship.y + component.offsetY + component.height / 2;
+                targets.push({
+                    get x() { return compX; },
+                    get y() { return compY; },
+                    get alive() { return component.alive; },
+                    takeDamage(amount: number) {
+                        ship.takeDamage(compX, compY, amount);
+                    },
+                });
+            }
+        }
+
+        if (this.boss && this.boss.alive) {
+            for (const { component } of this.boss.getComponentRects()) {
+                if (component.destroyed || !component.damageable) continue;
+                const boss = this.boss;
+                targets.push({
+                    get x() { return component.x + component.width / 2; },
+                    get y() { return component.y + component.height / 2; },
+                    get alive() { return !component.destroyed; },
+                    takeDamage(amount: number) {
+                        boss.takeDamage(component.x + component.width / 2,
+                            component.y + component.height / 2, amount);
+                    },
+                });
+            }
+        }
+
+        const fired = this.chainLightning.trigger(
+            p.x + 38, p.y + 24,
+            p.lastArcMatrixLightningPower,
+            targets,
+            this.now,
+        );
+
+        // Play lightning sound only when bolt actually discharged
+        if (fired) {
+            this.audio.playSound('Lightning');
+        }
+
+        p.lastArcMatrixLightningPower = 0;
+
+        // Check for enemies killed by chain lightning
+        for (const enemy of this.enemies) {
+            if (!enemy.alive && aliveBeforeLightning.has(enemy)) {
+                this.onEnemyKilled(enemy);
+            }
+        }
+    }
 
     private checkCollisions(): void {
         if (!this.player || !this.player.alive) return;
@@ -1137,6 +1210,7 @@ export class GameManager {
             if (!proj.alive || proj.owner !== 'enemy') continue;
             if (spriteCollide(proj.getCollider(), playerCol)) {
                 this.player!.takeDamage(proj.damage, this.now);
+                this.tryArcMatrixLightning();
                 proj.alive = false;
                 this.gameExplosions.push(new Explosion(
                     proj.x, proj.y, 'small', this.smallExpFrames,
@@ -1148,14 +1222,23 @@ export class GameManager {
         }
 
         // 2. Player projectiles vs enemies
-        for (const proj of this.projectiles) {
+        // Use saved length so nova fragments appended this frame aren't collision-checked
+        // until the next frame (otherwise they die instantly at the spawn point).
+        const projCount = this.projectiles.length;
+        for (let pi = 0; pi < projCount; pi++) {
+            const proj = this.projectiles[pi];
             if (!proj.alive || proj.owner !== 'player') continue;
             const projCol = proj.getCollider();
             for (const enemy of this.enemies) {
                 if (!enemy.alive) continue;
+                // Nova fragments skip the target their parent projectile hit
+                if (proj.isFragment && proj.novaExcludeRef === enemy) continue;
                 if (spriteCollide(projCol, enemy.getCollider())) {
                     enemy.takeDamage(proj.damage);
                     proj.alive = false;
+                    if (this.isNovaResearched && proj.weaponType === 'blaster' && !proj.isFragment) {
+                        this.spawnNovaFragments(proj, enemy);
+                    }
                     this.gameExplosions.push(new Explosion(
                         proj.x, proj.y, 'small', this.smallExpFrames,
                         proj.vx / 5, proj.vy / 5));
@@ -1169,7 +1252,9 @@ export class GameManager {
         }
 
         // 3. Player projectiles vs capital ship and boss components
-        for (const proj of this.projectiles) {
+        // Also use saved projCount so nova fragments from section 2 aren't checked here
+        for (let pi = 0; pi < projCount; pi++) {
+            const proj = this.projectiles[pi];
             if (!proj.alive || proj.owner !== 'player') continue;
             const projCol = proj.getCollider();
             for (const ship of this.capitalShips) {
@@ -1181,6 +1266,9 @@ export class GameManager {
                         const cy = proj.y + proj.height / 2;
                         ship.takeDamage(cx, cy, proj.damage);
                         proj.alive = false;
+                        if (this.isNovaResearched && proj.weaponType === 'blaster' && !proj.isFragment) {
+                            this.spawnNovaFragments(proj, component);
+                        }
                         this.gameExplosions.push(new Explosion(
                             proj.x, proj.y, 'small', this.smallExpFrames,
                             proj.vx / 5, proj.vy / 5));
@@ -1199,6 +1287,9 @@ export class GameManager {
                         const cy = proj.y + proj.height / 2;
                         if (this.boss.takeDamage(cx, cy, proj.damage)) {
                             proj.alive = false;
+                            if (this.isNovaResearched && proj.weaponType === 'blaster' && !proj.isFragment) {
+                                this.spawnNovaFragments(proj, component);
+                            }
                             this.gameExplosions.push(new Explosion(
                                 proj.x, proj.y, 'small', this.smallExpFrames,
                                 proj.vx / 5, proj.vy / 5));
@@ -1217,6 +1308,7 @@ export class GameManager {
             if (!enemy.alive) continue;
             if (spriteCollide(playerCol, enemy.getCollider())) {
                 this.player!.takeDamage(20, this.now);
+                this.tryArcMatrixLightning();
                 enemy.takeDamage(50);
                 if (!enemy.alive) this.onEnemyKilled(enemy);
             }
@@ -1229,6 +1321,7 @@ export class GameManager {
             for (const { collider } of ship.getComponentRects()) {
                 if (spriteCollide(playerCol, collider)) {
                     this.player!.takeDamage(BOSS_RAM_DAMAGE, this.now);
+                    this.tryArcMatrixLightning();
                     break;
                 }
             }
@@ -1237,6 +1330,7 @@ export class GameManager {
             for (const { collider } of this.boss.getComponentRects()) {
                 if (spriteCollide(playerCol, collider)) {
                     this.player!.takeDamage(BOSS_RAM_DAMAGE, this.now);
+                    this.tryArcMatrixLightning();
                     break;
                 }
             }
@@ -1252,6 +1346,52 @@ export class GameManager {
                 this.audio.playSound('CoinCollected');
             }
         }
+    }
+
+    /** Cached turret_1 sprite for nova fragments */
+    private novaFragSprite: Sprite | null = null;
+
+    /** Spawn 5 energy fragments from a blaster projectile impact (Nova Burst upgrade). */
+    private spawnNovaFragments(proj: Projectile, hitTarget?: object): void {
+        // Build and cache the turret_1 sprite (smallest turret bullet)
+        if (!this.novaFragSprite) {
+            try {
+                const img = this.assets.getImage('turret_1');
+                this.novaFragSprite = new Sprite([img], 100);
+                this.novaFragSprite.setFrame(0);
+                this.novaFragSprite.loop = false;
+                this.novaFragSprite.generateMasks();
+            } catch { /* sprite not available, fragments will use fallback rect */ }
+        }
+
+        const fragDamage = Math.max(1, Math.floor(proj.damage * NOVA_FRAGMENT_DAMAGE_RATIO));
+        for (let i = 0; i < NOVA_FRAGMENT_COUNT; i++) {
+            // Full 360° random spread
+            const angle = Math.random() * Math.PI * 2;
+            const vx = Math.cos(angle) * NOVA_FRAGMENT_SPEED;
+            const vy = Math.sin(angle) * NOVA_FRAGMENT_SPEED;
+
+            // Clone the sprite so each fragment has its own instance
+            let fragSprite: Sprite | null = null;
+            if (this.novaFragSprite) {
+                fragSprite = new Sprite(this.novaFragSprite.frames, 100);
+                fragSprite.setFrame(0);
+                fragSprite.loop = false;
+            }
+
+            const frag = new Projectile(
+                proj.x, proj.y, vx, vy,
+                fragDamage, 'player', fragSprite, 'novaFragment',
+            );
+            if (hitTarget) {
+                frag.novaExcludeRef = hitTarget;
+            }
+            this.projectiles.push(frag);
+        }
+        // Visual burst at impact
+        this.particles.emit(proj.x, proj.y, 12, {
+            color: { r: 0.2, g: 1.0, b: 0.3 }, speed: 100, life: 0.2,
+        });
     }
 
     private onEnemyKilled(enemy: Enemy): void {
@@ -1428,6 +1568,7 @@ export class GameManager {
 
         // Particles
         this.particles.draw(ctx);
+        this.chainLightning.draw(ctx, this.now);
 
         ctx.restore();
 
@@ -2455,7 +2596,18 @@ export class GameManager {
         // Buy Research (300-364, 400-432)
         if (mx >= 300 && mx <= 364 && my >= 400 && my <= 432) {
             this.audio.playSound('MenuSelect');
-            if (sel === 1 || sel === 2) {
+            if (sel === 0) {
+                // Nova Burst research (25 RU)
+                if (!this.isNovaResearched) {
+                    if (this.player.powerPlant.resourceUnits >= 25) {
+                        this.isNovaResearched = true;
+                        this.player.powerPlant.resourceUnits -= 25;
+                    } else {
+                        this.custStatusMsg = "You Don't Have Enough Resource Units!";
+                        this.custStatusTimer = 120;
+                    }
+                }
+            } else if (sel === 1 || sel === 2) {
                 // Turret Rotation research (5 RU)
                 if (!this.turretAngleAvailable) {
                     if (this.player.powerPlant.resourceUnits >= 5) {
@@ -2478,11 +2630,22 @@ export class GameManager {
                         this.custStatusTimer = 120;
                     }
                 }
+            } else if (sel === 5) {
+                // Arc Matrix research (50 RU)
+                if (!this.isArcMatrixResearched) {
+                    if (this.player.powerPlant.resourceUnits >= 50) {
+                        this.isArcMatrixResearched = true;
+                        this.player.arcMatrixResearched = true;
+                        this.player.powerPlant.resourceUnits -= 50;
+                        this.audio.playSound('MenuSelect');
+                    } else {
+                        this.custStatusMsg = "You Don't Have Enough Resource Units!";
+                        this.custStatusTimer = 120;
+                    }
+                }
             }
             return;
         }
-
-        // Turret angle selector (450-472, 350-550) — when turret rotation researched
         if (this.turretAngleAvailable && (sel === 1 || sel === 2)) {
             if (mx >= 420 && mx <= 510) {
                 const anglesLeft = [90, 135, 180, 225, 270];
@@ -2774,12 +2937,30 @@ export class GameManager {
         ctx.fillText('Research:', 20, 390);
         const buyBtn = this.assets.tryGetImage('buy');
 
-        if (sel === 0 || sel === 5) {
-            // Nose Blaster / Power Plant: research n/a
-            ctx.fillText('n/a', 50, 420);
-            ctx.fillText('cost = ', 160, 420);
-            ctx.fillText('0', 240, 420);
-            if (buyBtn) ctx.drawImage(buyBtn, 300, 400);
+        if (sel === 0) {
+            // Nose Blaster: Nova Burst research (25 RU)
+            if (this.isNovaResearched) {
+                ctx.fillText('Already Researched', 110, 390);
+                ctx.fillText('cost = ', 160, 420);
+                ctx.fillText('n/a', 240, 420);
+            } else {
+                ctx.fillText('Nova Burst', 110, 390);
+                ctx.fillText('cost = ', 160, 420);
+                ctx.fillText('25', 240, 420);
+                if (buyBtn) ctx.drawImage(buyBtn, 300, 400);
+            }
+        } else if (sel === 5) {
+            // Power Plant: Arc Matrix research (50 RU)
+            if (this.isArcMatrixResearched) {
+                ctx.fillText('Already Researched', 110, 390);
+                ctx.fillText('cost = ', 160, 420);
+                ctx.fillText('n/a', 240, 420);
+            } else {
+                ctx.fillText('Arc Matrix', 110, 390);
+                ctx.fillText('cost = ', 160, 420);
+                ctx.fillText('50', 240, 420);
+                if (buyBtn) ctx.drawImage(buyBtn, 300, 400);
+            }
         } else if (sel === 1 || sel === 2) {
             // Turrets: Turret Rotation research (5 RU)
             if (this.turretAngleAvailable) {
@@ -3012,6 +3193,8 @@ export class GameManager {
             resourceUnits: this.player.powerPlant.resourceUnits,
             turretAngleAvailable: this.turretAngleAvailable,
             isHomingResearched: this.isHomingResearched,
+            isNovaResearched: this.isNovaResearched,
+            isArcMatrixResearched: this.isArcMatrixResearched,
         };
         try {
             localStorage.setItem(GameManager.SAVE_KEY, JSON.stringify(data));
@@ -3048,9 +3231,17 @@ export class GameManager {
             if (typeof data.isHomingResearched === 'boolean') {
                 this.isHomingResearched = data.isHomingResearched;
             }
+            if (typeof data.isNovaResearched === 'boolean') {
+                this.isNovaResearched = data.isNovaResearched;
+            }
+            if (typeof data.isArcMatrixResearched === 'boolean') {
+                this.isArcMatrixResearched = data.isArcMatrixResearched;
+            }
             // Restore full health after load
             this.player.shields = this.player.maxShields;
             this.player.armor = this.player.maxArmor;
+            // Sync arc matrix research state to player
+            this.player.arcMatrixResearched = this.isArcMatrixResearched;
             return true;
         } catch { return false; }
     }
@@ -3304,7 +3495,7 @@ export class GameManager {
             this.debugToggleGodMode();
             this.debugKeyDebounce = 15;
         } else if (this.input.isKeyPressed('7')) {
-            if (this.player) this.player.powerPlant.resourceUnits += 10;
+            if (this.player) this.player.powerPlant.resourceUnits += 100;
             this.debugKeyDebounce = 15;
         } else if (this.input.isKeyPressed('0')) {
             this.debugShowFps = !this.debugShowFps;
@@ -3410,6 +3601,8 @@ export class GameManager {
     private debugSavedSettings: import('./PowerPlant').PowerSetting[] | null = null;
     private debugSavedRU = 0;
     private debugSavedHoming = false;
+    private debugSavedNova = false;
+    private debugSavedArcMatrix = false;
 
     private debugToggleGodMode(): void {
         this.debugActive = !this.debugActive;
@@ -3420,7 +3613,13 @@ export class GameManager {
                 this.debugSavedSettings = this.player.powerPlant.settings.map(s => ({ ...s }));
                 this.debugSavedRU = this.player.powerPlant.resourceUnits;
                 this.debugSavedHoming = this.isHomingResearched;
+                this.debugSavedNova = this.isNovaResearched;
+                this.debugSavedArcMatrix = this.isArcMatrixResearched;
                 this.isHomingResearched = true;
+                this.isNovaResearched = true;
+                this.isArcMatrixResearched = true;
+                this.player.arcMatrixResearched = true;
+                this.player.arcMatrix = this.player.maxArcMatrix;
                 // Q=threat, W=disabled, E=closest
                 const godModes: Array<import('./PowerPlant').HomingMode> = ['threat', 'disabled', 'closest'];
                 this.player.powerPlant.settings.forEach((s, i) => s.homingMode = godModes[i]);
@@ -3433,6 +3632,10 @@ export class GameManager {
                 }
                 this.player.powerPlant.resourceUnits = this.debugSavedRU;
                 this.isHomingResearched = this.debugSavedHoming;
+                this.isNovaResearched = this.debugSavedNova;
+                this.isArcMatrixResearched = this.debugSavedArcMatrix;
+                this.player.arcMatrixResearched = this.debugSavedArcMatrix;
+                if (!this.debugSavedArcMatrix) this.player.arcMatrix = 0;
             }
         }
     }
@@ -3445,7 +3648,7 @@ export class GameManager {
             case 3: this.debugExec(() => this.debugJumpToLevel(2)); break;
             case 4: this.debugExec(() => this.debugSpawnBoss()); break;
             case 5: this.debugToggleGodMode(); this.debugKeyDebounce = 15; break;
-            case 6: if (this.player) this.player.powerPlant.resourceUnits += 10; this.debugKeyDebounce = 15; break;
+            case 6: if (this.player) this.player.powerPlant.resourceUnits += 100; this.debugKeyDebounce = 15; break;
             case 7: this.debugCycleTouchMode('portrait'); break;
             case 8: this.debugCycleTouchMode('landscape'); break;
             case 9: this.debugShowFps = !this.debugShowFps; this.debugKeyDebounce = 15; break;
@@ -3466,7 +3669,7 @@ export class GameManager {
         '4  Level 3',
         '5  Boss Fight',
         '6  God Mode + Max Power',
-        '7  +10 RUs',
+        '7  +100 RUs',
         '8  Touch: Portrait',
         '9  Touch: Landscape',
         '0  Show FPS',
@@ -3548,6 +3751,8 @@ export class GameManager {
             this.player = new Player();
             this.player.loadSprite(this.assets);
         }
+        this.player.arcMatrixResearched = this.isArcMatrixResearched;
+        if (this.isArcMatrixResearched) this.player.arcMatrix = this.player.maxArcMatrix;
         this.enemies = [];
         this.projectiles = [];
         this.gameExplosions = [];
@@ -3579,6 +3784,8 @@ export class GameManager {
             this.player = new Player();
             this.player.loadSprite(this.assets);
         }
+        this.player.arcMatrixResearched = this.isArcMatrixResearched;
+        if (this.isArcMatrixResearched) this.player.arcMatrix = this.player.maxArcMatrix;
         this.enemies = [];
         this.projectiles = [];
         this.gameExplosions = [];

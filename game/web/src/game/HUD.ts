@@ -122,6 +122,23 @@ export class HUD {
         // Shield bar (grows upward from y=565) — dynamic color
         this.drawHealthBar(ctx, SHIELD_BAR_X, SHIELD_BAR_Y, BAR_W, player.shields, player.maxShields);
 
+        // Arc Matrix bar (blue, drawn over shield bar when active)
+        if (player.arcMatrix > 0) {
+            const amH = Math.floor(player.arcMatrix * 0.666);
+            if (amH > 0) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                // Outer glow
+                ctx.globalAlpha = 0.25;
+                ctx.fillStyle = 'rgb(60,140,255)';
+                ctx.fillRect(SHIELD_BAR_X - 2, SHIELD_BAR_Y - amH - 1, BAR_W + 4, amH + 2);
+                // Core bar
+                ctx.globalAlpha = 0.85;
+                ctx.fillRect(SHIELD_BAR_X, SHIELD_BAR_Y - amH, BAR_W, amH);
+                ctx.restore();
+            }
+        }
+
         // Armor bar (grows upward from y=565) — dynamic color
         this.drawHealthBar(ctx, ARMOR_BAR_X, ARMOR_BAR_Y, BAR_W, player.armor, player.maxArmor);
     }

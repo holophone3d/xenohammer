@@ -4,7 +4,7 @@
  */
 
 import { Sprite } from '../engine';
-import { VELOCITY_DIVISOR } from '../data/ships';
+import { VELOCITY_DIVISOR, NOVA_FRAGMENT_TTL } from '../data/ships';
 import { Rect, Collider, isOutOfBounds } from './Collision';
 
 export type ProjectileOwner = 'player' | 'enemy';
@@ -24,7 +24,7 @@ export class Projectile {
     vy: number;
     damage: number;
     owner: ProjectileOwner;
-    weaponType: 'blaster' | 'turret' | 'missile' | 'enemyBlast' | 'enemyCannon';
+    weaponType: 'blaster' | 'turret' | 'missile' | 'enemyBlast' | 'enemyCannon' | 'novaFragment';
     alive = true;
     width: number;
     height: number;
@@ -41,13 +41,20 @@ export class Projectile {
     /** Once within 48px of target, tracking stops permanently to prevent oscillation */
     private homingTracking = true;
 
+    /** Nova fragment time-to-live (seconds). Only used for novaFragment projectiles. */
+    isFragment = false;
+    private ttl = 0;
+    /** Position of the target the parent projectile hit — fragments skip this target */
+    /** Reference to the entity the parent projectile hit — fragments skip this target. */
+    novaExcludeRef: object | null = null;
+
     constructor(
         x: number, y: number,
         vx: number, vy: number,
         damage: number,
         owner: ProjectileOwner,
         sprite: Sprite | null = null,
-        weaponType: 'blaster' | 'turret' | 'missile' | 'enemyBlast' | 'enemyCannon' = 'blaster',
+        weaponType: 'blaster' | 'turret' | 'missile' | 'enemyBlast' | 'enemyCannon' | 'novaFragment' = 'blaster',
     ) {
         this.x = x;
         this.y = y;
@@ -61,6 +68,11 @@ export class Projectile {
         this.sprite = sprite;
         this.width = sprite ? sprite.width : 4;
         this.height = sprite ? sprite.height : 4;
+
+        if (weaponType === 'novaFragment') {
+            this.isFragment = true;
+            this.ttl = NOVA_FRAGMENT_TTL;
+        }
     }
 
     getRect(): Rect {
@@ -84,6 +96,15 @@ export class Projectile {
         if (!this.alive) return;
         this.prevX = this.x;
         this.prevY = this.y;
+
+        // Fragment TTL countdown
+        if (this.isFragment) {
+            this.ttl -= dt;
+            if (this.ttl <= 0) {
+                this.alive = false;
+                return;
+            }
+        }
 
         const moveScale = dt * 1000 / VELOCITY_DIVISOR;
 
@@ -139,12 +160,13 @@ export class Projectile {
 
         let color: string;
         switch (weaponType) {
-            case 'blaster':     color = 'rgba(0,255,51,'; break;
-            case 'turret':      color = 'rgba(0,255,128,'; break;
-            case 'missile':     color = 'rgba(0,0,255,'; break;
-            case 'enemyBlast':  color = 'rgba(255,51,0,'; break;
-            case 'enemyCannon': color = 'rgba(255,51,0,'; break;
-            default:            color = 'rgba(0,255,51,'; break;
+            case 'blaster':       color = 'rgba(0,255,51,'; break;
+            case 'turret':        color = 'rgba(0,255,128,'; break;
+            case 'missile':       color = 'rgba(0,0,255,'; break;
+            case 'novaFragment':  color = 'rgba(0,255,51,'; break;
+            case 'enemyBlast':    color = 'rgba(255,51,0,'; break;
+            case 'enemyCannon':   color = 'rgba(255,51,0,'; break;
+            default:              color = 'rgba(0,255,51,'; break;
         }
         const alpha = weaponType === 'enemyBlast' || weaponType === 'enemyCannon' ? 0.6 : 0.5;
         const grad = gc.createRadialGradient(half, half, 0, half, half, half);
@@ -182,6 +204,7 @@ export class Projectile {
                 case 'missile':    color = '#0000ff'; break;
                 case 'enemyBlast': color = '#ff5500'; break;
                 case 'enemyCannon': color = '#ff0000'; break;
+                case 'novaFragment': color = '#00ff33'; break;
                 default:           color = this.owner === 'player' ? '#0f0' : '#f00';
             }
             ctx.fillStyle = color;

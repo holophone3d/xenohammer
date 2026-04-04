@@ -311,6 +311,7 @@
     "PlayerGun2": "sounds/PlayerGun2.mp3",
     "ShipEngine": "sounds/ShipEngine.mp3",
     "Space": "sounds/Space.mp3",
+    "Lightning": "sounds/lightning.mp3",
     "Warp": "sounds/warp.mp3"
   },
   "music": {

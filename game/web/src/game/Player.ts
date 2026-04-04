@@ -7,7 +7,7 @@ import { Input, Sprite, AssetLoader } from '../engine';
 import {
     PLAYER_SHIP, PLAYER_START, PLAYER_WEAPON_SLOTS, WEAPONS,
     POWER_MULTIPLIERS, SHIELD_REGEN_INTERVAL, SHIELD_REGEN_DELAY,
-    VELOCITY_DIVISOR,
+    VELOCITY_DIVISOR, ARC_MATRIX_MAX,
 } from '../data/ships';
 import { Rect, Collider, clampToPlayArea } from './Collision';
 import { Weapon } from './Weapon';
@@ -31,6 +31,13 @@ export class Player {
     kills = 0;
     godMode = false;
 
+    /** Arc Matrix secondary shield pool */
+    arcMatrix = 0;
+    maxArcMatrix = ARC_MATRIX_MAX;
+    arcMatrixResearched = false;
+    /** Damage absorbed by arc matrix on last hit — GameManager reads this to trigger chain lightning */
+    lastArcMatrixLightningPower = 0;
+
     private lastHitTime = 0;
     private lastRegenTime = 0;
     private lastFireAll = 0;         // unified 150ms fire gate (C++ PlayerShip.cpp)
@@ -42,6 +49,10 @@ export class Player {
     private static readonly SHIELD_H = 89;
     private static readonly SHIELD_CX = 38;   // offset from ship x to shield center
     private static readonly SHIELD_CY = 24;   // offset from ship y to shield center
+    // Arc Matrix bubble: ~10% larger than base shield
+    private static readonly ARC_W = 155;  // ~20% larger than base shield (129)
+    private static readonly ARC_H = 107; // ~20% larger than base shield (89)
+    private arcMatrixMask: Uint8Array | null = null;
     /** Last frame velocity in px/s — used for exhaust particle offset. */
     lastVx = 0;
     lastVy = 0;
@@ -70,6 +81,7 @@ export class Player {
         this.prevY = PLAYER_START.y;
         this.armor = this.maxArmor;
         this.shields = this.maxShields;
+        this.arcMatrix = 0;
         this.alive = true;
         this.lastHitTime = 0;
         this.lastRegenTime = 0;
@@ -87,6 +99,15 @@ export class Player {
     }
 
     getCollider(): Collider {
+        // When arc matrix is active, use the larger bubble as collision target
+        if (this.arcMatrix > 0 && this.arcMatrixMask) {
+            const sx = this.x + Player.SHIELD_CX - Player.ARC_W / 2;
+            const sy = this.y + Player.SHIELD_CY - Player.ARC_H / 2;
+            return {
+                x: sx, y: sy, w: Player.ARC_W, h: Player.ARC_H,
+                mask: this.arcMatrixMask,
+            };
+        }
         // When shields are active, the shield bubble is the collision target
         if (this.shields > 0 && this.shieldMask) {
             const sx = this.x + Player.SHIELD_CX - Player.SHIELD_W / 2;
@@ -169,6 +190,17 @@ export class Player {
                 this.shields = Math.min(this.maxShields, this.shields + regenAmount);
             }
         }
+
+        // Arc Matrix regeneration — only when base shields are at 100%, half speed
+        if (this.arcMatrixResearched && this.shields >= this.maxShields && this.arcMatrix < this.maxArcMatrix) {
+            if (now - this.lastHitTime > SHIELD_REGEN_DELAY) {
+                if (now - this.lastRegenTime >= SHIELD_REGEN_INTERVAL) {
+                    this.lastRegenTime = now;
+                    const regenAmount = this.powerPlant.getShieldRegenMultiplier() * 0.5;
+                    this.arcMatrix = Math.min(this.maxArcMatrix, this.arcMatrix + regenAmount);
+                }
+            }
+        }
     }
 
     /** Fire all weapons if Space is held. Returns new projectiles.
@@ -219,10 +251,22 @@ export class Player {
     }
 
     takeDamage(amount: number, now: number): void {
-        if (this.godMode) return;
         this.lastHitTime = now;
+        this.lastArcMatrixLightningPower = 0;
 
-        if (this.shields > 0) {
+        // Arc Matrix absorbs first — lightning powered by the absorbed hit
+        if (this.arcMatrix > 0) {
+            const absorbed = Math.min(this.arcMatrix, amount);
+            this.arcMatrix -= absorbed;
+            amount -= absorbed;
+            if (absorbed > 0) {
+                this.lastArcMatrixLightningPower = absorbed;
+            }
+        }
+
+        if (this.godMode) return;
+
+        if (amount > 0 && this.shields > 0) {
             const absorbed = Math.min(this.shields, amount);
             this.shields -= absorbed;
             amount -= absorbed;
@@ -263,6 +307,20 @@ export class Player {
                 }
             }
             this.shieldMask = mask;
+
+            // Build larger elliptical mask for Arc Matrix bubble
+            const aw = Player.ARC_W;
+            const ah = Player.ARC_H;
+            const arcMask = new Uint8Array(aw * ah);
+            const arx = aw / 2, ary = ah / 2;
+            for (let row = 0; row < ah; row++) {
+                for (let col = 0; col < aw; col++) {
+                    const adx = (col - arx) / arx;
+                    const ady = (row - ary) / ary;
+                    arcMask[row * aw + col] = (adx * adx + ady * ady <= 1.0) ? 1 : 0;
+                }
+            }
+            this.arcMatrixMask = arcMask;
         } catch { /* not available */ }
     }
 
@@ -315,9 +373,85 @@ export class Player {
 
             ctx.restore();
         }
+
+        // Arc Matrix bubble — larger, pulsating blue
+        if (this.arcMatrix > 0) {
+            const cx = this.x + 38;
+            const cy = this.y + 24;
+            const ahw = Player.ARC_W / 2;
+            const ahh = Player.ARC_H / 2;
+            const now = performance.now();
+            const pulse = 0.3 + 0.15 * Math.sin(now * 0.005);
+            const arcAlpha = (this.arcMatrix / this.maxArcMatrix) * pulse;
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = arcAlpha;
+
+            if (this.shieldTexture) {
+                if (!Player._arcCanvas) {
+                    Player._arcCanvas = document.createElement('canvas');
+                    Player._arcCanvas.width = Player.ARC_W;
+                    Player._arcCanvas.height = Player.ARC_H;
+                }
+                const ac = Player._arcCanvas.getContext('2d')!;
+                ac.clearRect(0, 0, Player.ARC_W, Player.ARC_H);
+                ac.drawImage(this.shieldTexture, 0, 0, Player.ARC_W, Player.ARC_H);
+                ac.globalCompositeOperation = 'multiply';
+                ac.fillStyle = 'rgb(77,153,255)';
+                ac.fillRect(0, 0, Player.ARC_W, Player.ARC_H);
+                ac.globalCompositeOperation = 'source-over';
+                ctx.drawImage(Player._arcCanvas, cx - ahw, cy - ahh);
+            } else {
+                ctx.fillStyle = 'rgba(77,153,255,0.5)';
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, ahw, ahh, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Surface lightning arcs crawling over the shield
+            const arcIntensity = (this.arcMatrix / this.maxArcMatrix);
+            ctx.globalAlpha = arcIntensity * 0.55 + 0.15;
+            ctx.lineCap = 'round';
+            // 3-4 arcs that shift over time
+            const arcCount = 3 + (Math.floor(now / 180) % 2);
+            for (let i = 0; i < arcCount; i++) {
+                // Each arc orbits the ellipse at different speeds
+                const seed = i * 1.8 + now * (0.003 + i * 0.0012);
+                const a1 = seed;
+                const a2 = seed + 0.5 + Math.sin(now * 0.004 + i) * 0.35;
+                const segs = 5;
+                // Outer glow pass
+                ctx.strokeStyle = 'rgb(80,150,255)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                const pts: { x: number; y: number }[] = [];
+                for (let s = 0; s <= segs; s++) {
+                    const t = s / segs;
+                    const angle = a1 + (a2 - a1) * t;
+                    const jit = (s > 0 && s < segs) ? (Math.random() - 0.5) * 8 : 0;
+                    const px = cx + Math.cos(angle) * (ahw - 2 + jit);
+                    const py = cy + Math.sin(angle) * (ahh - 2 + jit);
+                    pts.push({ x: px, y: py });
+                    if (s === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.stroke();
+                // Bright core pass
+                ctx.strokeStyle = 'rgb(200,230,255)';
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.moveTo(pts[0].x, pts[0].y);
+                for (let s = 1; s < pts.length; s++) ctx.lineTo(pts[s].x, pts[s].y);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
     }
 
     private static _shieldCanvas: HTMLCanvasElement | null = null;
+    private static _arcCanvas: HTMLCanvasElement | null = null;
 
     /** Emit engine flame particles. Call from GameManager each frame.
      * C++: make_engine(x+38, y+47, intensity=0.4)

@@ -218,3 +218,22 @@ export const RANKINGS = [
     { rank: 'GOD', minKills: 420 },
     { rank: 'PONDEROSA', minKills: 666 },
 ];
+
+// --- Nova Burst (Nose Cannon upgrade) ---
+
+export const NOVA_FRAGMENT_COUNT = 10;
+export const NOVA_FRAGMENT_DAMAGE_RATIO = 0.2;   // 1/5th of parent damage
+export const NOVA_FRAGMENT_SPEED = 21.6;          // 80% of blaster speed (27)
+export const NOVA_FRAGMENT_TTL = 1.0;             // seconds
+export const NOVA_FRAGMENT_ARC = Math.PI / 2;     // 90 degrees
+export const NOVA_FRAGMENT_COST = 25;             // RUs
+
+// --- Arc Matrix (Power Plant upgrade) ---
+
+export const ARC_MATRIX_MAX = 300;
+export const ARC_MATRIX_COST = 50;                // RUs
+export const CHAIN_LIGHTNING_COOLDOWN = 300;       // ms
+export const CHAIN_LIGHTNING_RANGE = 400;          // px from player to first target
+export const CHAIN_LIGHTNING_CHAIN_RANGE = 150;    // px between chain targets
+export const CHAIN_LIGHTNING_MAX_CHAINS = 3;       // total targets (halving each jump)
+export const CHAIN_LIGHTNING_DURATION = 300;       // ms visual duration
