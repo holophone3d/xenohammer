@@ -919,6 +919,27 @@ export class GameManager {
         maxPods(4);              //    Right torpedo
         buyResearch('nova');     // 7. Nova Burst (25 RU)
         buyResearch('arc');      // 8. Arc Matrix (50 RU)
+
+        // Apply god mode config for turret angles and homing modes if the player
+        // hasn't customized them (all 3 settings still at identical defaults)
+        if (this.turretAngleAvailable || this.isHomingResearched) {
+            const s = pp.settings;
+            const allSameAngles = s.every(st =>
+                st.leftTurretAngle === s[0].leftTurretAngle &&
+                st.rightTurretAngle === s[0].rightTurretAngle);
+            const allSameModes = s.every(st => st.homingMode === s[0].homingMode);
+
+            if (allSameAngles && this.turretAngleAvailable) {
+                s[0].leftTurretAngle = 135; s[0].rightTurretAngle = 45;   // Q: diagonal spread
+                s[1].leftTurretAngle = 90;  s[1].rightTurretAngle = 90;   // W: all forward
+                s[2].leftTurretAngle = 270; s[2].rightTurretAngle = 270;  // E: rear guard
+            }
+            if (allSameModes && this.isHomingResearched) {
+                s[0].homingMode = 'threat';    // Q: target biggest threat
+                s[1].homingMode = 'disabled';  // W: dumb-fire
+                s[2].homingMode = 'closest';   // E: nearest enemy
+            }
+        }
     }
 
     private startLevel(levelIndex: number): void {
