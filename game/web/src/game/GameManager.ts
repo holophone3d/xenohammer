@@ -113,6 +113,7 @@ export class GameManager {
     private isHomingResearched = false;
     private isNovaResearched = false;
     private isArcMatrixResearched = false;
+    private autoUpgradePrompt = false;
     private chainLightning = new ChainLightning();
     // C++ Sound.cpp:81-100 — two-phase fire sound (single shot → looping rapid fire)
     private playerFireSound: SoundInstance | null = null;
@@ -646,6 +647,29 @@ export class GameManager {
         const mx = mouse.x;
         const my = mouse.y;
 
+        // Auto-upgrade prompt overlay intercepts all input
+        if (this.autoUpgradePrompt) {
+            if (this.input.isMousePressed()) {
+                // Yes button (300-400, 310-345)
+                if (mx >= 300 && mx <= 400 && my >= 310 && my <= 345) {
+                    this.audio.playSound('MenuSelect');
+                    this.performAutoUpgrade();
+                    this.autoUpgradePrompt = false;
+                    this.startLevel(this.level);
+                }
+                // No button (410-510, 310-345)
+                if (mx >= 410 && mx <= 510 && my >= 310 && my <= 345) {
+                    this.audio.playSound('MenuSelect');
+                    this.autoUpgradePrompt = false;
+                    this.startLevel(this.level);
+                }
+            }
+            if (this.input.isKeyPressed('Escape')) {
+                this.autoUpgradePrompt = false;
+            }
+            return;
+        }
+
         if (this.input.isMousePressed()) {
             // Left zone: Ship Customization
             if (mx >= 10 && mx <= 218 && my >= 260 && my <= 380) {
@@ -660,7 +684,11 @@ export class GameManager {
             // Right zone: Launch
             if (mx >= 601 && mx <= 800 && my >= 0 && my <= 540) {
                 this.audio.playSound('MenuSelect');
-                this.startLevel(this.level);
+                if (this.hasAffordableUpgrades()) {
+                    this.autoUpgradePrompt = true;
+                } else {
+                    this.startLevel(this.level);
+                }
             }
         }
 
@@ -768,6 +796,129 @@ export class GameManager {
             ctx.fillRect(0, 0, 800, 600);
             ctx.globalAlpha = 1.0;
         }
+
+        // Auto-upgrade prompt overlay
+        if (this.autoUpgradePrompt) {
+            const ru = this.player?.powerPlant.resourceUnits ?? 0;
+            ctx.fillStyle = 'rgba(0,0,0,0.75)';
+            ctx.fillRect(0, 0, 800, 600);
+            ctx.fillStyle = '#111';
+            ctx.strokeStyle = '#0f0';
+            ctx.lineWidth = 2;
+            ctx.fillRect(230, 230, 340, 140);
+            ctx.strokeRect(230, 230, 340, 140);
+            ctx.font = '18px XenoFont, monospace';
+            ctx.fillStyle = '#0f0';
+            ctx.textAlign = 'center';
+            ctx.fillText('Auto-Upgrade Ship?', 400, 265);
+            ctx.font = '14px XenoFont, monospace';
+            ctx.fillStyle = '#aaa';
+            ctx.fillText(`${ru} RU available`, 400, 290);
+            // Yes button
+            const mouse = this.input.getMousePos();
+            const hoverYes = mouse.x >= 300 && mouse.x <= 400 && mouse.y >= 310 && mouse.y <= 345;
+            const hoverNo = mouse.x >= 410 && mouse.x <= 510 && mouse.y >= 310 && mouse.y <= 345;
+            ctx.fillStyle = hoverYes ? '#0a0' : '#060';
+            ctx.fillRect(300, 310, 100, 35);
+            ctx.strokeStyle = hoverYes ? '#0f0' : '#080';
+            ctx.strokeRect(300, 310, 100, 35);
+            ctx.fillStyle = hoverNo ? '#0a0' : '#060';
+            ctx.fillRect(410, 310, 100, 35);
+            ctx.strokeStyle = hoverNo ? '#0f0' : '#080';
+            ctx.strokeRect(410, 310, 100, 35);
+            ctx.font = '16px XenoFont, monospace';
+            ctx.fillStyle = '#0f0';
+            ctx.fillText('Yes', 350, 333);
+            ctx.fillText('No', 460, 333);
+            ctx.textAlign = 'left';
+        }
+    }
+
+    /** Check if any upgrades are affordable with current RUs */
+    private hasAffordableUpgrades(): boolean {
+        if (!this.player) return false;
+        const ru = this.player.powerPlant.resourceUnits;
+        if (ru <= 0) return false;
+        const pp = this.player.powerPlant;
+        const maxCell = pp.maxPowerPerCell;
+        // Check power pods — any slot with room to grow
+        for (const zone of this.custSystemZones) {
+            const st = pp.settings[0];
+            if (st[zone.c1] < maxCell || st[zone.c2] < maxCell) return true;
+        }
+        // Check research
+        if (!this.turretAngleAvailable && ru >= 5) return true;
+        if (!this.isHomingResearched && ru >= 15) return true;
+        if (!this.isNovaResearched && ru >= 25) return true;
+        if (!this.isArcMatrixResearched && ru >= 50) return true;
+        return false;
+    }
+
+    /**
+     * Spend all affordable RUs in priority order:
+     * 1. Ship power (shields/engines)
+     * 2. Nose blaster power
+     * 3. Turret Rotation research (5 RU)
+     * 4. Turret power (both)
+     * 5. Homing research (15 RU)
+     * 6. Torpedo power (both)
+     * 7. Nova Burst research (25 RU)
+     * 8. Arc Matrix research (50 RU)
+     */
+    private performAutoUpgrade(): void {
+        if (!this.player) return;
+        const pp = this.player.powerPlant;
+        const maxCell = pp.maxPowerPerCell;
+
+        const buyPod = (slotIndex: number): boolean => {
+            if (pp.resourceUnits < 1) return false;
+            const zone = this.custSystemZones[slotIndex];
+            let added = false;
+            for (let s = 0; s < 3; s++) {
+                const st = pp.settings[s];
+                if (st[zone.c1] < maxCell) { st[zone.c1]++; added = true; }
+                else if (st[zone.c2] < maxCell) { st[zone.c2]++; added = true; }
+            }
+            if (added) { pp.resourceUnits--; return true; }
+            return false;
+        };
+
+        const maxPods = (slotIndex: number): void => {
+            while (buyPod(slotIndex)) { /* keep buying */ }
+        };
+
+        const buyResearch = (flag: 'turret' | 'homing' | 'nova' | 'arc'): boolean => {
+            const costs = { turret: 5, homing: 15, nova: 25, arc: 50 };
+            const cost = costs[flag];
+            if (pp.resourceUnits < cost) return false;
+            if (flag === 'turret' && !this.turretAngleAvailable) {
+                this.turretAngleAvailable = true; pp.resourceUnits -= cost; return true;
+            }
+            if (flag === 'homing' && !this.isHomingResearched) {
+                this.isHomingResearched = true; pp.resourceUnits -= cost; return true;
+            }
+            if (flag === 'nova' && !this.isNovaResearched) {
+                this.isNovaResearched = true; pp.resourceUnits -= cost; return true;
+            }
+            if (flag === 'arc' && !this.isArcMatrixResearched) {
+                this.isArcMatrixResearched = true;
+                this.player!.arcMatrixResearched = true;
+                pp.resourceUnits -= cost; return true;
+            }
+            return false;
+        };
+
+        // Priority execution order
+        maxPods(5);              // 1. Ship power (shields/engines)
+        maxPods(0);              // 2. Nose blaster
+        buyResearch('turret');   // 3. Turret Rotation (5 RU)
+        maxPods(1);              // 4. Left turret
+        maxPods(2);              //    Right turret
+        buyResearch('homing');   // 5. Homing (15 RU)
+        maxPods(3);              // 6. Left torpedo
+        maxPods(4);              //    Right torpedo
+        buyResearch('nova');     // 7. Nova Burst (25 RU)
+        buyResearch('arc');      // 8. Arc Matrix (50 RU)
     }
 
     private startLevel(levelIndex: number): void {
